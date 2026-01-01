@@ -1,0 +1,308 @@
+{
+  "Zod": {
+    "auth": {
+      "register": {
+        "id": {
+          "invalid": "Id không hợp lệ"
+        },
+        "name": {
+          "short": "Tên quá ngắn"
+        },
+        "email": {
+          "invalid": "Email không hợp lệ"
+        },
+        "password": {
+          "short": "Mật khẩu phải dài ít nhất {length} ký tự",
+          "minLengthLowCase": "Mật khẩu phải chứa ít nhất {minLengthLowCase} chữ thường",
+          "minLengthUpCase": "Mật khẩu phải chứa ít nhất {minLengthUpCase} chữ cái viết hoa",
+          "minLengthNumber": "Mật khẩu phải chứa ít nhất {minLengthNumber} số",
+          "minSymbol": "Mật khẩu phải chứa ít nhất {minSymbol} ký tự dặc biệt"
+        },
+        "confirmPassword": {
+          "invalid": "Mật khẩu khác nhau"
+        }
+      },
+      "login": {
+        "email": {
+          "required": "Email là bắt buộc",
+          "invalid": "Email này không hợp lệ"
+        },
+        "password": {
+          "required": "Mật khẩu là bắt buộc"
+        }
+      }
+    }
+  },
+  "BaseLayout": {
+    "LocaleLayout": {
+      "title": "Trang Chủ"
+    },
+    "Register": {
+      "label": "Đăng ký"
+    },
+    "Login": {
+      "label": "Đăng nhập"
+    },
+    "ForgotPassword": {
+      "label": "Quên mật khẩu"
+    },
+    "Chat": {
+      "label": "Trò chuyện",
+      "detail": "Cuộc trò truyện của bạn"
+    },
+    "Contacts": {
+      "label": "Danh bạ",
+      "addNew": "Kết bạn"
+    },
+    "Profile": {
+      "detail": "Hồ sơ cá nhân"
+    },
+    "Directory": {
+      "label": "Danh bạ"
+    }
+  },
+  "Form": {
+    "Login": {
+      "label": {
+        "email": "Email",
+        "password": "Mật khẩu"
+      },
+      "description": {
+        "title": "Chào mừng bạn trở lại"
+      },
+      "placeholder": {
+        "email": "Nhập email của bạn",
+        "password": "Nhập mật khẩu của bạn"
+      },
+      "link": {
+        "forgot": "Quên mật khẩu?",
+        "register": "Đăng ký"
+      },
+      "title": {
+        "login": "Đăng nhập",
+        "or": "Hoặc tiếp tục với",
+        "forgotPassword": "Quên mật khẩu?"
+      },
+      "button": {
+        "login": "Đăng nhập",
+        "google": "Đăng nhập với Google"
+      }
+    },
+    "Register": {
+      "label": {
+        "name": "Họ tên",
+        "email": "Email",
+        "password": "Mật khẩu",
+        "confirmPassword": "Xác nhận mật khẩu"
+      },
+      "description": {
+        "title": "Chào mừng bạn",
+        "name": "Chọn tên cho tài khoản của bạn.",
+        "email": "Chọn email cho tài khoản của bạn."
+      },
+      "placeholder": {
+        "name": "Nhập tên của bạn",
+        "email": "Nhập email của bạn",
+        "password": "Nhập mật khẩu của bạn",
+        "confirmPassword": "Xác nhận mật khẩu"
+      },
+      "link": {
+        "forgot": "Quên mật khẩu?",
+        "login": "Đăng nhập",
+        "verifyRestore": "Xác thực khôi phục tài khoản"
+      },
+      "title": {
+        "register": "Đăng ký tài khoản",
+        "or": "Hoặc tiếp tục với",
+        "yesAccount": "Đã có tài khoản?"
+      },
+      "button": {
+        "register": "Đăng ký",
+        "google": "Đăng nhập với Google"
+      }
+    },
+    "Logout": {
+      "button": "Đăng xuất"
+    },
+    "ForgotPassword": {
+      "label": {
+        "email": "Email"
+      },
+      "description": {
+        "email": "Nhập email bạn đã đăng ký"
+      },
+      "placeholder": {
+        "email": "Nhập email của bạn"
+      },
+      "button": {
+        "submit": "Xác nhận"
+      }
+    },
+    "VerifyOtp": {
+      "label": {
+        "otp": "Xác thực OTP"
+      },
+      "description": {
+        "otp": "OTP được gửi tới email của bạn"
+      },
+      "placeholder": {
+        "otp": "Nhập otp của bạn"
+      },
+      "button": {
+        "submit": "Xác nhận",
+        "reSend": "Gửi lại OTP?"
+      }
+    },
+    "ResetPassword": {
+      "label": {
+        "newPassword": "Mật khẩu mới",
+        "confirmPassword": "Xác nhận mật khẩu"
+      },
+      "placeholder": {
+        "newPassword": "Nhập mật khẩu của bạn",
+        "confirmPassword": "Xác nhận mật khẩu"
+      },
+      "button": {
+        "submit": "Xác nhận"
+      }
+    }
+  },
+  "Messages": {
+    "empty": {
+      "information": "Thông tin không có sẵn"
+    },
+    "error": {
+      "toast": {
+        "error": "Lỗi máy chủ nội bộ",
+        "undefined": "Lỗi không xác định",
+        "selectProduct": "Vui lòng chọn ít nhất một sản phẩm",
+        "200": "Thành công",
+        "201": "Tạo mới",
+        "400": "Lỗi người dùng",
+        "401": "Cần xác thực đăng nhập",
+        "403": "Không được phép",
+        "404": "Không tìm thấy trang",
+        "500": "Lỗi máy chủ nội bộ",
+        "1000": "Tạo mới thành công",
+        "1001": "Cập nhật thành công",
+        "1002": "Xoá thành công",
+        "1003": "Lấy thông tin thành công",
+        "2000": "Không tìm thấy người dùng này",
+        "2001": "Không thể đăng ký tài khoản với email này.",
+        "3000": "Email hoặc mật khẩu không hợp lệ",
+        "3001": "Quyền truy cập bị từ chối. Không tìm thấy người dùng hoặc chưa đăng nhập.",
+        "3002": "Truy cập bị từ chối. Thông tin đăng nhập không hợp lệ.",
+        "3003": "Trạng thái người dùng không hoạt động.",
+        "3004": "Tài khoản người dùng đã bị xóa.",
+        "3005": "Người dùng đã đăng ký thành công",
+        "3006": "Người dùng đã đăng nhập thành công",
+        "3007": "Người dùng đã đăng xuất thành công",
+        "3008": "Mã thông báo đã được làm mới thành công",
+        "3009": "Tài khoản đã được kích hoạt",
+        "3010": "Tài khoản đã được kích hoạt thành công",
+        "3011": "Kích hoạt tài khoản không thành công",
+        "3012": "Mã OTP không hợp lệ",
+        "3013": "OTP đã được xác minh thành công",
+        "3014": "Mật khẩu đã được đặt lại thành công",
+        "3015": "'Đã gửi OTP đặt lại mật khẩu thành công",
+        "3016": "Truy cập trái phép"
+      }
+    }
+  },
+  "Delete": {
+    "title": "Xóa",
+    "confirmTitle": "Xóa",
+    "description": "Bạn chắc chắn muốn xoá",
+    "description_1": "?",
+    "cancel": "Hủy",
+    "delete": "Xóa"
+  },
+  "Header": {
+    "action": {
+      "login": "Đăng nhập",
+      "register": "Đăng ký"
+    }
+  },
+  "DropdownMenu": {
+    "account": {
+      "logout": "Đăng xuất"
+    }
+  },
+  "Common": {
+    "Success": {
+      "title": "Thành công",
+      "button": "Đăng nhập"
+    }
+  },
+  "Chat": {
+    "Sidebar": {
+      "header": {
+        "title": {
+          "chat": "Trò chuyện",
+          "contacts": "Danh bạ",
+          "createNew": "Kết bạn"
+        },
+        "search": {
+          "placeholder": "Tìm kiếm",
+          "empty": "Không có liên hệ",
+          "category": {
+            "user": "Mọi người"
+          }
+        }
+      },
+      "item": {
+        "noMessages": "Không có tin nhắn"
+      }
+    },
+    "Detail": {
+      "empty": {
+        "title": "Chào mừng bạn tới cuộc trò chuyện",
+        "description": "Hãy kết bạn và bắt đầu cuộc trò chuyện."
+      },
+      "header": {
+        "status": {
+          "active": "Đang hoạt động",
+          "noActive": "Không hoạt động"
+        }
+      },
+      "conversation": {
+        "input": {
+          "placeholder": "Nhập tin nhắn của bạn..."
+        }
+      },
+      "contact": {
+        "header": {
+          "title": {
+            "newContact": "Thêm liên hệ mới"
+          }
+        },
+        "sidebar": {
+          "titleContacts": "Danh bạ",
+          "titleRequests": "Lời mời",
+          "friendList": "Danh sách bạn bè",
+          "friendRequests": "Lời mời kết bạn",
+          "groupList": "Danh sách nhóm",
+          "groupRequests": "Lời mời nhóm"
+        },
+        "form": {
+          "placeholder": {
+            "search": "Nhập email hoặc tên người dùng..."
+          },
+          "emptyMessage": {
+            "search": "Không tìm thấy người dùng nào."
+          },
+          "searching": "Đang tìm kiếm..."
+        },
+        "contactStatus": {
+          "friend": "Bạn bè",
+          "pendingSent": "Đã gửi",
+          "accept": "Chấp nhận",
+          "addFriend": "Kết bạn",
+          "blocked": "Chặn",
+          "cancel": "Huỷ"
+        },
+        "action": {}
+      }
+    }
+  }
+}
