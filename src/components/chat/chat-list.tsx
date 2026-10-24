@@ -77,7 +77,7 @@ export default function ChatList() {
               }
               avatarUrl={chat.avatar}
               timestamp={chat.lastMessageAt}
-              badge={chat.unreadCount}
+              badge={Number(chat.unreadCount)}
               subtitle={chat.lastMessage}
               isSelected={activeConversationId === chat.id}
               isOnline={chat.isOnline}

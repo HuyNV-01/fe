@@ -12,10 +12,18 @@ import type {
   ITypingPayload,
   ISocketErrorPayload,
   IUserStatusPayload,
+  IMessageStatusUpdatePayload,
+  IMessageReadPayload,
 } from "@/types/chat";
 
 export const useChatSocket = () => {
-  const { receiveMessage, setTypingUser, setUserStatus } = useChatStore();
+  const {
+    handleIncomingMessage,
+    setTypingUser,
+    setUserStatus,
+    updateMessageStatus,
+    handleReadMessage,
+  } = useChatStore();
   const currentUser = useAuthStore((s) => s.currentAccount);
   const isAuthenticated = !!currentUser?.accessToken;
 
@@ -24,8 +32,35 @@ export const useChatSocket = () => {
     const cleanNewMessage = socketService.on<IMessage>(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.CHAT.NEW_MESSAGE,
-      (data) => {
-        receiveMessage(data);
+      (message) => {
+        handleIncomingMessage(message);
+
+        if (message.senderId !== currentUser.user.id) {
+          socketService.send(
+            SocketNamespaceEnum.CHAT,
+            SOCKET_EVENTS.CHAT.MESSAGE_RECEIVED,
+            {
+              conversationId: message.conversationId,
+              messageId: message.id,
+            },
+          );
+        }
+      },
+    );
+
+    const cleanStatusUpdate = socketService.on<IMessageStatusUpdatePayload>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CHAT.MESSAGE_STATUS_UPDATE,
+      (payload) => {
+        updateMessageStatus(payload);
+      },
+    );
+
+    const cleanRead = socketService.on<IMessageReadPayload>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CHAT.MESSAGE_READ,
+      (payload) => {
+        handleReadMessage(payload);
       },
     );
 
@@ -51,20 +86,32 @@ export const useChatSocket = () => {
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.CHAT.USER_STATUS,
       (payload) => {
-        console.log("payload", payload);
         setUserStatus(payload);
+      },
+    );
+
+    const cleanBatchStatus = socketService.on(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CHAT.MESSAGE_STATUS_UPDATE_BATCH,
+      (payload: any) => {
+        useChatStore.getState().updateMessageStatusBatch(payload);
       },
     );
 
     return () => {
       cleanNewMessage();
+      cleanStatusUpdate();
+      cleanRead();
       cleanTyping();
       cleanException();
       cleanUserStatus();
+      cleanBatchStatus();
     };
   }, [
     isAuthenticated,
-    receiveMessage,
+    handleIncomingMessage,
+    updateMessageStatus,
+    handleReadMessage,
     setTypingUser,
     setUserStatus,
     currentUser?.user.id,

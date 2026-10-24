@@ -35,7 +35,27 @@ export interface ISocketErrorPayload {
   error?: string;
 }
 
-export type MessageStatus = "sending" | "sent" | "read" | "failed";
+export type MessageStatus =
+  | "sending"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "failed";
+
+export interface IMessageStatusUpdatePayload {
+  id: string; // Message ID
+  conversationId: string;
+  status: MessageStatus;
+  userId: string;
+  updatedAt: string;
+}
+
+export interface IMessageReadPayload {
+  conversationId: string;
+  userId: string;
+  user: IUserRes;
+  lastReadAt: string;
+}
 
 export interface IMessage {
   id: string;
@@ -47,6 +67,9 @@ export interface IMessage {
   sender?: IUserRes;
   status?: MessageStatus;
   tempId?: string;
+  deliveredTo?: string[];
+  readBy?: string[];
+  readByUsers?: IUserRes[];
 }
 
 export interface IUserStatusPayload {

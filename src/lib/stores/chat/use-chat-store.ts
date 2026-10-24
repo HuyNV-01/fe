@@ -1,9 +1,12 @@
 import type {
   IConversation,
   IMessage,
+  IMessageReadPayload,
+  IMessageStatusUpdatePayload,
   ISendMessagePayload,
   ITypingPayload,
   IUserStatusPayload,
+  MessageStatus,
 } from "@/types/chat";
 import type { CreateDirectChatPayload, IPaginationMeta } from "@/types/common";
 import type { ActionCallbacks } from "@/types/store";
@@ -34,8 +37,15 @@ interface ChatState {
   setSocketConnected: (status: boolean) => void;
   setActiveConversation: (id: string | null) => void;
   setTypingUser: (payload: ITypingPayload & { isTyping: boolean }) => void;
-  receiveMessage: (message: IMessage) => void;
+  handleIncomingMessage: (message: IMessage) => void;
+  updateMessageStatus: (payload: IMessageStatusUpdatePayload) => void;
+  handleReadMessage: (payload: IMessageReadPayload) => void;
   setUserStatus: (payload: IUserStatusPayload) => void;
+  updateMessageStatusBatch: (payload: {
+    conversationId: string;
+    messageIds: string[];
+    status: MessageStatus;
+  }) => void;
 
   fetchInbox: (
     payload: { page?: number; limit?: number; search?: string },
@@ -117,6 +127,14 @@ export const useChatStore = createPersistedStore<ChatState>(
             conversationId: id,
           })
           .catch((err) => console.error("Join room failed:", err));
+
+        socketService.send(
+          SocketNamespaceEnum.CHAT,
+          SOCKET_EVENTS.CHAT.MARK_READ,
+          {
+            conversationId: id,
+          },
+        );
       }
 
       markAsReadApi({ conversationId: id }).catch(console.error);
@@ -153,52 +171,161 @@ export const useChatStore = createPersistedStore<ChatState>(
       }
     },
 
-    receiveMessage: (message) => {
+    handleIncomingMessage: (message: IMessage) => {
+      const { activeConversationId, conversations } = get();
+      const currentUser = useAuthStore.getState().currentAccount?.user;
+      const isMe = message.senderId === currentUser?.id;
+      const isViewing = activeConversationId === message.conversationId;
+
       set((state) => {
         const convId = message.conversationId;
-
         if (!state.messages[convId]) state.messages[convId] = [];
 
-        const existingIndex = state.messages[convId].findIndex(
+        const msgs = state.messages[convId];
+
+        const existingIndex = msgs.findIndex(
           (m) =>
-            m.id === message.id || (m.tempId && m.tempId === message.tempId),
+            (m.tempId && m.tempId === message.tempId) || m.id === message.id,
         );
 
+        let initialStatus: MessageStatus = message.status || "sent";
+        if (!isMe && isViewing) initialStatus = "read";
+
+        const newMessage = { ...message, status: initialStatus };
+
         if (existingIndex !== -1) {
-          state.messages[convId][existingIndex] = {
-            ...message,
-            status: "read",
-          };
+          msgs[existingIndex] = newMessage;
         } else {
-          state.messages[convId].push({ ...message, status: "read" });
+          msgs.push(newMessage);
         }
 
-        const exists = state.messages[convId].some((m) => m.id === message.id);
-        if (!exists) {
-          state.messages[convId].push(message);
-        }
+        const convIndex = state.conversations.findIndex((c) => c.id === convId);
+        if (convIndex !== -1) {
+          const updatedConv = { ...state.conversations[convIndex] };
+          updatedConv.lastMessage =
+            message.type === "TEXT" ? message.content : `[${message.type}]`;
+          updatedConv.lastMessageAt = message.createdAt;
 
-        const existingConv = state.conversations.find((c) => c.id === convId);
-
-        if (existingConv) {
-          const updatedConv = {
-            ...existingConv,
-            lastMessage:
-              message.type === "TEXT" ? message.content : `[${message.type}]`,
-            lastMessageAt: message.createdAt,
-          };
-
-          if (state.activeConversationId !== convId) {
+          if (!isMe && !isViewing) {
             updatedConv.unreadCount = (updatedConv.unreadCount || 0) + 1;
-          } else {
+          } else if (isViewing) {
             updatedConv.unreadCount = 0;
           }
-          const otherConvs = state.conversations.filter((c) => c.id !== convId);
 
-          state.conversations = [updatedConv, ...otherConvs];
+          state.conversations.splice(convIndex, 1);
+          state.conversations.unshift(updatedConv);
         } else {
           get().fetchInbox({ page: 1 });
         }
+      });
+
+      if (isViewing && !isMe) {
+        socketService.send(
+          SocketNamespaceEnum.CHAT,
+          SOCKET_EVENTS.CHAT.MARK_READ,
+          {
+            conversationId: message.conversationId,
+          },
+        );
+      }
+    },
+
+    updateMessageStatus: ({ conversationId, id, status, userId }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+
+        const msg = msgs.find((m) => m.id === id);
+        if (msg) {
+          const priority = {
+            sending: 0,
+            failed: 0,
+            sent: 1,
+            delivered: 2,
+            read: 3,
+          };
+          const currentP = priority[msg.status as MessageStatus] || 0;
+          const newP = priority[status];
+
+          if (newP > currentP) {
+            msg.status = status;
+          }
+
+          if (status === "delivered" && userId) {
+            if (!msg.deliveredTo) msg.deliveredTo = [];
+
+            const alreadyExists = msg.deliveredTo.some(
+              (u: any) => (typeof u === "string" ? u : u.id) === userId,
+            );
+
+            if (!alreadyExists) {
+              msg.deliveredTo.push(userId);
+            }
+          }
+        }
+      });
+    },
+
+    handleReadMessage: ({ conversationId, userId, lastReadAt, user }) => {
+      const currentUser = useAuthStore.getState().currentAccount?.user;
+
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+
+        state.messages[conversationId] = msgs.map((msg) => {
+          const isMyMessage = msg.senderId === currentUser?.id;
+
+          if (isMyMessage && msg.status !== "read") {
+            if (new Date(msg.createdAt) <= new Date(lastReadAt)) {
+              const newMsg = { ...msg, status: "read" as MessageStatus };
+
+              if (!newMsg.readBy) newMsg.readBy = [];
+              if (!newMsg.readBy.includes(userId)) {
+                newMsg.readBy.push(userId);
+              }
+
+              if (user) {
+                if (!newMsg.readByUsers) newMsg.readByUsers = [];
+                const exists = newMsg.readByUsers.some((u) => u.id === userId);
+                if (!exists) {
+                  newMsg.readByUsers.push(user);
+                }
+              }
+
+              return newMsg;
+            }
+          }
+          return msg;
+        });
+      });
+    },
+
+    updateMessageStatusBatch: ({ conversationId, messageIds, status }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+
+        const targetIds = new Set(messageIds);
+
+        state.messages[conversationId] = msgs.map((msg) => {
+          if (targetIds.has(msg.id)) {
+            const priority = {
+              sending: 0,
+              sent: 1,
+              delivered: 2,
+              read: 3,
+              failed: 0,
+            };
+            const currentP = priority[msg.status as MessageStatus] || 0;
+            const newP = priority[status];
+
+            if (newP > currentP) {
+              return { ...msg, status };
+            }
+          }
+          return msg;
+        });
       });
     },
 
@@ -245,6 +372,13 @@ export const useChatStore = createPersistedStore<ChatState>(
           });
         }
 
+        if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
+          socketService.emit(
+            SocketNamespaceEnum.CHAT,
+            SOCKET_EVENTS.CHAT.ACK_PENDING_MESSAGES,
+            {},
+          );
+        }
         cb?.onSuccess?.();
       } catch (error: any) {
         const message =
@@ -271,23 +405,43 @@ export const useChatStore = createPersistedStore<ChatState>(
           params: { page, limit: DEFAULT_LIMIT_MESSAGE },
         });
 
-        set((state) => {
-          const newMessages = res.data.data.reverse();
+        const orderedMessages = [...res.data.data].reverse();
 
+        set((state) => {
           if (page === 1) {
-            state.messages[conversationId] = newMessages;
+            state.messages[conversationId] = orderedMessages;
           } else {
             const currentMessages = state.messages[conversationId] || [];
-            const uniqueNewMessages = newMessages.filter(
+
+            const uniqueNewMessages = orderedMessages.filter(
               (nm: { id: string }) =>
                 !currentMessages.some((cm) => cm.id === nm.id),
             );
+
             state.messages[conversationId] = [
               ...uniqueNewMessages,
               ...currentMessages,
             ];
           }
           state.messagesMeta[conversationId] = res.data.meta;
+        });
+
+        const currentUser = useAuthStore.getState().currentAccount?.user;
+
+        orderedMessages.forEach((msg: IMessage) => {
+          const isMe = msg.senderId === currentUser?.id;
+
+          const isDelivered = msg.deliveredTo?.some(
+            (u: any) => (typeof u === "string" ? u : u.id) === currentUser?.id,
+          );
+
+          if (!isMe && !isDelivered) {
+            socketService.send(
+              SocketNamespaceEnum.CHAT,
+              SOCKET_EVENTS.CHAT.MESSAGE_RECEIVED,
+              { conversationId: msg.conversationId, messageId: msg.id },
+            );
+          }
         });
 
         cb?.onSuccess?.();

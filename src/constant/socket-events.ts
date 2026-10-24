@@ -1,9 +1,23 @@
 export const SOCKET_EVENTS = {
   CHAT: {
+    // --- Room & Basic ---
     JOIN_ROOM: "join_room",
     LEAVE_ROOM: "leave_room",
+
+    // --- Messaging ---
     SEND_MESSAGE: "send_message",
     NEW_MESSAGE: "new_message",
+
+    // --- Advanced Status ---
+    MARK_READ: "mark_read",
+    MESSAGE_READ: "message_read",
+
+    MESSAGE_RECEIVED: "message_received",
+    MESSAGE_STATUS_UPDATE: "message_status_update",
+    MESSAGE_STATUS_UPDATE_BATCH: "message_status_update_batch",
+    ACK_PENDING_MESSAGES: "ack_pending_messages",
+
+    // --- Typing & User ---
     TYPING: "user_typing",
     TYPING_EMIT: "typing",
     USER_STATUS: "user_status",
