@@ -1,9 +1,10 @@
 import type { Socket } from "socket.io-client";
-import { socketRegistry } from "@/lib/socket-registry";
-import type { SocketNamespaceEnum } from "@/common/enum";
+import { getOrCreateSocket } from "@/lib/socket-registry";
+import { SocketNamespaceEnum } from "@/common/enum";
+import { SOCKET_EVENTS } from "@/constant/socket-events";
 
 export interface SocketResponse<T = any> {
-  status: "ok" | "error" | 200;
+  status: "ok" | "error" | 200 | 201;
   data?: T;
   message?: string;
   code?: number;
@@ -11,52 +12,95 @@ export interface SocketResponse<T = any> {
 
 type CleanupCallback = () => void;
 
+interface QueuedPacket {
+  namespace: SocketNamespaceEnum;
+  event: string;
+  payload: any;
+  queuedAt: number;
+}
+
 class SocketClientService {
-  private readonly TIMEOUT_MS = 5000;
+  private readonly TIMEOUT_MS = 8000;
+  private readonly QUEUE_TTL_MS = 15000;
+  private readonly pendingQueue: QueuedPacket[] = [];
 
   private getSocket(namespace: SocketNamespaceEnum): Socket {
-    const socket = socketRegistry[namespace];
-    if (!socket) {
-      throw new Error(
-        `Socket namespace '${namespace}' is not defined in registry.`,
-      );
-    }
-    return socket;
+    return getOrCreateSocket(namespace);
   }
 
   connectAll(token: string) {
-    Object.values(socketRegistry).forEach((socket) => {
-      if (socket.auth) {
-        (socket.auth as any).token = token;
-      } else {
-        socket.auth = { token };
-      }
+    [SocketNamespaceEnum.CHAT, SocketNamespaceEnum.BASE].forEach((ns) => {
+      const socket = this.getSocket(ns);
+      const currentAuth = (socket.auth as Record<string, any>) || {};
+      socket.auth = {
+        ...currentAuth,
+        token,
+      };
 
       if (!socket.connected) {
         socket.connect();
+      } else {
+        socket.emit(SOCKET_EVENTS.SYSTEM.AUTH_REFRESH, { token });
+      }
+    });
+  }
+
+  updateAuthToken(token: string) {
+    [SocketNamespaceEnum.CHAT, SocketNamespaceEnum.BASE].forEach((ns) => {
+      const socket = this.getSocket(ns);
+      const currentAuth = (socket.auth as Record<string, any>) || {};
+      socket.auth = {
+        ...currentAuth,
+        token,
+      };
+
+      if (socket.connected) {
+        socket.emit(SOCKET_EVENTS.SYSTEM.AUTH_REFRESH, { token });
       }
     });
   }
 
   disconnectAll() {
-    Object.values(socketRegistry).forEach((socket) => {
+    [SocketNamespaceEnum.CHAT, SocketNamespaceEnum.BASE].forEach((ns) => {
+      const socket = this.getSocket(ns);
       if (socket.connected) {
         socket.disconnect();
       }
     });
+    this.pendingQueue.length = 0;
   }
 
   isConnected(namespace: SocketNamespaceEnum): boolean {
     return this.getSocket(namespace).connected;
   }
 
-  getAllSockets() {
-    return Object.values(socketRegistry);
+  getAllSockets(): Socket[] {
+    return [
+      this.getSocket(SocketNamespaceEnum.CHAT),
+      this.getSocket(SocketNamespaceEnum.BASE),
+    ];
   }
 
-  /**
-   * Send event without response (Fire & Forget)
-   */
+  flushPendingQueue(namespace: SocketNamespaceEnum) {
+    const socket = this.getSocket(namespace);
+    if (!socket.connected || this.pendingQueue.length === 0) return;
+
+    const now = Date.now();
+    const remaining: QueuedPacket[] = [];
+
+    for (const item of this.pendingQueue) {
+      if (now - item.queuedAt > this.QUEUE_TTL_MS) continue;
+      if (item.namespace === namespace) {
+        socket.emit(item.event, item.payload);
+      } else {
+        remaining.push(item);
+      }
+    }
+
+    this.pendingQueue.length = 0;
+    this.pendingQueue.push(...remaining);
+  }
+
   send<Payload = any>(
     namespace: SocketNamespaceEnum,
     event: string,
@@ -65,47 +109,39 @@ class SocketClientService {
     const socket = this.getSocket(namespace);
     if (socket.connected) {
       socket.emit(event, payload);
+    } else if (event !== SOCKET_EVENTS.CHAT.TYPING_EMIT) {
+      this.pendingQueue.push({
+        namespace,
+        event,
+        payload,
+        queuedAt: Date.now(),
+      });
     }
   }
 
-  /**
-   * EMIT event to Server (With Ack & Timeout)
-   * @param namespace - Namespace to send
-   * @param event - Event name
-   * @param payload - Data to send
-   * @returns Promise<T> - Data returned from Server
-   */
   async emit<ResponseData = any, Payload = any>(
     namespace: SocketNamespaceEnum,
     event: string,
     payload: Payload,
+    timeoutMs: number = this.TIMEOUT_MS,
   ): Promise<ResponseData> {
     const socket = this.getSocket(namespace);
 
     if (!socket.connected) {
-      console.warn(
-        `[${namespace}] Socket disconnected. Cannot emit '${event}'`,
-      );
       return Promise.reject(new Error("Socket not connected"));
     }
 
     const emitPromise = new Promise<ResponseData>((resolve, reject) => {
-      if (process.env.NODE_ENV === "development") {
-        console.groupCollapsed(`📤 [${namespace}] Emit: ${event}`);
-        console.log("Payload:", payload);
-        console.groupEnd();
-      }
-
       socket.emit(event, payload, (response: SocketResponse<ResponseData>) => {
         if (
           response?.status === "ok" ||
           response?.status === 200 ||
+          response?.status === 201 ||
           (response as any) === true
         ) {
-          resolve(response.data as ResponseData);
+          resolve((response?.data ?? response) as ResponseData);
         } else {
           const errorMsg = response?.message || `Failed to emit ${event}`;
-          console.error(`🔥 [${namespace}] Emit Error:`, errorMsg);
           reject(new Error(errorMsg));
         }
       });
@@ -113,19 +149,13 @@ class SocketClientService {
 
     const timeoutPromise = new Promise<ResponseData>((_, reject) => {
       setTimeout(() => {
-        reject(
-          new Error(`Socket request timed out after ${this.TIMEOUT_MS}ms`),
-        );
-      }, this.TIMEOUT_MS);
+        reject(new Error(`Socket request timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
     });
 
     return Promise.race([emitPromise, timeoutPromise]);
   }
 
-  /**
-   * Listen for the event (ON)
-   * @returns Cleanup function to cancel listening (used in return of useEffect)
-   */
   on<T = any>(
     namespace: SocketNamespaceEnum,
     event: string,
@@ -134,9 +164,6 @@ class SocketClientService {
     const socket = this.getSocket(namespace);
 
     const handler = (data: T) => {
-      if (process.env.NODE_ENV === "development") {
-        console.debug(`📥 [${namespace}] Received: ${event}`, data);
-      }
       callback(data);
     };
 
@@ -147,9 +174,6 @@ class SocketClientService {
     };
   }
 
-  /**
-   * Listen to the event only once (ONCE)
-   */
   once<T = any>(
     namespace: SocketNamespaceEnum,
     event: string,

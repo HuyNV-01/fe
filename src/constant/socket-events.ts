@@ -1,14 +1,23 @@
 export const SOCKET_EVENTS = {
   CHAT: {
-    // --- Room & Basic ---
     JOIN_ROOM: "join_room",
     LEAVE_ROOM: "leave_room",
 
-    // --- Messaging ---
     SEND_MESSAGE: "send_message",
     NEW_MESSAGE: "new_message",
+    EDIT_MESSAGE: "edit_message",
+    MESSAGE_EDITED: "message_edited",
+    RECALL_MESSAGE: "recall_message",
+    MESSAGE_RECALLED: "message_recalled",
+    REACT_MESSAGE: "react_message",
+    MESSAGE_REACTION: "message_reaction",
+    PIN_MESSAGE: "pin_message",
+    MESSAGE_PINNED: "message_pinned",
+    GROUP_UPDATED: "group_updated",
 
-    // --- Advanced Status ---
+    E2EE_REGISTER_KEY: "e2ee:register_key",
+    E2EE_KEY_UPDATED: "e2ee_key_updated",
+
     MARK_READ: "mark_read",
     MESSAGE_READ: "message_read",
 
@@ -17,10 +26,24 @@ export const SOCKET_EVENTS = {
     MESSAGE_STATUS_UPDATE_BATCH: "message_status_update_batch",
     ACK_PENDING_MESSAGES: "ack_pending_messages",
 
-    // --- Typing & User ---
     TYPING: "user_typing",
     TYPING_EMIT: "typing",
     USER_STATUS: "user_status",
+  },
+  CALL: {
+    INITIATE: "call:initiate",
+    INCOMING: "call:incoming",
+    ACCEPT: "call:accept",
+    ACCEPTED: "call:accepted",
+    REJECT: "call:reject",
+    REJECTED: "call:rejected",
+    BUSY: "call:busy",
+    SIGNAL: "call:signal",
+    MEDIA_STATE: "call:media_state",
+    PARTICIPANT_JOINED: "call:participant_joined",
+    PARTICIPANT_LEFT: "call:participant_left",
+    HANGUP: "call:hangup",
+    ENDED: "call:ended",
   },
   NOTIFICATION: {
     NEW: "new_notification",
@@ -31,6 +54,8 @@ export const SOCKET_EVENTS = {
     CONNECT: "connect",
     DISCONNECT: "disconnect",
     CONNECT_ERROR: "connect_error",
+    HEARTBEAT: "heartbeat",
+    AUTH_REFRESH: "auth:refresh_token",
   },
   CONTACT: {
     REQUEST_RECEIVED: "contact.request_received",

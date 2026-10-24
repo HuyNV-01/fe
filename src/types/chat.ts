@@ -1,5 +1,6 @@
 import type {
-  ContactStatusEnum,
+  CallStatusEnum,
+  CallTypeEnum,
   ConversationTypeEnum,
   KeyContactsEnum,
   MessageTypeEnum,
@@ -12,16 +13,76 @@ export interface IConversation {
   avatar?: string;
   lastMessage?: string;
   lastMessageAt?: string;
+  lastMessageType?: string;
+  lastMessageSenderId?: string;
   unreadCount?: number;
   type: ConversationTypeEnum;
   isOnline?: boolean;
   partnerId?: string;
+  isAdmin?: boolean;
+  isMuted?: boolean;
+}
+
+export interface IMessageAttachment {
+  fileId: string;
+  url: string;
+  thumbnailUrl?: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  width?: number;
+  height?: number;
+}
+
+export interface IMessageReplyPreview {
+  messageId: string;
+  senderId: string;
+  senderName?: string;
+  content: string;
+  type: MessageTypeEnum;
+}
+
+export interface IMessageCallInfo {
+  callId: string;
+  callType: CallTypeEnum;
+  status: CallStatusEnum;
+  durationSeconds?: number;
+  initiatorId: string;
+  participantIds: string[];
+  startedAt?: string;
+  endedAt?: string;
+}
+
+export interface IMessageMetadata {
+  fileName?: string;
+  fileSize?: number;
+  width?: number;
+  height?: number;
+  isEncrypted?: boolean;
+  encryptionAlg?: "AES-256-GCM";
+  isE2EE?: boolean;
+  e2eeKeyId?: string;
+  isEdited?: boolean;
+  editedAt?: string;
+  isPinned?: boolean;
+  pinnedBy?: string;
+  pinnedAt?: string;
+  replyToMessageId?: string;
+  replyPreview?: IMessageReplyPreview;
+  reactions?: Record<string, string[]>;
+  attachments?: IMessageAttachment[];
+  callInfo?: IMessageCallInfo;
 }
 
 export interface ISendMessagePayload {
   conversationId: string;
   content: string;
   type?: MessageTypeEnum;
+  replyToMessageId?: string;
+  fileIds?: string[];
+  isE2EE?: boolean;
+  e2eeKeyId?: string;
+  metadata?: Partial<IMessageMetadata>;
 }
 
 export interface ITypingPayload {
@@ -30,7 +91,8 @@ export interface ITypingPayload {
 }
 
 export interface ISocketErrorPayload {
-  status: string;
+  status: string | number;
+  code?: string;
   message: string | string[];
   error?: string;
 }
@@ -40,14 +102,16 @@ export type MessageStatus =
   | "sent"
   | "delivered"
   | "read"
-  | "failed";
+  | "failed"
+  | "removed";
 
 export interface IMessageStatusUpdatePayload {
-  id: string; // Message ID
+  id: string;
   conversationId: string;
   status: MessageStatus;
   userId: string;
-  updatedAt: string;
+  updatedAt?: string;
+  timestamp?: string;
 }
 
 export interface IMessageReadPayload {
@@ -55,6 +119,29 @@ export interface IMessageReadPayload {
   userId: string;
   user: IUserRes;
   lastReadAt: string;
+}
+
+export interface IMessageRecalledPayload {
+  conversationId: string;
+  messageId: string;
+  recalledBy: string;
+  recalledAt: string;
+}
+
+export interface IMessageReactionPayload {
+  conversationId: string;
+  messageId: string;
+  userId: string;
+  emoji: string;
+  action: "added" | "removed";
+  reactions: Record<string, string[]>;
+}
+
+export interface IMessagePinnedPayload {
+  conversationId: string;
+  messageId: string;
+  isPinned: boolean;
+  pinnedBy: string;
 }
 
 export interface IMessage {
@@ -67,6 +154,7 @@ export interface IMessage {
   sender?: IUserRes;
   status?: MessageStatus;
   tempId?: string;
+  metadata?: IMessageMetadata;
   deliveredTo?: string[];
   readBy?: string[];
   readByUsers?: IUserRes[];
@@ -76,6 +164,28 @@ export interface IUserStatusPayload {
   userId: string;
   isOnline: boolean;
   lastActive?: string;
+}
+
+export interface ICallParticipantState {
+  userId: string;
+  joinedAt: string;
+  isAudioMuted: boolean;
+  isVideoOff: boolean;
+  isScreenSharing: boolean;
+}
+
+export interface IActiveCallState {
+  callId: string;
+  conversationId: string;
+  callType: CallTypeEnum;
+  initiatorId: string;
+  status: CallStatusEnum;
+  isIncoming: boolean;
+  sdpOffer?: RTCSessionDescriptionInit;
+  startedAt?: string;
+  answeredAt?: string;
+  participants: Record<string, ICallParticipantState>;
+  isMinimized?: boolean;
 }
 
 export type TOptionKey = KeyContactsEnum;
