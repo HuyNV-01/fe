@@ -93,57 +93,6 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      // if (isRefreshing) {
-      //   return new Promise<void>((resolve, reject) => {
-      //     refreshAndRetryQueue.push({ resolve, reject });
-      //   })
-      //     .then((token) => {
-      //       if (originalRequest.headers) {
-      //         originalRequest.headers.Authorization = `Bearer ${token}`;
-      //       }
-      //       return apiClient(originalRequest);
-      //     })
-      //     .catch((err) => Promise.reject(err));
-      // }
-
-      // originalRequest._retry = true;
-      // isRefreshing = true;
-
-      // try {
-      //   const { data: resData } = await axios.post(
-      //     `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
-      //     {},
-      //     { withCredentials: true },
-      //   );
-
-      //   const newToken = resData.data.accessToken;
-
-      //   if (typeof window !== "undefined") {
-      //     localStorage.setItem("accessToken", newToken);
-      //   }
-
-      //   if (originalRequest.headers) {
-      //     apiClient.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-      //     originalRequest.headers.Authorization = `Bearer ${newToken}`;
-      //   }
-
-      //   refreshAndRetryQueue.forEach((prom) => prom.resolve(newToken));
-      //   refreshAndRetryQueue.length = 0;
-
-      //   return apiClient(originalRequest);
-      // } catch (refreshError) {
-      //   refreshAndRetryQueue.forEach((prom) => prom.reject(refreshError));
-      //   refreshAndRetryQueue.length = 0;
-
-      //   if (typeof window !== "undefined") {
-      //     localStorage.removeItem("accessToken");
-      //     localStorage.clear();
-      //     window.location.href = "/login";
-      //   }
-      //   return Promise.reject(refreshError);
-      // } finally {
-      //   isRefreshing = false;
-      // }
       originalRequest._retry = true;
 
       try {

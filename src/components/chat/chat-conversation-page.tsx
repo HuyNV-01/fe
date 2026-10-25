@@ -10,6 +10,8 @@ import {
   Trash2,
   RefreshCw,
   AlertCircle,
+  Pin,
+  X,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
@@ -23,7 +25,7 @@ import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import { useHydratedStore } from "@/utils/hooks/use-hydrated-store";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
 import { useChatScroll } from "@/utils/hooks/use-chat-scroll";
-import { MessageTypeEnum } from "@/common/enum";
+import { CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 
 interface ChatConversationPageProps {
   params: { id: string };
@@ -38,9 +40,20 @@ export default function ChatConversationPage({
     conversations,
     messages,
     messagesMeta,
+    typingUsers,
+    uploadProgress,
     fetchMessages,
     isLoadingMessages,
     sendMessage,
+    sendAttachmentMessage,
+    editMessage,
+    recallMessage,
+    reactMessage,
+    pinMessage,
+    setReplyingTo,
+    setEditingMessage,
+    initiateCall,
+    toggleMuteConversation,
     setActiveConversation,
     resendMessage,
     removeFailedMessage,
@@ -59,9 +72,22 @@ export default function ChatConversationPage({
     [messages, conversationId],
   );
 
+  const pinnedMessage = useMemo(
+    () =>
+      [...rawMessages]
+        .reverse()
+        .find((m) => m.metadata?.isPinned && m.status !== "removed"),
+    [rawMessages],
+  );
+
   const groupedMessages = useMemo(
     () => groupMessagesTime(rawMessages),
     [rawMessages, groupMessagesTime],
+  );
+
+  const isPartnerTyping = useMemo(
+    () => (typingUsers[conversationId]?.length || 0) > 0,
+    [typingUsers, conversationId],
   );
 
   const meta = conversationId ? messagesMeta[conversationId] : null;
@@ -108,7 +134,6 @@ export default function ChatConversationPage({
     if (!currentUser?.user?.id) return map;
 
     const processedUserIds = new Set<string>();
-
     const reversedMessages = [...rawMessages].reverse();
 
     reversedMessages.forEach((msg) => {
@@ -149,6 +174,31 @@ export default function ChatConversationPage({
     [conversationId, sendMessage, scrollToBottom],
   );
 
+  const handleSendAttachments = useCallback(
+    async (files: File[], content?: string) => {
+      if (!conversationId) return;
+      await sendAttachmentMessage({
+        conversationId,
+        files,
+        content,
+      });
+      scrollToBottom("smooth");
+    },
+    [conversationId, sendAttachmentMessage, scrollToBottom],
+  );
+
+  const handleConfirmEdit = useCallback(
+    async (messageId: string, newContent: string) => {
+      if (!conversationId) return;
+      await editMessage({
+        conversationId,
+        messageId,
+        content: newContent,
+      });
+    },
+    [conversationId, editMessage],
+  );
+
   const handleRetry = useCallback(
     (msgId: string, content: string) => {
       if (!conversationId) return;
@@ -178,7 +228,46 @@ export default function ChatConversationPage({
           displayName={currentConversation?.name || "Người dùng"}
           avatarUrl={currentConversation?.avatar}
           isOnline={currentConversation?.isOnline}
+          isTyping={isPartnerTyping}
+          isMuted={currentConversation?.isMuted}
+          onAudioCall={() => initiateCall(conversationId, CallTypeEnum.AUDIO)}
+          onVideoCall={() => initiateCall(conversationId, CallTypeEnum.VIDEO)}
+          onToggleMute={() =>
+            toggleMuteConversation(
+              conversationId,
+              !currentConversation?.isMuted,
+            )
+          }
         />
+
+        {/* Thanh hiển thị Tin nhắn đã ghim */}
+        {pinnedMessage && (
+          <div className="flex items-center justify-between gap-2 px-4 py-1.5 bg-primary/5 border-t text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <Pin className="w-3.5 h-3.5 text-primary shrink-0 rotate-45" />
+              <span className="font-semibold text-primary shrink-0">
+                Tin nhắn đã ghim:
+              </span>
+              <span className="truncate text-muted-foreground">
+                {pinnedMessage.content}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-full"
+              onClick={() =>
+                pinMessage({
+                  conversationId,
+                  messageId: pinnedMessage.id,
+                  isPinned: false,
+                })
+              }
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Message Area */}
@@ -262,6 +351,38 @@ export default function ChatConversationPage({
                               }
                               displayName={isMe ? "Tôi" : msg.sender?.name}
                               displayReaders={readReceiptsMap[msg.id]}
+                              uploadPercent={
+                                msg.tempId
+                                  ? uploadProgress[msg.tempId]
+                                  : undefined
+                              }
+                              onReply={(m) => setReplyingTo(conversationId, m)}
+                              onEdit={(m) =>
+                                setEditingMessage(conversationId, m)
+                              }
+                              onRecall={(m) =>
+                                recallMessage({
+                                  conversationId,
+                                  messageId: m.id,
+                                })
+                              }
+                              onReact={(m, emoji) =>
+                                reactMessage({
+                                  conversationId,
+                                  messageId: m.id,
+                                  emoji,
+                                })
+                              }
+                              onTogglePin={(m) =>
+                                pinMessage({
+                                  conversationId,
+                                  messageId: m.id,
+                                  isPinned: !m.metadata?.isPinned,
+                                })
+                              }
+                              onCallbackCall={(callType) =>
+                                initiateCall(conversationId, callType)
+                              }
                             />
                           </div>
 
@@ -317,7 +438,11 @@ export default function ChatConversationPage({
       </div>
 
       <div className="flex-none bg-background p-4 border-t">
-        <ChatInput onSendMessage={handleSendMessage} />
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          onSendAttachments={handleSendAttachments}
+          onConfirmEdit={handleConfirmEdit}
+        />
       </div>
     </div>
   );

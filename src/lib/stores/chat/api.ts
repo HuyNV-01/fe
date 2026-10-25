@@ -130,3 +130,14 @@ export const pinMessageApi = async (payload: {
 export const getIceServersApi = async () => {
   return apiClient.get("/chat/calls/ice-servers");
 };
+
+export const sendMessageHttpFallbackApi = async (payload: {
+  conversationId: string;
+  content: string;
+  type?: string;
+  replyToMessageId?: string;
+  fileIds?: string[];
+  tempId?: string;
+}) => {
+  return apiClient.post("/chat/messages", payload);
+};

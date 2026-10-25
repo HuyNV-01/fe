@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/a11y/useMediaCaption: <explanation> */
+/** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -42,6 +43,7 @@ export function CallModal() {
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
 
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -52,15 +54,33 @@ export function CallModal() {
     (c) => c.id === activeCall?.conversationId,
   );
 
+  const flushPendingCandidates = useCallback(async (pc: RTCPeerConnection) => {
+    if (!pc.remoteDescription || pendingCandidatesRef.current.length === 0) {
+      return;
+    }
+    const queue = [...pendingCandidatesRef.current];
+    pendingCandidatesRef.current = [];
+    for (const candidate of queue) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.warn("ICE candidate flush warning:", err);
+      }
+    }
+  }, []);
+
   const cleanupMediaAndPeer = useCallback(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
     }
     if (peerRef.current) {
+      peerRef.current.onicecandidate = null;
+      peerRef.current.ontrack = null;
       peerRef.current.close();
       peerRef.current = null;
     }
+    pendingCandidatesRef.current = [];
     setIsAudioMuted(false);
     setIsVideoOff(false);
     setIsScreenSharing(false);
@@ -71,6 +91,7 @@ export function CallModal() {
     async (callId: string, targetUserId: string, isVideo: boolean) => {
       let iceServers: RTCIceServer[] = [
         { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
       ];
       try {
         const res = await getIceServersApi();
@@ -106,8 +127,18 @@ export function CallModal() {
       };
 
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: isVideo,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: isVideo
+          ? {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "user",
+            }
+          : false,
       });
       localStreamRef.current = mediaStream;
       setIsVideoOff(!isVideo);
@@ -137,13 +168,19 @@ export function CallModal() {
       async (payload) => {
         if (payload.callId !== activeCall.callId) return;
         const pc = peerRef.current;
-        if (!pc) return;
+        if (!pc) {
+          if (payload.type === "ice-candidate" && payload.signalData) {
+            pendingCandidatesRef.current.push(payload.signalData);
+          }
+          return;
+        }
 
         try {
-          if (payload.type === "offer") {
+          if (payload.type === "offer" || payload.type === "renegotiate") {
             await pc.setRemoteDescription(
               new RTCSessionDescription(payload.signalData),
             );
+            await flushPendingCandidates(pc);
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             socketService.send(
@@ -160,8 +197,13 @@ export function CallModal() {
             await pc.setRemoteDescription(
               new RTCSessionDescription(payload.signalData),
             );
-          } else if (payload.type === "ice-candidate") {
-            await pc.addIceCandidate(new RTCIceCandidate(payload.signalData));
+            await flushPendingCandidates(pc);
+          } else if (payload.type === "ice-candidate" && payload.signalData) {
+            if (pc.remoteDescription) {
+              await pc.addIceCandidate(new RTCIceCandidate(payload.signalData));
+            } else {
+              pendingCandidatesRef.current.push(payload.signalData);
+            }
           }
         } catch (err) {
           console.error("WebRTC signal error:", err);
@@ -172,7 +214,7 @@ export function CallModal() {
     return () => {
       cleanSignal();
     };
-  }, [activeCall, cleanupMediaAndPeer]);
+  }, [activeCall, cleanupMediaAndPeer, flushPendingCandidates]);
 
   useEffect(() => {
     if (!activeCall || activeCall.isIncoming) return;
@@ -225,6 +267,21 @@ export function CallModal() {
     return () => clearInterval(timer);
   }, [activeCall]);
 
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (activeCall) {
+        socketService.send(
+          SocketNamespaceEnum.CHAT,
+          SOCKET_EVENTS.CALL.HANGUP,
+          { callId: activeCall.callId },
+        );
+        cleanupMediaAndPeer();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [activeCall, cleanupMediaAndPeer]);
+
   if (!activeCall) return null;
 
   const formatTimer = (sec: number) => {
@@ -253,6 +310,7 @@ export function CallModal() {
         await pc.setRemoteDescription(
           new RTCSessionDescription(activeCall.sdpOffer),
         );
+        await flushPendingCandidates(pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         socketService.send(

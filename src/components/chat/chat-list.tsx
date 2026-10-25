@@ -93,12 +93,6 @@ export default function ChatList() {
             ))}
           </div>
         )}
-
-        {!isLoadingInbox && isLoadingInbox && conversations.length > 0 && (
-          <div className="py-4 w-full flex justify-center">
-            <div className="h-5 w-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-          </div>
-        )}
       </div>
     </ScrollArea>
   );
