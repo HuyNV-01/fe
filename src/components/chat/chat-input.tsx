@@ -3,7 +3,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -13,16 +13,20 @@ import {
   Image as ImageIcon,
   Mic,
   Square,
+  Trash2,
   X,
   Reply,
   Pencil,
   FileText,
+  Film,
+  Volume2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
-import { SocketNamespaceEnum } from "@/common/enum";
+import { MessageTypeEnum, SocketNamespaceEnum } from "@/common/enum";
 import { SOCKET_EVENTS } from "@/constant/socket-events";
 import { socketService } from "@/services/socket/socket-client";
+import { formatFileSize } from "@/utils/crypto-e2ee";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -39,12 +43,25 @@ const COMMON_EMOJIS = [
   "🎉",
   "🙏",
   "💯",
+  "🤩",
+  "🤔",
+  "👏",
+  "✨",
 ];
 
+interface SelectedFilePreview {
+  file: File;
+  previewUrl: string | null;
+}
+
 export interface IChatInputProps {
-  onSendMessage: (content: string) => void;
-  onSendAttachments?: (files: File[], content?: string) => void;
-  onConfirmEdit?: (messageId: string, newContent: string) => void;
+  onSendMessage: (content: string) => Promise<void> | void;
+  onSendAttachments?: (files: File[], content?: string) => Promise<void> | void;
+  onConfirmEdit?: (
+    messageId: string,
+    newContent: string,
+  ) => Promise<void> | void;
+  onScrollToMessage?: (messageId: string) => void;
   disabled?: boolean;
 }
 
@@ -52,10 +69,11 @@ export const ChatInput = ({
   onSendMessage,
   onSendAttachments,
   onConfirmEdit,
+  onScrollToMessage,
   disabled,
 }: IChatInputProps) => {
   const [message, setMessage] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedItems, setSelectedItems] = useState<SelectedFilePreview[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -63,8 +81,17 @@ export const ChatInput = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const emojiContainerRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const shouldSendRecordingRef = useRef<boolean>(true);
+
+  /**
+   * Khóa trạng thái bộ gõ IME (Tiếng Việt Telex/VNI) và khóa chống gửi đúp (Double Submit Lock)
+   */
+  const isComposingRef = useRef<boolean>(false);
+  const compositionEndedAtRef = useRef<number>(0);
+  const isSubmittingRef = useRef<boolean>(false);
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTypingTimeRef = useRef<number>(0);
@@ -88,9 +115,21 @@ export const ChatInput = ({
   useEffect(() => {
     if (activeEdit) {
       setMessage(activeEdit.content);
-      textareaRef.current?.focus();
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        const len = activeEdit.content.length;
+        textareaRef.current?.setSelectionRange(len, len);
+      }, 20);
     }
   }, [activeEdit]);
+
+  useEffect(() => {
+    if (activeReply) {
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 20);
+    }
+  }, [activeReply]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -110,35 +149,182 @@ export const ChatInput = ({
     return () => clearInterval(timer);
   }, [isRecording]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  // Đóng bảng Emoji khi click ra ngoài
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        emojiContainerRef.current &&
+        !emojiContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showEmojiPicker]);
+
+  // Dọn dẹp URL preview khi unmount
+  useEffect(() => {
+    return () => {
+      selectedItems.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+    };
+  }, []);
+
+  const appendFiles = useCallback((files: File[]) => {
+    if (!files.length) return;
+    const newItems: SelectedFilePreview[] = files.map((file) => ({
+      file,
+      previewUrl:
+        file.type.startsWith("image/") || file.type.startsWith("video/")
+          ? URL.createObjectURL(file)
+          : null,
+    }));
+    setSelectedItems((prev) => {
+      const combined = [...prev, ...newItems];
+      if (combined.length > 10) {
+        toast.warning("Tối đa 10 tệp đính kèm trong một lần gửi");
+        combined.slice(10).forEach((item) => {
+          if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        });
+        return combined.slice(0, 10);
+      }
+      return combined;
+    });
+  }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    appendFiles(files);
+    e.target.value = "";
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const pastedFiles: File[] = [];
+    for (const item of items) {
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) pastedFiles.push(file);
+      }
+    }
+    if (pastedFiles.length > 0) {
       e.preventDefault();
+      appendFiles(pastedFiles);
+    }
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedItems((prev) => {
+      const target = prev[index];
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((_, idx) => idx !== index);
+    });
+  };
+
+  const stopTypingNotification = useCallback(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    if (activeConversationId) {
+      socketService.send(
+        SocketNamespaceEnum.CHAT,
+        SOCKET_EVENTS.CHAT.TYPING_EMIT,
+        {
+          conversationId: activeConversationId,
+          isTyping: false,
+        },
+      );
+    }
+  }, [activeConversationId]);
+
+  const handleSend = useCallback(() => {
+    if (disabled || isSubmittingRef.current) return;
+
+    const trimmedMessage = message.trim();
+    const hasFiles = selectedItems.length > 0;
+
+    if (!trimmedMessage && !hasFiles) return;
+
+    // Khóa đồng bộ chống gửi 2 lần liên tiếp
+    isSubmittingRef.current = true;
+    setTimeout(() => {
+      isSubmittingRef.current = false;
+    }, 250);
+
+    stopTypingNotification();
+
+    // Reset state ngay lập tức trước khi gọi async để tránh sự kiện thứ 2 đọc lại message cũ
+    setMessage("");
+    setShowEmojiPicker(false);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+
+    if (hasFiles && onSendAttachments) {
+      const filesToSend = selectedItems.map((item) => item.file);
+      selectedItems.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      setSelectedItems([]);
+      onSendAttachments(filesToSend, trimmedMessage || undefined);
+      return;
+    }
+
+    if (activeEdit && onConfirmEdit) {
+      onConfirmEdit(activeEdit.id, trimmedMessage);
+    } else if (trimmedMessage) {
+      onSendMessage(trimmedMessage);
+    }
+  }, [
+    disabled,
+    message,
+    selectedItems,
+    activeEdit,
+    onSendAttachments,
+    onConfirmEdit,
+    onSendMessage,
+    stopTypingNotification,
+  ]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Chặn gửi khi đang trong chế độ gõ Tiếng Việt / IME (hoặc vừa kết thúc composition < 50ms trên Safari/Chrome)
+    const isImeComposing =
+      e.nativeEvent.isComposing ||
+      isComposingRef.current ||
+      e.keyCode === 229 ||
+      Date.now() - compositionEndedAtRef.current < 50;
+
+    if (e.key === "Enter" && !e.shiftKey) {
+      if (isImeComposing) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
       handleSend();
     } else if (e.key === "Escape") {
       if (activeConversationId) {
         setReplyingTo(activeConversationId, null);
         setEditingMessage(activeConversationId, null);
       }
+      setShowEmojiPicker(false);
     }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      setSelectedFiles((prev) => [...prev, ...files].slice(0, 10));
-    }
-    e.target.value = "";
-  };
-
-  const removeSelectedFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, idx) => idx !== index));
   };
 
   const startVoiceRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
       const recorder = new MediaRecorder(stream);
       audioChunksRef.current = [];
+      shouldSendRecordingRef.current = true;
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -148,6 +334,10 @@ export const ChatInput = ({
 
       recorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
+        if (!shouldSendRecordingRef.current) {
+          audioChunksRef.current = [];
+          return;
+        }
         const audioBlob = new Blob(audioChunksRef.current, {
           type: "audio/webm",
         });
@@ -167,55 +357,32 @@ export const ChatInput = ({
     }
   };
 
-  const stopVoiceRecording = () => {
+  const stopAndSendVoiceRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      shouldSendRecordingRef.current = true;
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
   };
 
-  const handleSend = () => {
-    if (selectedFiles.length > 0 && onSendAttachments) {
-      onSendAttachments(selectedFiles, message.trim() || undefined);
-      setSelectedFiles([]);
-      setMessage("");
-      return;
-    }
-
-    if (!message.trim()) return;
-
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    if (activeConversationId) {
-      socketService.send(
-        SocketNamespaceEnum.CHAT,
-        SOCKET_EVENTS.CHAT.TYPING_EMIT,
-        {
-          conversationId: activeConversationId,
-          isTyping: false,
-        },
-      );
-    }
-
-    if (activeEdit && onConfirmEdit) {
-      onConfirmEdit(activeEdit.id, message.trim());
-    } else {
-      onSendMessage(message.trim());
-    }
-
-    setMessage("");
-    setShowEmojiPicker(false);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+  const cancelVoiceRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      shouldSendRecordingRef.current = false;
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
     }
   };
 
-  const handleInputChange = (e: {
-    target: { value: React.SetStateAction<string> };
-  }) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setMessage(value);
 
     if (!activeConversationId) return;
+
+    if (!value.trim()) {
+      stopTypingNotification();
+      return;
+    }
 
     const now = Date.now();
     const THROTTLE_TIME = 2000;
@@ -240,59 +407,108 @@ export const ChatInput = ({
     }, 3000);
   };
 
+  const getReplySummaryText = () => {
+    if (!activeReply) return "";
+    if (activeReply.type === MessageTypeEnum.IMAGE) return "📷 [Hình ảnh]";
+    if (activeReply.type === MessageTypeEnum.VIDEO) return "🎬 [Video]";
+    if (activeReply.type === MessageTypeEnum.AUDIO)
+      return "🎤 [Tin nhắn thoại]";
+    if (activeReply.type === MessageTypeEnum.FILE)
+      return `📎 ${activeReply.content || "[Tệp đính kèm]"}`;
+    return activeReply.content;
+  };
+
   return (
     <div className="bg-background relative">
       {/* Thanh hiển thị Trả lời / Chỉnh sửa tin nhắn */}
       {(activeReply || activeEdit) && activeConversationId && (
-        <div className="flex items-center justify-between gap-2 px-3 py-2 mb-2 rounded-xl bg-muted/70 border text-xs animate-in fade-in slide-in-from-bottom-1">
-          <div className="flex items-center gap-2 min-w-0">
-            {activeEdit ? (
-              <Pencil className="w-4 h-4 text-primary shrink-0" />
-            ) : (
-              <Reply className="w-4 h-4 text-primary shrink-0" />
-            )}
-            <div className="min-w-0">
-              <p className="font-semibold text-primary">
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 mb-2.5 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <button
+            type="button"
+            onClick={() => {
+              const targetId = activeEdit?.id || activeReply?.id;
+              if (targetId && onScrollToMessage) {
+                onScrollToMessage(targetId);
+              }
+            }}
+            className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer group"
+          >
+            <div className="p-1.5 rounded-full bg-primary/15 text-primary shrink-0">
+              {activeEdit ? (
+                <Pencil className="w-3.5 h-3.5" />
+              ) : (
+                <Reply className="w-3.5 h-3.5" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1 border-l-2 border-primary pl-2.5">
+              <p className="font-semibold text-primary truncate">
                 {activeEdit
                   ? "Đang chỉnh sửa tin nhắn"
-                  : `Đang trả lời ${activeReply?.sender?.name || "tin nhắn"}`}
+                  : `Đang trả lời ${activeReply?.sender?.name || "Người dùng"}`}
               </p>
-              <p className="truncate text-muted-foreground">
-                {activeEdit ? activeEdit.content : activeReply?.content}
+              <p className="truncate text-muted-foreground group-hover:text-foreground transition-colors mt-0.5">
+                {activeEdit ? activeEdit.content : getReplySummaryText()}
               </p>
             </div>
-          </div>
+          </button>
+
           <Button
+            type="button"
             variant="ghost"
             size="icon"
-            className="h-6 w-6 rounded-full shrink-0"
+            className="h-7 w-7 rounded-full shrink-0 hover:bg-destructive/10 hover:text-destructive"
             onClick={() => {
               setReplyingTo(activeConversationId, null);
               setEditingMessage(activeConversationId, null);
               if (activeEdit) setMessage("");
             }}
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </Button>
         </div>
       )}
 
       {/* Thanh xem trước tệp đính kèm đã chọn */}
-      {selectedFiles.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-2">
-          {selectedFiles.map((file, idx) => (
+      {selectedItems.length > 0 && (
+        <div className="flex items-center gap-2.5 overflow-x-auto pb-2.5 mb-2 scrollbar-thin">
+          {selectedItems.map((item, idx) => (
             <div
-              key={`${file.name}-${idx}`}
-              className="relative flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted border text-xs shrink-0"
+              key={`${item.file.name}-${idx}`}
+              className="relative group flex items-center gap-2.5 p-2 rounded-xl bg-muted/80 border border-border/60 text-xs shrink-0 shadow-2xs"
             >
-              <FileText className="w-4 h-4 text-primary shrink-0" />
-              <span className="max-w-[120px] truncate">{file.name}</span>
+              {item.previewUrl && item.file.type.startsWith("image/") ? (
+                <img
+                  src={item.previewUrl}
+                  alt={item.file.name}
+                  className="w-11 h-11 rounded-lg object-cover border"
+                />
+              ) : item.file.type.startsWith("video/") ? (
+                <div className="w-11 h-11 rounded-lg bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
+                  <Film className="w-5 h-5" />
+                </div>
+              ) : item.file.type.startsWith("audio/") ? (
+                <div className="w-11 h-11 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
+                  <Volume2 className="w-5 h-5" />
+                </div>
+              ) : (
+                <div className="w-11 h-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <FileText className="w-5 h-5" />
+                </div>
+              )}
+
+              <div className="flex flex-col min-w-0 max-w-[130px] pr-4">
+                <span className="font-medium truncate">{item.file.name}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatFileSize(item.file.size)}
+                </span>
+              </div>
+
               <button
                 type="button"
                 onClick={() => removeSelectedFile(idx)}
-                className="text-muted-foreground hover:text-destructive"
+                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
               </button>
             </div>
           ))}
@@ -301,13 +517,19 @@ export const ChatInput = ({
 
       {/* Bộ chọn Emoji nổi */}
       {showEmojiPicker && (
-        <div className="absolute bottom-full right-4 mb-2 p-2 bg-background border rounded-2xl shadow-xl flex flex-wrap gap-1.5 w-60 z-30">
+        <div
+          ref={emojiContainerRef}
+          className="absolute bottom-full right-4 mb-2 p-2.5 bg-background/95 backdrop-blur-xl border rounded-2xl shadow-xl grid grid-cols-4 gap-1.5 w-64 z-30 animate-in fade-in zoom-in-95 duration-150"
+        >
           {COMMON_EMOJIS.map((emoji) => (
             <button
               key={emoji}
               type="button"
-              onClick={() => setMessage((prev) => `${prev}${emoji}`)}
-              className="text-lg p-1 hover:bg-muted rounded-lg transition-transform hover:scale-110"
+              onClick={() => {
+                setMessage((prev) => `${prev}${emoji}`);
+                textareaRef.current?.focus();
+              }}
+              className="text-xl p-1.5 hover:bg-muted rounded-xl transition-transform hover:scale-115 flex items-center justify-center"
             >
               {emoji}
             </button>
@@ -332,93 +554,125 @@ export const ChatInput = ({
         onChange={handleFileChange}
       />
 
-      <div className="flex items-end gap-2 bg-muted/50 p-2 rounded-xl border focus-within:ring-1 focus-within:ring-ring focus-within:border-primary/50 transition-all">
-        <div className="flex gap-1 pb-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
-            title="Đính kèm tệp"
-          >
-            <Paperclip className="w-5 h-5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => imageInputRef.current?.click()}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
-            title="Gửi ảnh hoặc video"
-          >
-            <ImageIcon className="w-5 h-5" />
-          </Button>
-          <Button
-            type="button"
-            variant={isRecording ? "destructive" : "ghost"}
-            size="icon"
-            onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
-            className="h-8 w-8 rounded-full"
-            title={isRecording ? "Dừng và gửi ghi âm" : "Ghi âm giọng nói"}
-          >
-            {isRecording ? (
-              <Square className="w-4 h-4" />
-            ) : (
-              <Mic className="w-5 h-5 text-muted-foreground hover:text-foreground" />
-            )}
-          </Button>
-        </div>
+      <div className="flex items-end gap-2 bg-muted/50 p-2 rounded-2xl border focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all">
+        {!isRecording && (
+          <div className="flex gap-0.5 pb-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full"
+              title="Đính kèm tệp"
+            >
+              <Paperclip className="w-5 h-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => imageInputRef.current?.click()}
+              className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
+              title="Gửi ảnh hoặc video"
+            >
+              <ImageIcon className="w-5 h-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={startVoiceRecording}
+              className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full"
+              title="Ghi âm giọng nói"
+            >
+              <Mic className="w-5 h-5" />
+            </Button>
+          </div>
+        )}
 
         {isRecording ? (
-          <div className="flex-1 flex items-center gap-2 px-3 py-2 text-xs text-red-500 font-medium">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-            <span>
-              Đang ghi âm... ({recordSeconds}s) — Nhấn nút dừng để gửi
-            </span>
+          <div className="flex-1 flex items-center justify-between gap-3 px-3 py-1.5 bg-red-500/10 rounded-xl border border-red-500/20">
+            <div className="flex items-center gap-2.5 text-xs text-red-500 font-semibold">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+              <span>
+                Đang ghi âm... {Math.floor(recordSeconds / 60)}:
+                {(recordSeconds % 60).toString().padStart(2, "0")}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={cancelVoiceRecording}
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive rounded-lg"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                Hủy
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={stopAndSendVoiceRecording}
+                className="h-7 px-3 text-xs rounded-lg"
+              >
+                <Square className="w-3 h-3 mr-1.5 fill-current" />
+                Gửi
+              </Button>
+            </div>
           </div>
         ) : (
           <Textarea
             ref={textareaRef}
             value={message}
-            onChange={(e: {
-              target: { value: React.SetStateAction<string> };
-            }) => handleInputChange(e)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onCompositionStart={() => {
+              isComposingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              isComposingRef.current = false;
+              compositionEndedAtRef.current = Date.now();
+            }}
             placeholder={t("placeholder")}
-            className="min-h-10 max-h-[150px] w-full resize-none border-0 bg-transparent p-2 focus-visible:ring-0 shadow-none scrollbar-hide text-sm"
+            className="min-h-9 max-h-[150px] w-full resize-none border-0 bg-transparent px-2 py-1.5 focus-visible:ring-0 shadow-none scrollbar-hide text-sm leading-relaxed"
             rows={1}
             disabled={disabled}
           />
         )}
 
-        <div className="flex gap-1 pb-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowEmojiPicker((v) => !v)}
-            className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
-          >
-            <Smile className="w-5 h-5" />
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSend}
-            disabled={
-              (!message.trim() && selectedFiles.length === 0) || disabled
-            }
-            size="icon"
-            className={cn(
-              "h-8 w-8 rounded-full transition-all duration-200",
-              message.trim() || selectedFiles.length > 0
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "bg-transparent text-muted-foreground hover:bg-muted",
-            )}
-          >
-            <SendHorizontal className="w-5 h-5" />
-          </Button>
-        </div>
+        {!isRecording && (
+          <div className="flex gap-1 pb-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowEmojiPicker((v) => !v)}
+              className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
+              title="Biểu tượng cảm xúc"
+            >
+              <Smile className="w-5 h-5" />
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSend}
+              disabled={
+                (!message.trim() && selectedItems.length === 0) || disabled
+              }
+              size="icon"
+              className={cn(
+                "h-9 w-9 rounded-full transition-all duration-200",
+                message.trim() || selectedItems.length > 0
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm scale-100"
+                  : "bg-transparent text-muted-foreground hover:bg-muted scale-95",
+              )}
+            >
+              <SendHorizontal className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

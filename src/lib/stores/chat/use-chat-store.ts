@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 import type {
   IActiveCallState,
   IConversation,
@@ -41,6 +42,8 @@ import { useAuthStore } from "../auth/use-auth-store";
 import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_LIMIT_INBOX, DEFAULT_LIMIT_MESSAGE } from "@/constant";
 import { toast } from "sonner";
+
+const typingTimers = new Map<string, NodeJS.Timeout>();
 
 interface ChatState {
   tempConversations: IConversation[];
@@ -265,7 +268,11 @@ export const useChatStore = createPersistedStore<ChatState>(
           },
         );
 
-        if (res?.ringingUserIds?.length === 0 && res?.busyUserIds?.length > 0) {
+        if (
+          !res?.isJoinedExisting &&
+          res?.ringingUserIds?.length === 0 &&
+          res?.busyUserIds?.length > 0
+        ) {
           toast.info("Người nhận hiện đang bận ở một cuộc gọi khác");
           return;
         }
@@ -274,12 +281,17 @@ export const useChatStore = createPersistedStore<ChatState>(
           activeCall: {
             callId: res.callId,
             conversationId,
-            callType,
+            callType: res.callType || callType,
+            isGroupCall: res.isGroupCall,
             initiatorId: res.initiatorId,
-            status: CallStatusEnum.RINGING,
+            status: res.isJoinedExisting
+              ? CallStatusEnum.ONGOING
+              : CallStatusEnum.RINGING,
             isIncoming: false,
             startedAt: res.createdAt,
+            answeredAt: res.answeredAt,
             participants: res.participants || {},
+            membersInfo: res.membersInfo || [],
             isMinimized: false,
           },
         });
@@ -293,6 +305,13 @@ export const useChatStore = createPersistedStore<ChatState>(
       userId,
       isTyping,
     }: ITypingPayload & { isTyping: boolean }) => {
+      const timerKey = `${conversationId}:${userId}`;
+      const existingTimer = typingTimers.get(timerKey);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        typingTimers.delete(timerKey);
+      }
+
       set((state) => {
         const currentTyping = state.typingUsers[conversationId] || [];
 
@@ -308,14 +327,16 @@ export const useChatStore = createPersistedStore<ChatState>(
       });
 
       if (isTyping) {
-        setTimeout(() => {
+        const timeout = setTimeout(() => {
+          typingTimers.delete(timerKey);
           set((state) => {
             const users = state.typingUsers[conversationId] || [];
             state.typingUsers[conversationId] = users.filter(
               (id) => id !== userId,
             );
           });
-        }, 5000);
+        }, 4500);
+        typingTimers.set(timerKey, timeout);
       }
     },
 
@@ -418,6 +439,7 @@ export const useChatStore = createPersistedStore<ChatState>(
           if (idx !== -1) {
             msgs[idx].content = "[Tin nhắn đã được thu hồi]";
             msgs[idx].status = "removed";
+            msgs[idx].isPinned = false;
             msgs[idx].metadata = {
               ...(msgs[idx].metadata || {}),
               isPinned: false,
@@ -458,6 +480,7 @@ export const useChatStore = createPersistedStore<ChatState>(
         if (!msgs) return;
         const msg = msgs.find((m) => m.id === messageId);
         if (msg) {
+          msg.isPinned = isPinned;
           msg.metadata = {
             ...(msg.metadata || {}),
             isPinned,
@@ -700,8 +723,10 @@ export const useChatStore = createPersistedStore<ChatState>(
 
     createDirectChat: async (payload, cb) => {
       try {
-        const res = await createDirectChat(payload);
-        const conversation = res.data;
+        const res = (await createDirectChat(payload)) as any;
+        const conversation = res?.data ?? res;
+
+        if (!conversation?.id) return null;
 
         set((state) => {
           state.activeConversationId = conversation.id;
@@ -743,6 +768,7 @@ export const useChatStore = createPersistedStore<ChatState>(
         createdAt: new Date().toISOString(),
         status: "sending",
         sender: currentUser,
+        replyToMessageId: finalReplyId || null,
         metadata: {
           ...(payload.metadata || {}),
           ...(replyTarget
@@ -782,7 +808,6 @@ export const useChatStore = createPersistedStore<ChatState>(
             requestPayload,
           );
         } else {
-          // Tự động Fallback sang HTTP REST API khi Socket đang reconnect
           await sendMessageHttpFallbackApi(requestPayload);
         }
 
@@ -843,13 +868,22 @@ export const useChatStore = createPersistedStore<ChatState>(
       else if (firstMime.startsWith("audio/"))
         detectedType = MessageTypeEnum.AUDIO;
 
-      const previewAttachments = files.map((file, idx) => ({
-        fileId: `local-${tempId}-${idx}`,
-        url: URL.createObjectURL(file),
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        size: file.size,
-      }));
+      const objectUrls: string[] = [];
+      const previewAttachments = files.map((file, idx) => {
+        const blobUrl = URL.createObjectURL(file);
+        objectUrls.push(blobUrl);
+        return {
+          fileId: `local-${tempId}-${idx}`,
+          url: blobUrl,
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+        };
+      });
+
+      const cleanupBlobUrls = () => {
+        objectUrls.forEach((url) => URL.revokeObjectURL(url));
+      };
 
       const optimisticMsg: IMessage = {
         id: tempId,
@@ -861,6 +895,7 @@ export const useChatStore = createPersistedStore<ChatState>(
         createdAt: new Date().toISOString(),
         status: "sending",
         sender: currentUser,
+        replyToMessageId: finalReplyId || null,
         metadata: {
           attachments: previewAttachments,
           ...(replyTarget
@@ -913,7 +948,9 @@ export const useChatStore = createPersistedStore<ChatState>(
             }
           }
         });
+        setTimeout(cleanupBlobUrls, 3000);
       } catch (err: any) {
+        cleanupBlobUrls();
         set((state) => {
           delete state.uploadProgress[tempId];
           const msgs = state.messages[conversationId];

@@ -154,6 +154,8 @@ export interface IMessage {
   sender?: IUserRes;
   status?: MessageStatus;
   tempId?: string;
+  replyToMessageId?: string | null;
+  isPinned?: boolean;
   metadata?: IMessageMetadata;
   deliveredTo?: string[];
   readBy?: string[];
@@ -174,17 +176,27 @@ export interface ICallParticipantState {
   isScreenSharing: boolean;
 }
 
+export interface ICallMemberInfo {
+  id: string;
+  name: string;
+  avatar: string | null;
+}
+
 export interface IActiveCallState {
   callId: string;
   conversationId: string;
   callType: CallTypeEnum;
+  isGroupCall?: boolean;
   initiatorId: string;
+  callerName?: string;
+  callerAvatar?: string | null;
   status: CallStatusEnum;
   isIncoming: boolean;
   sdpOffer?: RTCSessionDescriptionInit;
   startedAt?: string;
   answeredAt?: string;
   participants: Record<string, ICallParticipantState>;
+  membersInfo?: ICallMemberInfo[];
   isMinimized?: boolean;
 }
 

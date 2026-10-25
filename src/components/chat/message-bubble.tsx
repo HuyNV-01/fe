@@ -20,6 +20,7 @@ import {
   PhoneMissed,
   Video,
   SmilePlus,
+  CornerUpLeft,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 import type { IMessage } from "@/types/chat";
@@ -31,9 +32,12 @@ const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "😡"];
 
 interface MessageBubbleProps {
   message: IMessage;
+  currentUserId?: string;
   isMe: boolean;
+  isGroupChat?: boolean;
   isContinuous?: boolean;
   isLastInGroup?: boolean;
+  isHighlighted?: boolean;
   avatarUrl?: string;
   displayName?: string;
   displayReaders?: { id: string; name: string; avatar: string | null }[];
@@ -44,14 +48,18 @@ interface MessageBubbleProps {
   onReact?: (message: IMessage, emoji: string) => void;
   onTogglePin?: (message: IMessage) => void;
   onCallbackCall?: (callType: CallTypeEnum) => void;
+  onScrollToMessage?: (messageId: string) => void;
 }
 
 export const MessageBubble = memo(
   ({
     message,
+    currentUserId,
     isMe,
+    isGroupChat = false,
     isContinuous = false,
     isLastInGroup = false,
+    isHighlighted = false,
     avatarUrl,
     displayName,
     displayReaders,
@@ -62,6 +70,7 @@ export const MessageBubble = memo(
     onReact,
     onTogglePin,
     onCallbackCall,
+    onScrollToMessage,
   }: MessageBubbleProps) => {
     const { toChatTime } = useDateFormat();
     const [showReactionPicker, setShowReactionPicker] = useState(false);
@@ -106,15 +115,35 @@ export const MessageBubble = memo(
       }
     }, [isMe, isRecalled, message.status]);
 
+    const formatReplyPreviewContent = () => {
+      if (!replyPreview) return "";
+      if (replyPreview.type === MessageTypeEnum.IMAGE) return "📷 [Hình ảnh]";
+      if (replyPreview.type === MessageTypeEnum.VIDEO) return "🎬 [Video]";
+      if (replyPreview.type === MessageTypeEnum.AUDIO)
+        return "🎤 [Tin nhắn thoại]";
+      if (replyPreview.type === MessageTypeEnum.FILE)
+        return `📎 ${replyPreview.content || "[Tệp đính kèm]"}`;
+      return replyPreview.content;
+    };
+
     return (
       <div
+        id={`msg-${message.id}`}
         className={cn(
-          "flex flex-col w-full mb-1 px-2 md:px-4 transition-colors group/bubble",
+          "flex flex-col w-full mb-1 px-2 md:px-4 py-0.5 rounded-xl transition-all duration-500 group/bubble",
           isMe ? "items-end" : "items-start",
           !isContinuous ? "mt-3" : "mt-0.5",
+          isHighlighted && "bg-primary/15 ring-2 ring-primary/40",
         )}
         onMouseLeave={() => setShowReactionPicker(false)}
       >
+        {/* Tên người gửi ở đầu nhóm tin nhắn nếu là chat nhóm */}
+        {!isMe && isGroupChat && !isContinuous && displayName && (
+          <span className="text-[11px] font-medium text-muted-foreground ml-11 mb-1 select-none">
+            {displayName}
+          </span>
+        )}
+
         <div
           className={cn(
             "relative flex max-w-[85%] md:max-w-[70%] items-end gap-2",
@@ -139,7 +168,7 @@ export const MessageBubble = memo(
           {/* Bong bóng tin nhắn chính */}
           <div
             className={cn(
-              "relative px-3.5 py-2 text-sm shadow-sm transition-all",
+              "relative px-3.5 py-2 text-sm shadow-xs transition-all",
               isRecalled
                 ? "bg-muted/40 text-muted-foreground italic border border-dashed border-border"
                 : isMe
@@ -161,28 +190,40 @@ export const MessageBubble = memo(
             )}
           >
             {/* Nhãn Đã ghim */}
-            {!isRecalled && message.metadata?.isPinned && (
-              <div className="flex items-center gap-1 text-[10px] opacity-80 mb-1 font-medium">
-                <Pin className="w-3 h-3 rotate-45" />
-                <span>Tin nhắn đã ghim</span>
-              </div>
-            )}
+            {!isRecalled &&
+              (message.isPinned || message.metadata?.isPinned) && (
+                <div className="flex items-center gap-1 text-[10px] opacity-85 mb-1 font-medium">
+                  <Pin className="w-3 h-3 rotate-45" />
+                  <span>Tin nhắn đã ghim</span>
+                </div>
+              )}
 
-            {/* Khung Trích dẫn tin nhắn trả lời (Reply Preview) */}
+            {/* Khung Trích dẫn tin nhắn trả lời (Reply Preview) có thể click để cuộn tới tin gốc */}
             {!isRecalled && replyPreview && (
-              <div
+              <button
+                type="button"
+                onClick={() => {
+                  if (replyPreview.messageId && onScrollToMessage) {
+                    onScrollToMessage(replyPreview.messageId);
+                  }
+                }}
                 className={cn(
-                  "mb-2 rounded-lg px-2.5 py-1.5 text-xs border-l-2",
+                  "w-full text-left mb-2 rounded-xl px-2.5 py-1.5 text-xs border-l-3 transition-opacity hover:opacity-95 cursor-pointer flex flex-col gap-0.5",
                   isMe
-                    ? "bg-black/15 border-white/70 text-primary-foreground/90"
-                    : "bg-muted/70 border-primary text-muted-foreground",
+                    ? "bg-black/20 border-white/80 text-primary-foreground/95"
+                    : "bg-muted/80 border-primary text-foreground/90",
                 )}
               >
-                <p className="font-semibold truncate text-[11px]">
-                  {replyPreview.senderName || "Tin nhắn gốc"}
+                <div className="flex items-center gap-1 font-semibold text-[11px]">
+                  <CornerUpLeft className="w-3 h-3 shrink-0 opacity-80" />
+                  <span className="truncate">
+                    {replyPreview.senderName || "Tin nhắn gốc"}
+                  </span>
+                </div>
+                <p className="truncate opacity-85 text-[11px] pl-4">
+                  {formatReplyPreviewContent()}
                 </p>
-                <p className="truncate opacity-85">{replyPreview.content}</p>
-              </div>
+              </button>
             )}
 
             {/* Nội dung khi đã thu hồi */}
@@ -207,7 +248,7 @@ export const MessageBubble = memo(
                           href={sanitizeMediaUrl(att.url)}
                           target="_blank"
                           rel="noreferrer"
-                          className="block overflow-hidden rounded-lg"
+                          className="block overflow-hidden rounded-lg bg-black/5"
                         >
                           <img
                             src={sanitizeMediaUrl(att.thumbnailUrl || att.url)}
@@ -247,7 +288,7 @@ export const MessageBubble = memo(
                 {/* 3. Hiển thị Tin nhắn thoại / Âm thanh */}
                 {message.type === MessageTypeEnum.AUDIO &&
                   attachments.map((att) => (
-                    <div key={att.fileId} className="my-1 min-w-[220px]">
+                    <div key={att.fileId} className="my-1 min-w-[230px]">
                       <audio
                         src={sanitizeMediaUrl(att.url)}
                         controls
@@ -289,13 +330,17 @@ export const MessageBubble = memo(
 
                 {/* 5. Hiển thị Thẻ Lịch sử Cuộc gọi (CALL) */}
                 {message.type === MessageTypeEnum.CALL && (
-                  <div className="flex items-center gap-3 py-1 min-w-[200px]">
+                  <div className="flex items-center gap-3 py-1 min-w-[210px]">
                     <div
                       className={cn(
                         "p-2.5 rounded-full shrink-0",
                         callInfo?.status === CallStatusEnum.COMPLETED
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : "bg-red-500/20 text-red-400",
+                          ? isMe
+                            ? "bg-white/20 text-white"
+                            : "bg-emerald-500/15 text-emerald-500"
+                          : isMe
+                            ? "bg-red-500/30 text-red-100"
+                            : "bg-red-500/15 text-red-500",
                       )}
                     >
                       {callInfo?.callType === CallTypeEnum.VIDEO ? (
@@ -315,7 +360,7 @@ export const MessageBubble = memo(
                             callInfo?.callType || CallTypeEnum.AUDIO,
                           )
                         }
-                        className="text-[11px] underline opacity-90 hover:opacity-100 mt-0.5 cursor-pointer"
+                        className="text-[11px] font-medium underline opacity-90 hover:opacity-100 mt-0.5 cursor-pointer"
                       >
                         Gọi lại ngay
                       </button>
@@ -335,7 +380,7 @@ export const MessageBubble = memo(
 
                 {/* Thanh tiến trình tải lên (Upload Progress) */}
                 {typeof uploadPercent === "number" && uploadPercent < 100 && (
-                  <div className="w-full bg-black/20 h-1 rounded-full overflow-hidden mt-2">
+                  <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden mt-2">
                     <div
                       className="bg-emerald-400 h-full transition-all duration-200"
                       style={{ width: `${uploadPercent}%` }}
@@ -369,21 +414,28 @@ export const MessageBubble = memo(
                   isMe ? "justify-end" : "justify-start",
                 )}
               >
-                {reactionEntries.map(([emoji, users]) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => onReact?.(message, emoji)}
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] bg-background/90 text-foreground border shadow-2xs hover:scale-105 transition-transform"
-                  >
-                    <span>{emoji}</span>
-                    {users.length > 1 && (
-                      <span className="font-semibold text-[10px]">
-                        {users.length}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {reactionEntries.map(([emoji, users]) => {
+                  const hasReacted =
+                    currentUserId && users.includes(currentUserId);
+                  return (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => onReact?.(message, emoji)}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] border shadow-2xs hover:scale-105 transition-transform cursor-pointer",
+                        hasReacted
+                          ? "bg-primary/15 text-primary border-primary/40 font-semibold dark:bg-primary/25 dark:text-primary-foreground"
+                          : "bg-background/95 text-foreground border-border",
+                      )}
+                    >
+                      <span>{emoji}</span>
+                      {users.length > 1 && (
+                        <span className="text-[10px]">{users.length}</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -392,14 +444,14 @@ export const MessageBubble = memo(
           {!isRecalled && message.status !== "sending" && (
             <div
               className={cn(
-                "opacity-0 group-hover/bubble:opacity-100 transition-opacity flex items-center gap-0.5 bg-background/95 backdrop-blur border rounded-full px-1.5 py-0.5 shadow-sm z-20",
+                "opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 bg-background/95 backdrop-blur border rounded-full px-1.5 py-0.5 shadow-sm z-20",
               )}
             >
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowReactionPicker((v) => !v)}
-                  className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                  className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                   title="Thả cảm xúc"
                 >
                   <SmilePlus className="w-3.5 h-3.5" />
@@ -408,7 +460,7 @@ export const MessageBubble = memo(
                 {showReactionPicker && (
                   <div
                     className={cn(
-                      "absolute bottom-full mb-1.5 flex items-center gap-1 bg-background border rounded-full px-2 py-1 shadow-lg z-30",
+                      "absolute bottom-full mb-1.5 flex items-center gap-1 bg-background border rounded-full px-2.5 py-1 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-150",
                       isMe ? "right-0" : "left-0",
                     )}
                   >
@@ -420,7 +472,7 @@ export const MessageBubble = memo(
                           onReact?.(message, emoji);
                           setShowReactionPicker(false);
                         }}
-                        className="text-base hover:scale-125 transition-transform px-0.5"
+                        className="text-base hover:scale-125 transition-transform px-0.5 cursor-pointer"
                       >
                         {emoji}
                       </button>
@@ -432,7 +484,7 @@ export const MessageBubble = memo(
               <button
                 type="button"
                 onClick={() => onReply?.(message)}
-                className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                 title="Trả lời"
               >
                 <Reply className="w-3.5 h-3.5" />
@@ -441,9 +493,9 @@ export const MessageBubble = memo(
               <button
                 type="button"
                 onClick={() => onTogglePin?.(message)}
-                className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                 title={
-                  message.metadata?.isPinned
+                  message.isPinned || message.metadata?.isPinned
                     ? "Bỏ ghim tin nhắn"
                     : "Ghim tin nhắn"
                 }
@@ -455,7 +507,7 @@ export const MessageBubble = memo(
                 <button
                   type="button"
                   onClick={() => onEdit?.(message)}
-                  className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                  className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                   title="Chỉnh sửa"
                 >
                   <Pencil className="w-3.5 h-3.5" />
@@ -466,7 +518,7 @@ export const MessageBubble = memo(
                 <button
                   type="button"
                   onClick={() => onRecall?.(message)}
-                  className="p-1 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                  className="p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer"
                   title="Thu hồi"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />

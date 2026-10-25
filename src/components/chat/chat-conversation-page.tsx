@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowDown,
   Loader2,
@@ -25,7 +25,11 @@ import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import { useHydratedStore } from "@/utils/hooks/use-hydrated-store";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
 import { useChatScroll } from "@/utils/hooks/use-chat-scroll";
-import { CallTypeEnum, MessageTypeEnum } from "@/common/enum";
+import {
+  CallTypeEnum,
+  ConversationTypeEnum,
+  MessageTypeEnum,
+} from "@/common/enum";
 
 interface ChatConversationPageProps {
   params: { id: string };
@@ -62,10 +66,18 @@ export default function ChatConversationPage({
   const { groupMessagesTime } = useDateFormat();
   const conversationId = params?.id || "";
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<
+    string | null
+  >(null);
+  const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const currentConversation = useMemo(
     () => conversations.find((c) => c.id === conversationId),
     [conversations, conversationId],
   );
+
+  const isGroupChat = currentConversation?.type === ConversationTypeEnum.GROUP;
 
   const rawMessages = useMemo(
     () => (conversationId ? messages[conversationId] || [] : []),
@@ -76,7 +88,9 @@ export default function ChatConversationPage({
     () =>
       [...rawMessages]
         .reverse()
-        .find((m) => m.metadata?.isPinned && m.status !== "removed"),
+        .find(
+          (m) => (m.isPinned || m.metadata?.isPinned) && m.status !== "removed",
+        ),
     [rawMessages],
   );
 
@@ -92,8 +106,6 @@ export default function ChatConversationPage({
 
   const meta = conversationId ? messagesMeta[conversationId] : null;
   const hasMore = meta ? meta.page < meta.totalPages : true;
-
-  const [currentPage, setCurrentPage] = useState(1);
 
   const {
     scrollRef,
@@ -111,8 +123,27 @@ export default function ChatConversationPage({
       setCurrentPage(1);
       fetchMessages(conversationId, 1);
     }
-    return () => setActiveConversation(null);
+    return () => {
+      setActiveConversation(null);
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
   }, [conversationId, fetchMessages, setActiveConversation]);
+
+  const scrollToMessage = useCallback((messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      highlightTimerRef.current = setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 2200);
+    }
+  }, []);
 
   const onContainerScroll = async (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
@@ -243,7 +274,11 @@ export default function ChatConversationPage({
         {/* Thanh hiển thị Tin nhắn đã ghim */}
         {pinnedMessage && (
           <div className="flex items-center justify-between gap-2 px-4 py-1.5 bg-primary/5 border-t text-xs">
-            <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => scrollToMessage(pinnedMessage.id)}
+              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer hover:opacity-85"
+            >
               <Pin className="w-3.5 h-3.5 text-primary shrink-0 rotate-45" />
               <span className="font-semibold text-primary shrink-0">
                 Tin nhắn đã ghim:
@@ -251,7 +286,7 @@ export default function ChatConversationPage({
               <span className="truncate text-muted-foreground">
                 {pinnedMessage.content}
               </span>
-            </div>
+            </button>
             <Button
               variant="ghost"
               size="icon"
@@ -341,9 +376,12 @@ export default function ChatConversationPage({
                           <div className="flex-1">
                             <MessageBubble
                               message={msg}
+                              currentUserId={currentUser.user.id}
                               isMe={isMe}
+                              isGroupChat={isGroupChat}
                               isContinuous={!!isContinuous}
                               isLastInGroup={isLastInGroup}
+                              isHighlighted={highlightedMessageId === msg.id}
                               avatarUrl={
                                 isMe
                                   ? currentUser.user.avatar
@@ -377,12 +415,15 @@ export default function ChatConversationPage({
                                 pinMessage({
                                   conversationId,
                                   messageId: m.id,
-                                  isPinned: !m.metadata?.isPinned,
+                                  isPinned: !(
+                                    m.isPinned || m.metadata?.isPinned
+                                  ),
                                 })
                               }
                               onCallbackCall={(callType) =>
                                 initiateCall(conversationId, callType)
                               }
+                              onScrollToMessage={scrollToMessage}
                             />
                           </div>
 
@@ -442,6 +483,7 @@ export default function ChatConversationPage({
           onSendMessage={handleSendMessage}
           onSendAttachments={handleSendAttachments}
           onConfirmEdit={handleConfirmEdit}
+          onScrollToMessage={scrollToMessage}
         />
       </div>
     </div>

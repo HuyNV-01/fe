@@ -143,16 +143,31 @@ export const useChatSocket = () => {
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.CALL.INCOMING,
       (payload) => {
+        const currentActive = useChatStore.getState().activeCall;
+        if (currentActive && currentActive.callId !== payload.callId) {
+          socketService.send(
+            SocketNamespaceEnum.CHAT,
+            SOCKET_EVENTS.CALL.REJECT,
+            { callId: payload.callId, reason: "busy" },
+          );
+          return;
+        }
+
         setActiveCall({
           callId: payload.callId,
           conversationId: payload.conversationId,
           callType: payload.callType,
+          isGroupCall: payload.isGroupCall,
           initiatorId: payload.callerId,
+          callerName: payload.callerName,
+          callerAvatar: payload.callerAvatar,
           status: CallStatusEnum.RINGING,
           isIncoming: true,
           sdpOffer: payload.sdpOffer,
           startedAt: payload.createdAt,
-          participants: {},
+          participants: payload.participants || {},
+          membersInfo: payload.membersInfo || [],
+          isMinimized: false,
         });
       },
     );
@@ -165,6 +180,7 @@ export const useChatSocket = () => {
           status: CallStatusEnum.ONGOING,
           answeredAt: payload.answeredAt,
           participants: payload.participants || {},
+          membersInfo: payload.membersInfo,
         });
       },
     );
@@ -187,7 +203,10 @@ export const useChatSocket = () => {
     const cleanCallEnded = socketService.on<any>(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.CALL.ENDED,
-      () => {
+      (payload) => {
+        if (payload?.reason === "timeout") {
+          toast.info("Người nhận không phản hồi cuộc gọi");
+        }
         setActiveCall(null);
       },
     );
@@ -199,6 +218,7 @@ export const useChatSocket = () => {
         const active = useChatStore.getState().activeCall;
         if (!active || active.callId !== payload.callId) return;
         updateActiveCall({
+          ...(payload.callType ? { callType: payload.callType } : {}),
           participants: {
             ...active.participants,
             [payload.userId]: payload.participantState,
