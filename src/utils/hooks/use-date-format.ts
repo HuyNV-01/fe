@@ -13,6 +13,16 @@ export const useDateFormat = () => {
     [locale],
   );
 
+  const toMessageTime = useCallback(
+    (date: string | Date) => DateUtils.formatMessageTime(date, locale),
+    [locale],
+  );
+
+  const toFullDateTime = useCallback(
+    (date: string | Date) => DateUtils.formatFullDateTime(date, locale),
+    [locale],
+  );
+
   const toRelativeTime = useCallback(
     (date: string | Date) => DateUtils.formatRelativeTime(date, locale),
     [locale],
@@ -26,6 +36,8 @@ export const useDateFormat = () => {
   return {
     locale,
     toChatTime,
+    toMessageTime,
+    toFullDateTime,
     toRelativeTime,
     groupMessagesTime,
     utils: DateUtils,

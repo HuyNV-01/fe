@@ -51,6 +51,9 @@ import { v4 as uuidv4 } from "uuid";
 import { DEFAULT_LIMIT_INBOX, DEFAULT_LIMIT_MESSAGE } from "@/constant";
 import { toast } from "sonner";
 
+import { useNotificationStore } from "../notification/use-notification-store";
+import { parseSafeDate } from "@/utils/date-helper";
+
 const typingTimers = new Map<string, NodeJS.Timeout>();
 
 interface ChatState {
@@ -201,9 +204,11 @@ export const useChatStore = createPersistedStore<ChatState>(
     setActiveConversation: (id) => {
       const { activeConversationId, isSocketConnected } = get();
 
-      if (activeConversationId === id) return;
-
-      if (activeConversationId && isSocketConnected) {
+      if (
+        activeConversationId &&
+        activeConversationId !== id &&
+        isSocketConnected
+      ) {
         socketService
           .emit(SocketNamespaceEnum.CHAT, SOCKET_EVENTS.CHAT.LEAVE_ROOM, {
             conversationId: activeConversationId,
@@ -220,6 +225,11 @@ export const useChatStore = createPersistedStore<ChatState>(
       });
 
       if (!id) return;
+
+      useNotificationStore
+        .getState()
+        .markConversationNotificationsRead(id)
+        .catch(() => {});
 
       if (isSocketConnected) {
         socketService
@@ -367,6 +377,8 @@ export const useChatStore = createPersistedStore<ChatState>(
       const isMe = message.senderId === currentUser?.id;
       const isViewing = activeConversationId === message.conversationId;
 
+      let isNewMessageAdded = false;
+
       set((state) => {
         const convId = message.conversationId;
         if (!state.messages[convId]) state.messages[convId] = [];
@@ -389,6 +401,7 @@ export const useChatStore = createPersistedStore<ChatState>(
           msgs[existingIndex] = newMessage;
         } else {
           msgs.push(newMessage);
+          isNewMessageAdded = true;
         }
 
         const convIndex = state.conversations.findIndex((c) => c.id === convId);
@@ -401,10 +414,12 @@ export const useChatStore = createPersistedStore<ChatState>(
               : `[${message.type}] ${message.content || ""}`;
           updatedConv.lastMessageAt = message.createdAt;
 
-          if (!isMe && !isViewing) {
-            updatedConv.unreadCount = (updatedConv.unreadCount || 0) + 1;
-          } else if (isViewing) {
+          const currentUnread = Number(updatedConv.unreadCount || 0);
+
+          if (isViewing || isMe) {
             updatedConv.unreadCount = 0;
+          } else if (isNewMessageAdded) {
+            updatedConv.unreadCount = currentUnread + 1;
           }
 
           state.conversations.splice(convIndex, 1);
@@ -570,8 +585,14 @@ export const useChatStore = createPersistedStore<ChatState>(
 
     handleReadMessage: ({ conversationId, userId, lastReadAt, user }) => {
       const currentUser = useAuthStore.getState().currentAccount?.user;
+      const readAtDate = parseSafeDate(lastReadAt);
 
       set((state) => {
+        if (userId === currentUser?.id) {
+          const conv = state.conversations.find((c) => c.id === conversationId);
+          if (conv) conv.unreadCount = 0;
+        }
+
         const msgs = state.messages[conversationId];
         if (!msgs) return;
 
@@ -583,7 +604,8 @@ export const useChatStore = createPersistedStore<ChatState>(
             msg.status !== "read" &&
             msg.status !== "removed"
           ) {
-            if (new Date(msg.createdAt) <= new Date(lastReadAt)) {
+            const msgDate = parseSafeDate(msg.createdAt);
+            if (!readAtDate || !msgDate || msgDate <= readAtDate) {
               const newMsg = { ...msg, status: "read" as MessageStatus };
 
               if (!newMsg.readBy) newMsg.readBy = [];
@@ -649,12 +671,22 @@ export const useChatStore = createPersistedStore<ChatState>(
           params: { page, limit: limit || DEFAULT_LIMIT_INBOX, search },
         });
 
+        const normalizedList = (res.data.data || []).map(
+          (item: IConversation) => ({
+            ...item,
+            unreadCount:
+              item.id === get().activeConversationId
+                ? 0
+                : Math.max(0, Number(item.unreadCount || 0)),
+          }),
+        );
+
         if (search) {
           set((state) => {
             if (page === 1) {
-              state.tempConversations = res.data.data;
+              state.tempConversations = normalizedList;
             } else {
-              const newConvs = res.data.data.filter(
+              const newConvs = normalizedList.filter(
                 (newC: { id: string }) =>
                   !state.tempConversations.some((curr) => curr.id === newC.id),
               );
@@ -667,9 +699,9 @@ export const useChatStore = createPersistedStore<ChatState>(
         } else {
           set((state) => {
             if (page === 1) {
-              state.conversations = res.data.data;
+              state.conversations = normalizedList;
             } else {
-              const newConvs = res.data.data.filter(
+              const newConvs = normalizedList.filter(
                 (newC: { id: string }) =>
                   !state.conversations.some((curr) => curr.id === newC.id),
               );

@@ -1,11 +1,10 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PatternButton } from "../button/button-patterns";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 import { AccountMenu } from "../dropdown-menu/account-menu";
+import { NotificationBell } from "../notifications/notification-bell";
 
 interface NavActionsProps {
   actions: {
@@ -28,7 +27,7 @@ export function NavActions({ actions, className }: NavActionsProps) {
     router.push(`${config.routes.public.register}`);
   };
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex items-center gap-2.5", className)}>
       {actions.showSignIn && (
         <PatternButton
           variant="glass"
@@ -54,7 +53,12 @@ export function NavActions({ actions, className }: NavActionsProps) {
         </PatternButton>
       )}
 
-      {actions.showAccount && <AccountMenu />}
+      {actions.showAccount && (
+        <>
+          <NotificationBell />
+          <AccountMenu />
+        </>
+      )}
     </div>
   );
 }

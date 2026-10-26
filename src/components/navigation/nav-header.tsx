@@ -11,6 +11,7 @@ import { AccountMenu } from "../dropdown-menu/account-menu";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import config from "@/config";
 import { LiquidGlassNavigation } from "../liquid-glass/liquid-glass";
+import { NotificationBell } from "../notifications/notification-bell";
 
 interface NavHeaderProps {
   logo?: {
@@ -73,7 +74,12 @@ export function NavHeader({
 
           {/* Mobile Menu Trigger */}
           <div className="md:hidden h-full relative flex items-center justify-between space-x-2">
-            {resolvedActions.showAccount && <AccountMenu />}
+            {resolvedActions.showAccount && (
+              <>
+                <NotificationBell />
+                <AccountMenu />
+              </>
+            )}
             <div className="h-5">
               <Separator orientation="vertical" />
             </div>

@@ -114,13 +114,19 @@ export default function ChatConversationPage({
 
   const {
     scrollRef,
+    contentRef,
     bottomRef,
     scrollToBottom,
     handleScroll,
     saveScrollSnapshot,
     showScrollButton,
     unreadCount,
-  } = useChatScroll(rawMessages, conversationId, currentUser?.user?.id || "");
+  } = useChatScroll(
+    rawMessages,
+    conversationId,
+    currentUser?.user?.id || "",
+    isLoadingMessages,
+  );
 
   useEffect(() => {
     if (conversationId) {
@@ -333,119 +339,124 @@ export default function ChatConversationPage({
           onScroll={onContainerScroll}
           className="h-full overflow-y-auto overflow-x-hidden px-2 md:px-4 pt-4 pb-2 scroll-smooth [overflow-anchor:none]"
         >
-          {/* Top Loader */}
-          {isLoadingMessages && currentPage > 1 && (
-            <div className="flex justify-center w-full py-4 animate-in fade-in zoom-in duration-300">
-              <Loader2 className="h-5 w-5 text-primary/60 animate-spin" />
-            </div>
-          )}
-
-          {/* Message List */}
-          {groupedMessages.map((group, gIndex) => (
-            <div key={`${group.label}-${gIndex}`} className="mb-6">
-              <div className="flex justify-center mb-4 sticky top-0 z-10 pointer-events-none">
-                <span className="text-[10px] font-medium bg-muted/90 backdrop-blur-md px-3 py-1 rounded-full border border-border/40 select-none shadow-2xs">
-                  {group.label}
-                </span>
+          <div
+            ref={contentRef}
+            className="flex flex-col min-h-full justify-end"
+          >
+            {/* Top Loader */}
+            {isLoadingMessages && currentPage > 1 && (
+              <div className="flex justify-center w-full py-4 animate-in fade-in zoom-in duration-300">
+                <Loader2 className="h-5 w-5 text-primary/60 animate-spin" />
               </div>
-              <div className="flex flex-col space-y-0.5">
-                {group.messages.map((msg, index) => {
-                  const isMe = msg.senderId === currentUser.user.id;
+            )}
 
-                  const nextMsg = group.messages[index + 1];
-                  const prevMsg = group.messages[index - 1];
-                  const isContinuous =
-                    prevMsg && prevMsg.senderId === msg.senderId;
-                  const isLastInGroup =
-                    !nextMsg || nextMsg.senderId !== msg.senderId;
+            {/* Message List */}
+            {groupedMessages.map((group, gIndex) => (
+              <div key={`${group.label}-${gIndex}`} className="mb-6">
+                <div className="flex justify-center mb-4 sticky top-0 z-10 pointer-events-none">
+                  <span className="text-[10px] font-medium bg-muted/90 backdrop-blur-md px-3 py-1 rounded-full border border-border/40 select-none shadow-2xs">
+                    {group.label}
+                  </span>
+                </div>
+                <div className="flex flex-col space-y-0.5">
+                  {group.messages.map((msg, index) => {
+                    const isMe = msg.senderId === currentUser.user.id;
 
-                  return (
-                    <div
-                      key={msg.id}
-                      className="group relative flex w-full flex-col"
-                    >
-                      <MessageBubble
-                        message={msg}
-                        currentUserId={currentUser.user.id}
-                        isMe={isMe}
-                        isGroupChat={isGroupChat}
-                        isContinuous={!!isContinuous}
-                        isLastInGroup={isLastInGroup}
-                        isHighlighted={highlightedMessageId === msg.id}
-                        avatarUrl={
-                          isMe
-                            ? currentUser.user.avatar || undefined
-                            : msg.sender?.avatar || undefined
-                        }
-                        displayName={isMe ? "Tôi" : msg.sender?.name}
-                        displayReaders={readReceiptsMap[msg.id]}
-                        uploadPercent={
-                          msg.tempId ? uploadProgress[msg.tempId] : undefined
-                        }
-                        onReply={(m) => setReplyingTo(conversationId, m)}
-                        onEdit={(m) => setEditingMessage(conversationId, m)}
-                        onRecall={(m) =>
-                          recallMessage({
-                            conversationId,
-                            messageId: m.id,
-                          })
-                        }
-                        onReact={(m, emoji) =>
-                          reactMessage({
-                            conversationId,
-                            messageId: m.id,
-                            emoji,
-                          })
-                        }
-                        onTogglePin={(m) =>
-                          pinMessage({
-                            conversationId,
-                            messageId: m.id,
-                            isPinned: !(m.isPinned || m.metadata?.isPinned),
-                          })
-                        }
-                        onCallbackCall={(callType) =>
-                          initiateCall(conversationId, callType)
-                        }
-                        onScrollToMessage={scrollToMessage}
-                      />
+                    const nextMsg = group.messages[index + 1];
+                    const prevMsg = group.messages[index - 1];
+                    const isContinuous =
+                      prevMsg && prevMsg.senderId === msg.senderId;
+                    const isLastInGroup =
+                      !nextMsg || nextMsg.senderId !== msg.senderId;
 
-                      {/* Thanh hành động Gửi lại / Xóa khi gửi lỗi */}
-                      {isMe && msg.status === "failed" && (
-                        <div className="w-full flex items-center justify-end gap-2 pr-4 mt-0.5">
-                          <span className="inline-flex items-center gap-1 text-[11px] text-destructive font-medium">
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            Gửi thất bại
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-[11px] text-blue-600 hover:bg-blue-500/10 rounded-full"
-                            onClick={() => handleRetry(msg.id, msg.content)}
-                          >
-                            <RefreshCw className="w-3 h-3 mr-1" />
-                            Thử lại
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10 rounded-full"
-                            onClick={() => handleDeleteFailed(msg.id)}
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Xóa
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    return (
+                      <div
+                        key={msg.id}
+                        className="group relative flex w-full flex-col"
+                      >
+                        <MessageBubble
+                          message={msg}
+                          currentUserId={currentUser.user.id}
+                          isMe={isMe}
+                          isGroupChat={isGroupChat}
+                          isContinuous={!!isContinuous}
+                          isLastInGroup={isLastInGroup}
+                          isHighlighted={highlightedMessageId === msg.id}
+                          avatarUrl={
+                            isMe
+                              ? currentUser.user.avatar || undefined
+                              : msg.sender?.avatar || undefined
+                          }
+                          displayName={isMe ? "Tôi" : msg.sender?.name}
+                          displayReaders={readReceiptsMap[msg.id]}
+                          uploadPercent={
+                            msg.tempId ? uploadProgress[msg.tempId] : undefined
+                          }
+                          onReply={(m) => setReplyingTo(conversationId, m)}
+                          onEdit={(m) => setEditingMessage(conversationId, m)}
+                          onRecall={(m) =>
+                            recallMessage({
+                              conversationId,
+                              messageId: m.id,
+                            })
+                          }
+                          onReact={(m, emoji) =>
+                            reactMessage({
+                              conversationId,
+                              messageId: m.id,
+                              emoji,
+                            })
+                          }
+                          onTogglePin={(m) =>
+                            pinMessage({
+                              conversationId,
+                              messageId: m.id,
+                              isPinned: !(m.isPinned || m.metadata?.isPinned),
+                            })
+                          }
+                          onCallbackCall={(callType) =>
+                            initiateCall(conversationId, callType)
+                          }
+                          onScrollToMessage={scrollToMessage}
+                        />
+
+                        {/* Thanh hành động Gửi lại / Xóa khi gửi lỗi */}
+                        {isMe && msg.status === "failed" && (
+                          <div className="w-full flex items-center justify-end gap-2 pr-4 mt-0.5">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-destructive font-medium">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              Gửi thất bại
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-[11px] text-blue-600 hover:bg-blue-500/10 rounded-full"
+                              onClick={() => handleRetry(msg.id, msg.content)}
+                            >
+                              <RefreshCw className="w-3 h-3 mr-1" />
+                              Thử lại
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10 rounded-full"
+                              onClick={() => handleDeleteFailed(msg.id)}
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Xóa
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          {/* Bottom Anchor */}
-          <div ref={bottomRef} className="h-px w-full shrink-0" />
+            {/* Bottom Anchor */}
+            <div ref={bottomRef} className="h-px w-full shrink-0" />
+          </div>
         </div>
 
         {/* Scroll Button */}

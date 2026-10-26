@@ -72,19 +72,24 @@ export const MessageBubble = memo(
     onCallbackCall,
     onScrollToMessage,
   }: MessageBubbleProps) => {
-    const { toChatTime } = useDateFormat();
+    const { toMessageTime, toFullDateTime } = useDateFormat();
     const [showReactionPicker, setShowReactionPicker] = useState(false);
-
-    const timeString = useMemo(
-      () => toChatTime(message.createdAt),
-      [message.createdAt, toChatTime],
-    );
 
     const isRecalled = message.status === "removed";
     const attachments = message.metadata?.attachments || [];
     const replyPreview = message.metadata?.replyPreview;
     const reactions = message.metadata?.reactions || {};
     const callInfo = message.metadata?.callInfo;
+
+    const timeString = useMemo(
+      () => toMessageTime(message.createdAt),
+      [message.createdAt, toMessageTime],
+    );
+
+    const fullTimeTitle = useMemo(
+      () => toFullDateTime(message.createdAt),
+      [message.createdAt, toFullDateTime],
+    );
 
     const reactionEntries = useMemo(
       () =>
@@ -405,7 +410,7 @@ export const MessageBubble = memo(
               {!isRecalled && message.metadata?.isEdited && (
                 <span className="italic">(Đã sửa)</span>
               )}
-              <span>{timeString}</span>
+              <span title={fullTimeTitle}>{timeString}</span>
               {StatusIcon}
             </div>
 

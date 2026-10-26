@@ -47,7 +47,10 @@ export const SOCKET_EVENTS = {
   },
   NOTIFICATION: {
     NEW: "new_notification",
+    UPDATED: "notification_updated",
+    MARK_READ: "notification_read",
     READ_ALL: "read_all_notifications",
+    REMOVED: "notification_removed",
   },
   SYSTEM: {
     EXCEPTION: "exception",

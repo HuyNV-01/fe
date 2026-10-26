@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/correctness/useExhaustiveDependencies: <explanation> */
 import {
   useRef,
   useCallback,
@@ -15,61 +16,81 @@ export const useChatScroll = <T extends IBaseMessage>(
   messages: T[],
   conversationId: string,
   currentUserId: string,
+  isLoadingMessages = false,
 ) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // --- INTERNAL STATE (REFS) ---
-  // Dùng refs để lưu trữ trạng thái mà không gây re-render
   const prevScrollHeight = useRef<number>(0);
   const prevFirstMsgId = useRef<string | null>(null);
   const prevLastMsgId = useRef<string | null>(null);
 
-  // Ref lưu ID hội thoại hiện tại để so sánh sự thay đổi
-  const activeConversationIdRef = useRef<string>(conversationId);
-
-  // Trạng thái ghim đáy
+  const activeConversationIdRef = useRef<string>("");
+  const initialScrolledConvRef = useRef<string | null>(null);
   const isPinnedToBottom = useRef<boolean>(true);
+  const isProgrammaticScrollRef = useRef<boolean>(false);
 
-  // 1. TẮT TÍNH NĂNG NHỚ VỊ TRÍ CỦA TRÌNH DUYỆT
   useLayoutEffect(() => {
     if (typeof window !== "undefined" && "scrollRestoration" in history) {
       history.scrollRestoration = "manual";
     }
   }, []);
 
-  // 2. HELPER: CUỘN ĐÁY CHỦ ĐỘNG
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
-    isPinnedToBottom.current = true;
-    setShowScrollButton(false);
-    setUnreadCount(0);
+  const performScrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "auto") => {
+      const node = scrollRef.current;
+      if (!node) return;
 
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior, block: "end" });
-    } else if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, []);
+      isPinnedToBottom.current = true;
+      isProgrammaticScrollRef.current = true;
+      setShowScrollButton(false);
+      setUnreadCount(0);
 
-  // 3. HANDLER: NGƯỜI DÙNG CUỘN
+      if (behavior === "auto" || behavior === "instant") {
+        node.scrollTop = node.scrollHeight;
+        bottomRef.current?.scrollIntoView({
+          behavior: "instant" as ScrollBehavior,
+          block: "end",
+        });
+      } else {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      }
+
+      setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 150);
+    },
+    [],
+  );
+
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      performScrollToBottom(behavior);
+    },
+    [performScrollToBottom],
+  );
+
   const handleScroll = useCallback(() => {
+    if (isProgrammaticScrollRef.current) return;
     const node = scrollRef.current;
     if (!node) return;
 
     const { scrollTop, scrollHeight, clientHeight } = node;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-    const isAtBottom = distanceFromBottom < 50;
+    const isAtBottom = distanceFromBottom <= 80;
 
     isPinnedToBottom.current = isAtBottom;
     setShowScrollButton(!isAtBottom);
 
-    if (isAtBottom) setUnreadCount(0);
+    if (isAtBottom) {
+      setUnreadCount(0);
+    }
   }, []);
 
-  // 4. SNAPSHOT TRƯỚC KHI FETCH
   const saveScrollSnapshot = useCallback(() => {
     const node = scrollRef.current;
     if (node) {
@@ -77,117 +98,118 @@ export const useChatScroll = <T extends IBaseMessage>(
     }
   }, []);
 
-  // 5. CORE LOGIC: QUẢN LÝ CUỘN TẬP TRUNG
-  // ✅ Đã thêm đầy đủ dependencies theo yêu cầu ESLint
   useLayoutEffect(() => {
-    const node = scrollRef.current;
-    if (!node) return;
-
-    // Lấy thông tin hiện tại
-    const currentScrollHeight = node.scrollHeight;
-    const currentFirstMsgId = messages.length > 0 ? messages[0].id : null;
-    const currentLastMsgId =
-      messages.length > 0 ? messages[messages.length - 1].id : null;
-
-    // --- LOGIC 1: PHÁT HIỆN ĐỔI PHÒNG (RESET) ---
-    // So sánh conversationId props với ref đã lưu
     if (conversationId !== activeConversationIdRef.current) {
-      // Cập nhật lại ref
       activeConversationIdRef.current = conversationId;
-
-      // Reset trạng thái
+      initialScrolledConvRef.current = null;
       isPinnedToBottom.current = true;
       prevScrollHeight.current = 0;
       prevFirstMsgId.current = null;
       prevLastMsgId.current = null;
       setUnreadCount(0);
       setShowScrollButton(false);
+    }
+  }, [conversationId]);
 
-      // Cưỡng chế cuộn đáy (Aggressive Scroll)
-      // Sử dụng requestAnimationFrame để đảm bảo chạy sau khi trình duyệt paint
-      if (messages.length > 0) {
-        const forceScroll = () => {
-          if (bottomRef.current)
-            bottomRef.current.scrollIntoView({
-              behavior: "auto",
-              block: "end",
-            });
-        };
-        forceScroll();
-        requestAnimationFrame(() => {
-          forceScroll();
-          setTimeout(forceScroll, 50);
-        });
-      }
-      return; // Dừng logic tại đây cho lần render này
+  useLayoutEffect(() => {
+    const node = scrollRef.current;
+    if (!node || !conversationId) return;
+
+    if (messages.length === 0) {
+      prevScrollHeight.current = node.scrollHeight;
+      prevFirstMsgId.current = null;
+      prevLastMsgId.current = null;
+      return;
     }
 
-    if (messages.length === 0) return;
+    const currentScrollHeight = node.scrollHeight;
+    const currentFirstMsgId = messages[0].id;
+    const currentLastMsgId = messages[messages.length - 1].id;
 
-    // --- LOGIC 2: XỬ LÝ KHI DỮ LIỆU THAY ĐỔI ---
+    if (initialScrolledConvRef.current !== conversationId) {
+      initialScrolledConvRef.current = conversationId;
+      isPinnedToBottom.current = true;
 
-    // CASE: LOAD HISTORY (PREPEND)
-    // ID đầu thay đổi và chiều cao tăng
+      performScrollToBottom("instant" as ScrollBehavior);
+
+      const raf1 = requestAnimationFrame(() => {
+        performScrollToBottom("instant" as ScrollBehavior);
+      });
+      const timer1 = setTimeout(() => {
+        if (isPinnedToBottom.current) {
+          performScrollToBottom("instant" as ScrollBehavior);
+        }
+      }, 80);
+
+      prevScrollHeight.current = node.scrollHeight;
+      prevFirstMsgId.current = currentFirstMsgId;
+      prevLastMsgId.current = currentLastMsgId;
+
+      return () => {
+        cancelAnimationFrame(raf1);
+        clearTimeout(timer1);
+      };
+    }
+
     if (
       prevFirstMsgId.current &&
       currentFirstMsgId !== prevFirstMsgId.current &&
+      currentLastMsgId === prevLastMsgId.current &&
       currentScrollHeight > prevScrollHeight.current
     ) {
       const heightDiff = currentScrollHeight - prevScrollHeight.current;
-      // Bù đắp vị trí cuộn (Scroll Compensation)
+      isProgrammaticScrollRef.current = true;
       node.scrollTop = node.scrollTop + heightDiff;
-    }
-
-    // CASE: TIN MỚI (APPEND)
-    // ID cuối thay đổi (so với lần render trước)
-    else if (currentLastMsgId !== prevLastMsgId.current) {
+      setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 100);
+    } else if (currentLastMsgId !== prevLastMsgId.current) {
       const lastMsg = messages[messages.length - 1];
-      const isMyMessage = lastMsg?.senderId === currentUserId;
+      const isMyMessage = Boolean(
+        currentUserId && lastMsg?.senderId === currentUserId,
+      );
 
-      // Nếu là tin của tôi HOẶC đang dính đáy -> Cuộn
       if (isMyMessage || isPinnedToBottom.current) {
-        scrollToBottom("smooth");
+        performScrollToBottom("smooth");
       } else {
-        // Nếu không -> Báo tin mới
         setUnreadCount((prev) => prev + 1);
       }
-    }
-
-    // CASE: HÌNH ẢNH LOAD CHẬM (RESIZE)
-    // Nếu ID không đổi nhưng chiều cao thay đổi và đang dính đáy -> Cuộn tiếp
-    else if (
+    } else if (
       isPinnedToBottom.current &&
       currentScrollHeight !== prevScrollHeight.current
     ) {
-      if (bottomRef.current)
-        bottomRef.current.scrollIntoView({ behavior: "auto", block: "end" });
+      performScrollToBottom("instant" as ScrollBehavior);
     }
 
-    // --- CẬP NHẬT REF CHO LẦN SAU ---
-    prevScrollHeight.current = currentScrollHeight;
+    prevScrollHeight.current = node.scrollHeight;
     prevFirstMsgId.current = currentFirstMsgId;
     prevLastMsgId.current = currentLastMsgId;
-  }, [messages, conversationId, currentUserId, scrollToBottom]);
-  // ^ Dependency đầy đủ: messages, conversationId, currentUserId, scrollToBottom
+  }, [
+    messages,
+    conversationId,
+    currentUserId,
+    isLoadingMessages,
+    performScrollToBottom,
+  ]);
 
-  // 6. OBSERVER
   useEffect(() => {
-    const node = scrollRef.current;
-    if (!node) return;
+    const contentNode = contentRef.current;
+    const scrollNode = scrollRef.current;
+    if (!contentNode || !scrollNode) return;
 
     const observer = new ResizeObserver(() => {
       if (isPinnedToBottom.current) {
-        if (bottomRef.current)
-          bottomRef.current.scrollIntoView({ behavior: "auto", block: "end" });
+        scrollNode.scrollTop = scrollNode.scrollHeight;
       }
     });
 
-    observer.observe(node);
+    observer.observe(contentNode);
     return () => observer.disconnect();
-  }, []);
+  }, [conversationId]);
 
   return {
     scrollRef,
+    contentRef,
     bottomRef,
     scrollToBottom,
     handleScroll,
