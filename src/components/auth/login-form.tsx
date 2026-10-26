@@ -1,3 +1,9 @@
+/** biome-ignore-all lint/correctness/useExhaustiveDependencies: <explanation> */
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { MailCheck } from "lucide-react";
 import {
   Field,
   FieldError,
@@ -20,9 +26,31 @@ import { showErrorToast, showSuccessToast } from "@/utils/toast";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const activatedParam = searchParams.get("activated");
+  const activationHandledRef = useRef(false);
+
   const tMessage = useTranslations("Messages.error");
   const tForm = useTranslations("Form.Login");
   const login = useAuthStore((s) => s.login);
+  const resendActivation = useAuthStore((s) => s.resendActivation);
+  const status = useAuthStore((s) => s.status);
+
+  const [pendingActivationEmail, setPendingActivationEmail] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    if (!activatedParam || activationHandledRef.current) return;
+    activationHandledRef.current = true;
+
+    if (activatedParam === "true") {
+      showSuccessToast(tMessage("toast.3010"));
+    } else if (activatedParam === "failed") {
+      showErrorToast(tMessage("toast.3011"));
+    }
+  }, [activatedParam]);
+
   const form = useForm({
     defaultValues: {
       email: EMPTY_STRING,
@@ -32,14 +60,18 @@ export function LoginForm() {
       onChange: loginSchema,
     },
     onSubmit: async ({ value }) => {
+      setPendingActivationEmail(null);
       await login(
         { ...value },
         {
           onSuccess: (code) => {
-            router.push(`${config.routes.public.home}`);
+            router.push(`${config.routes.private.chat}`);
             showSuccessToast(tMessage(`toast.${code}`));
           },
           onError: (code) => {
+            if (Number(code) === 3003) {
+              setPendingActivationEmail(value.email.trim());
+            }
             showErrorToast(
               tMessage(`toast.${code}`) || tMessage("toast.error"),
             );
@@ -48,6 +80,22 @@ export function LoginForm() {
       );
     },
   });
+
+  const handleResendActivation = async () => {
+    if (!pendingActivationEmail) return;
+    await resendActivation(
+      { email: pendingActivationEmail },
+      {
+        onSuccess: (code) => {
+          showSuccessToast(tMessage(`toast.${code || 3022}`));
+          setPendingActivationEmail(null);
+        },
+        onError: (code) => {
+          showErrorToast(tMessage(`toast.${code}`) || tMessage("toast.error"));
+        },
+      },
+    );
+  };
 
   return (
     <form
@@ -119,6 +167,29 @@ export function LoginForm() {
             </form.Field>
           </FieldGroup>
         </FieldSet>
+
+        {pendingActivationEmail && (
+          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2 text-xs">
+            <p className="text-amber-700 dark:text-amber-300 font-medium">
+              Tài khoản{" "}
+              <span className="font-bold">{pendingActivationEmail}</span> chưa
+              được kích hoạt.
+            </p>
+            <PatternButton
+              type="button"
+              variant="outline"
+              color="warning"
+              size="sm"
+              rounded="full"
+              isLoading={status === "wait"}
+              icon={<MailCheck className="w-3.5 h-3.5" />}
+              onClick={handleResendActivation}
+            >
+              {tForm("button.resendActivation")}
+            </PatternButton>
+          </div>
+        )}
+
         <Field className="space-y-3">
           <PatternButton
             type="submit"
@@ -126,6 +197,7 @@ export function LoginForm() {
             variant="solid"
             size="md"
             fullWidth
+            isLoading={status === "loading"}
             rounded={"full"}
           >
             {tForm("button.login")}

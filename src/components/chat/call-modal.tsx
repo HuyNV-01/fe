@@ -42,6 +42,7 @@ import { socketService } from "@/services/socket/socket-client";
 import { getIceServersApi } from "@/lib/stores/chat/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { LiquidGlassAnchor } from "../liquid-glass/liquid-glass-anchor";
 
 interface RemotePeerTileProps {
   userId: string;
@@ -519,7 +520,6 @@ export function CallModal() {
     updateActiveCall,
   ]);
 
-  // Người gọi khởi tạo Offer khi cuộc gọi chuyển sang ONGOING (với những thành viên chưa có kết nối)
   useEffect(() => {
     if (!activeCall || activeCall.isIncoming) return;
     if (activeCall.status !== CallStatusEnum.ONGOING) return;
@@ -569,7 +569,6 @@ export function CallModal() {
     getOrCreatePeerConnection,
   ]);
 
-  // Bộ đếm thời gian cuộc gọi
   useEffect(() => {
     if (!activeCall || activeCall.status !== CallStatusEnum.ONGOING) return;
     const timer = setInterval(() => {
@@ -578,7 +577,6 @@ export function CallModal() {
     return () => clearInterval(timer);
   }, [activeCall?.status]);
 
-  // Tự động ngắt kết nối khi đóng tab trình duyệt
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (activeCall) {
@@ -700,7 +698,6 @@ export function CallModal() {
 
     const existingVideoTracks = stream.getVideoTracks();
 
-    // Nếu cuộc gọi bắt đầu bằng AUDIO (chưa có video track), xin quyền Camera và nâng cấp lên VIDEO
     if (existingVideoTracks.length === 0) {
       try {
         const camStream = await navigator.mediaDevices.getUserMedia({
@@ -714,7 +711,6 @@ export function CallModal() {
           localVideoRef.current.srcObject = stream;
         }
 
-        // Gắn track mới và thương lượng lại (renegotiate) với tất cả peers
         for (const [targetUserId, pc] of peersRef.current.entries()) {
           pc.addTrack(newVideoTrack, stream);
           const offer = await pc.createOffer();
@@ -813,9 +809,7 @@ export function CallModal() {
       } else {
         await stopScreenShare();
       }
-    } catch {
-      // Người dùng hủy chọn màn hình
-    }
+    } catch {}
   };
 
   const stopScreenShare = async () => {
@@ -852,16 +846,15 @@ export function CallModal() {
     conversation?.name || activeCall.callerName || "Cuộc gọi trực tuyến";
   const displayAvatar = conversation?.avatar || activeCall.callerAvatar;
 
-  // Chế độ thu nhỏ (Floating Mini Call Bar)
   if (activeCall.isMinimized) {
     return (
-      <div className="fixed bottom-6 right-6 z-50 w-80 animate-in fade-in slide-in-from-bottom-3">
+      <div className="fixed top-20 md:right-6 z-50 md:w-80 w-full px-3 animate-in fade-in slide-in-from-bottom-3">
         <LiquidGlassModal className="p-3.5 flex items-center justify-between gap-3 border border-white/30 shadow-2xl">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 mb-2.5">
             <div className="relative shrink-0">
               <Avatar className="h-10 w-10 border border-white/30">
                 <AvatarImage src={displayAvatar || undefined} />
-                <AvatarFallback className="bg-indigo-600 text-white text-xs font-bold">
+                <AvatarFallback className="bg-indigo-300 text-white text-xs font-bold">
                   {displayTitle.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -878,30 +871,31 @@ export function CallModal() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <PatternButton
-              size="icon"
-              variant={isAudioMuted ? "solid" : "ghost"}
-              color={isAudioMuted ? "danger" : "neutral"}
-              rounded="full"
-              className="h-8 w-8"
-              onClick={toggleAudio}
-            >
-              {isAudioMuted ? (
-                <MicOff className="h-3.5 w-3.5" />
-              ) : (
-                <Mic className="h-3.5 w-3.5" />
-              )}
-            </PatternButton>
-            <PatternButton
-              size="icon"
-              variant="ghost"
-              rounded="full"
-              className="h-8 w-8"
-              onClick={() => updateActiveCall({ isMinimized: false })}
-            >
-              <Maximize2 className="h-4 w-4" />
-            </PatternButton>
+          <div className="flex items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <PatternButton
+                size="icon"
+                variant={isAudioMuted ? "solid" : "ghost"}
+                rounded="full"
+                className="h-8 w-8"
+                onClick={toggleAudio}
+              >
+                {isAudioMuted ? (
+                  <MicOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Mic className="h-3.5 w-3.5" />
+                )}
+              </PatternButton>
+              <PatternButton
+                size="icon"
+                variant="ghost"
+                rounded="full"
+                className="h-8 w-8"
+                onClick={() => updateActiveCall({ isMinimized: false })}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </PatternButton>
+            </div>
             <PatternButton
               size="icon"
               variant="solid"
@@ -924,13 +918,11 @@ export function CallModal() {
         className="w-full max-w-4xl overflow-hidden border border-white/25 shadow-2xl"
         rounded="3xl"
       >
-        <div className="relative flex flex-col h-[82vh] max-h-[680px] min-h-[480px] w-full bg-gradient-to-br from-slate-900/95 via-indigo-950/85 to-slate-950/95 text-white">
-          {/* Top Bar */}
+        <div className="relative flex flex-col h-[82vh] max-h-[680px] min-h-[480px] w-full bg-gradient-to-br from-cyan-200/95 via-cyan-100/85 to-cyan-100/95 text-white">
           <div className="flex items-center justify-between px-6 py-4 z-20">
             <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-1.5 text-xs text-emerald-300/95 bg-emerald-500/15 border border-emerald-400/25 px-3 py-1 rounded-full backdrop-blur-md">
+              <div className="flex items-center gap-1.5 text-xs text-emerald-600/95 bg-emerald-500/15 border border-emerald-400/25 px-1 py-1 rounded-full backdrop-blur-md">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Mã hóa DTLS-SRTP</span>
               </div>
 
               {isGroupCall && (
@@ -946,22 +938,22 @@ export function CallModal() {
 
             <div className="flex items-center gap-3">
               {activeCall.status === CallStatusEnum.ONGOING && (
-                <span className="text-xs font-mono bg-white/10 px-3 py-1 rounded-full border border-white/15">
-                  {formatTimer(durationSec)}
-                </span>
-              )}
-
-              {activeCall.status === CallStatusEnum.ONGOING && (
-                <PatternButton
-                  size="icon"
-                  variant="glass"
-                  rounded="full"
-                  className="h-8 w-8 text-white"
-                  onClick={() => updateActiveCall({ isMinimized: true })}
-                  title="Thu nhỏ cửa sổ cuộc gọi"
-                >
-                  <Minimize2 className="w-4 h-4" />
-                </PatternButton>
+                <>
+                  <span className="text-xs font-mono bg-white/10 px-3 py-1 rounded-full border border-white/15">
+                    {formatTimer(durationSec)}
+                  </span>
+                  <PatternButton
+                    size="icon"
+                    variant="glass"
+                    rounded="full"
+                    className="h-8 w-8"
+                    onClick={() => updateActiveCall({ isMinimized: true })}
+                    title="Thu nhỏ cửa sổ cuộc gọi"
+                    glassZIndex={50}
+                  >
+                    <Minimize2 className="w-4 h-4" />
+                  </PatternButton>
+                </>
               )}
             </div>
           </div>
@@ -975,7 +967,7 @@ export function CallModal() {
                   <div className="absolute -inset-8 rounded-full bg-indigo-500/10 animate-pulse" />
                   <Avatar className="h-28 w-28 border-2 border-white/40 shadow-2xl">
                     <AvatarImage src={displayAvatar || undefined} />
-                    <AvatarFallback className="bg-indigo-600 text-white text-2xl font-bold">
+                    <AvatarFallback className="bg-indigo-300 text-white text-2xl font-bold">
                       {displayTitle.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -1050,7 +1042,6 @@ export function CallModal() {
               </div>
             )}
 
-            {/* Khung Video của bản thân (Local PiP) */}
             {(activeCall.callType === CallTypeEnum.VIDEO ||
               !isVideoOff ||
               isScreenSharing) && (
@@ -1078,107 +1069,106 @@ export function CallModal() {
             )}
           </div>
 
-          {/* Thanh điều khiển cuộc gọi (Bottom Controls) */}
-          <div className="p-5 flex justify-center z-20">
-            <LiquidGlass
-              variant="frosted"
-              blur="2xl"
-              opacity="30"
-              rounded="full"
-              border="highlight"
-              fluid={false}
-              className="px-6 py-3 flex items-center gap-3 md:gap-4 shadow-2xl"
-            >
-              {activeCall.status === CallStatusEnum.RINGING &&
-              activeCall.isIncoming ? (
-                <>
-                  <PatternButton
-                    variant="solid"
-                    color="success"
-                    rounded="full"
-                    size="lg"
-                    onClick={handleAcceptCall}
-                    icon={<PhoneCall className="w-5 h-5" />}
-                  >
-                    Trả lời
-                  </PatternButton>
-                  <PatternButton
-                    variant="solid"
-                    color="danger"
-                    rounded="full"
-                    size="lg"
-                    onClick={handleRejectCall}
-                    icon={<PhoneOff className="w-5 h-5" />}
-                  >
-                    Từ chối
-                  </PatternButton>
-                </>
-              ) : (
-                <>
-                  <PatternButton
-                    variant={isAudioMuted ? "solid" : "glass"}
-                    color={isAudioMuted ? "danger" : "neutral"}
-                    size="icon"
-                    rounded="full"
-                    className="h-12 w-12 text-white"
-                    onClick={toggleAudio}
-                    title={isAudioMuted ? "Bật Micro" : "Tắt Micro"}
-                  >
-                    {isAudioMuted ? (
-                      <MicOff className="w-5 h-5" />
-                    ) : (
-                      <Mic className="w-5 h-5" />
-                    )}
-                  </PatternButton>
-
-                  <PatternButton
-                    variant={isVideoOff ? "solid" : "glass"}
-                    color={isVideoOff ? "danger" : "neutral"}
-                    size="icon"
-                    rounded="full"
-                    className="h-12 w-12 text-white"
-                    onClick={toggleVideo}
-                    title={isVideoOff ? "Bật Camera" : "Tắt Camera"}
-                  >
-                    {isVideoOff ? (
-                      <VideoOff className="w-5 h-5" />
-                    ) : (
-                      <VideoIcon className="w-5 h-5" />
-                    )}
-                  </PatternButton>
-
-                  {activeCall.status === CallStatusEnum.ONGOING && (
+          <div className="p-5 flex justify-center z-20 w-max mx-auto">
+            <LiquidGlassAnchor>
+              <LiquidGlass
+                variant="frosted"
+                blur="2xl"
+                opacity="30"
+                rounded="full"
+                border="highlight"
+                fluid={false}
+                className="px-2 py-1 flex items-center justify-between gap-3 md:gap-4 shadow-2xl"
+              >
+                {activeCall.status === CallStatusEnum.RINGING &&
+                activeCall.isIncoming ? (
+                  <>
                     <PatternButton
-                      variant={isScreenSharing ? "solid" : "glass"}
-                      color={isScreenSharing ? "info" : "neutral"}
+                      variant="solid"
+                      color="success"
+                      rounded="full"
+                      size="lg"
+                      onClick={handleAcceptCall}
+                      icon={<PhoneCall className="w-5 h-5" />}
+                      className="m-2 "
+                    ></PatternButton>
+                    <PatternButton
+                      variant="solid"
+                      color="danger"
+                      rounded="full"
+                      size="lg"
+                      onClick={handleRejectCall}
+                      icon={<PhoneOff className="w-5 h-5" />}
+                      className="m-2 "
+                    ></PatternButton>
+                  </>
+                ) : (
+                  <>
+                    <PatternButton
+                      variant={isAudioMuted ? "solid" : "glass"}
                       size="icon"
                       rounded="full"
-                      className="h-12 w-12 text-white"
-                      onClick={toggleScreenShare}
-                      title={
-                        isScreenSharing
-                          ? "Dừng chia sẻ màn hình"
-                          : "Chia sẻ màn hình"
-                      }
+                      className="h-14 w-14 m-2"
+                      onClick={toggleAudio}
+                      title={isAudioMuted ? "Bật Micro" : "Tắt Micro"}
+                      glassZIndex={50}
                     >
-                      <MonitorUp className="w-5 h-5" />
+                      {isAudioMuted ? (
+                        <MicOff className="w-5 h-5" />
+                      ) : (
+                        <Mic className="w-5 h-5" />
+                      )}
                     </PatternButton>
-                  )}
 
-                  <PatternButton
-                    variant="solid"
-                    color="danger"
-                    size="icon"
-                    rounded="full"
-                    className="h-12 w-12"
-                    onClick={handleHangup}
-                    title="Kết thúc cuộc gọi"
-                  >
-                    <PhoneOff className="w-5 h-5" />
-                  </PatternButton>
-                </>
-              )}
-            </LiquidGlass>
+                    <PatternButton
+                      variant={isVideoOff ? "solid" : "glass"}
+                      size="icon"
+                      rounded="full"
+                      className="h-14 w-14 m-2 "
+                      onClick={toggleVideo}
+                      title={isVideoOff ? "Bật Camera" : "Tắt Camera"}
+                      glassZIndex={50}
+                    >
+                      {isVideoOff ? (
+                        <VideoOff className="w-5 h-5" />
+                      ) : (
+                        <VideoIcon className="w-5 h-5" />
+                      )}
+                    </PatternButton>
+
+                    {activeCall.status === CallStatusEnum.ONGOING && (
+                      <PatternButton
+                        variant={isScreenSharing ? "solid" : "glass"}
+                        size="icon"
+                        rounded="full"
+                        className="h-14 w-14 m-2 "
+                        onClick={toggleScreenShare}
+                        title={
+                          isScreenSharing
+                            ? "Dừng chia sẻ màn hình"
+                            : "Chia sẻ màn hình"
+                        }
+                        glassZIndex={50}
+                      >
+                        <MonitorUp className="w-5 h-5" />
+                      </PatternButton>
+                    )}
+
+                    <PatternButton
+                      variant="solid"
+                      color="danger"
+                      size="icon"
+                      rounded="full"
+                      className="h-14 w-14 m-2 "
+                      onClick={handleHangup}
+                      title="Kết thúc cuộc gọi"
+                    >
+                      <PhoneOff className="w-5 h-5" />
+                    </PatternButton>
+                  </>
+                )}
+              </LiquidGlass>
+            </LiquidGlassAnchor>
           </div>
         </div>
       </LiquidGlassModal>

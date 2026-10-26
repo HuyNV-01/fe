@@ -5,53 +5,53 @@ import type {
   IPaginationContacts,
   IRemoveContactPayload,
   IRequestContactPayload,
+  IUpdateContactAliasPayload,
 } from "@/types/common";
 
 export const findContactUsersApi = async (payload: {
   params: IPaginationOptions;
 }) => {
   const { params } = payload;
-  const result = await apiClient.get("/contacts/find-contact-users", {
+  return apiClient.get("/contacts/find-contact-users", {
     params,
   });
-
-  return result;
 };
 
 export const requestContactApi = async (payload: {
   data: IRequestContactPayload;
 }) => {
   const { data } = payload;
-  const result = await apiClient.post("/contacts/request", data);
-
-  return result;
+  return apiClient.post("/contacts/request", data);
 };
 
 export const acceptFriendApi = async (payload: {
   data: IAcceptFriendPayload;
 }) => {
   const { data } = payload;
-  const result = await apiClient.post(`/contacts/accept/${data.senderId}`);
-
-  return result;
+  return apiClient.post(`/contacts/accept/${data.senderId}`);
 };
 
 export const removeContactApi = async (payload: {
   data: IRemoveContactPayload;
 }) => {
   const { data } = payload;
-  const result = await apiClient.delete(`/contacts/${data.targetId}`);
+  return apiClient.delete(`/contacts/${data.targetId}`);
+};
 
-  return result;
+export const updateContactAliasApi = async (payload: {
+  data: IUpdateContactAliasPayload;
+}) => {
+  const { data } = payload;
+  return apiClient.put(`/contacts/alias/${data.targetId}`, {
+    alias: data.alias,
+  });
 };
 
 export const getContactsApi = async (payload: {
   params: IPaginationContacts;
 }) => {
   const { params } = payload;
-  const result = await apiClient.get("/contacts", {
+  return apiClient.get("/contacts", {
     params,
   });
-
-  return result;
 };

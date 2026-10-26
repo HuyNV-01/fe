@@ -130,7 +130,7 @@ export const MessageBubble = memo(
       <div
         id={`msg-${message.id}`}
         className={cn(
-          "flex flex-col w-full mb-1 px-2 md:px-4 py-0.5 rounded-xl transition-all duration-500 group/bubble",
+          "flex flex-col w-full mb-1 px-2 md:px-4 py-0.5 rounded-xl transition-all duration-300 group/bubble",
           isMe ? "items-end" : "items-start",
           !isContinuous ? "mt-3" : "mt-0.5",
           isHighlighted && "bg-primary/15 ring-2 ring-primary/40",
@@ -139,21 +139,21 @@ export const MessageBubble = memo(
       >
         {/* Tên người gửi ở đầu nhóm tin nhắn nếu là chat nhóm */}
         {!isMe && isGroupChat && !isContinuous && displayName && (
-          <span className="text-[11px] font-medium text-muted-foreground ml-11 mb-1 select-none">
+          <span className="text-[11px] font-medium text-muted-foreground ml-10 mb-1 select-none">
             {displayName}
           </span>
         )}
 
         <div
           className={cn(
-            "relative flex max-w-[85%] md:max-w-[70%] items-end gap-2",
+            "relative flex max-w-[88%] sm:max-w-[78%] md:max-w-[72%] items-end gap-2",
             isMe ? "flex-row-reverse" : "flex-row",
           )}
         >
           {!isMe && (
             <div className="w-8 shrink-0 flex flex-col justify-end">
               {isLastInGroup ? (
-                <Avatar className="w-8 h-8 border border-border/50 shadow-sm">
+                <Avatar className="w-8 h-8 border border-border/50 shadow-xs">
                   <AvatarImage src={avatarUrl} alt={displayName} />
                   <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
                     {displayName?.substring(0, 2).toUpperCase()}
@@ -168,7 +168,7 @@ export const MessageBubble = memo(
           {/* Bong bóng tin nhắn chính */}
           <div
             className={cn(
-              "relative px-3.5 py-2 text-sm shadow-xs transition-all",
+              "relative px-3.5 py-2 text-sm shadow-xs transition-all min-w-0",
               isRecalled
                 ? "bg-muted/40 text-muted-foreground italic border border-dashed border-border"
                 : isMe
@@ -198,7 +198,7 @@ export const MessageBubble = memo(
                 </div>
               )}
 
-            {/* Khung Trích dẫn tin nhắn trả lời (Reply Preview) có thể click để cuộn tới tin gốc */}
+            {/* Khung Trích dẫn tin nhắn trả lời (Reply Preview) */}
             {!isRecalled && replyPreview && (
               <button
                 type="button"
@@ -233,7 +233,7 @@ export const MessageBubble = memo(
               </p>
             ) : (
               <>
-                {/* 1. Hiển thị Hình ảnh (Attachments hoặc URL trực tiếp) */}
+                {/* 1. Hiển thị Hình ảnh */}
                 {message.type === MessageTypeEnum.IMAGE && (
                   <div
                     className={cn(
@@ -288,7 +288,10 @@ export const MessageBubble = memo(
                 {/* 3. Hiển thị Tin nhắn thoại / Âm thanh */}
                 {message.type === MessageTypeEnum.AUDIO &&
                   attachments.map((att) => (
-                    <div key={att.fileId} className="my-1 min-w-[230px]">
+                    <div
+                      key={att.fileId}
+                      className="my-1 min-w-[210px] sm:min-w-[230px]"
+                    >
                       <audio
                         src={sanitizeMediaUrl(att.url)}
                         controls
@@ -313,7 +316,7 @@ export const MessageBubble = memo(
                           : "bg-muted/60 border-border hover:bg-muted",
                       )}
                     >
-                      <div className="p-2 rounded-lg bg-primary/15">
+                      <div className="p-2 rounded-lg bg-primary/15 shrink-0">
                         <FileText className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -330,7 +333,7 @@ export const MessageBubble = memo(
 
                 {/* 5. Hiển thị Thẻ Lịch sử Cuộc gọi (CALL) */}
                 {message.type === MessageTypeEnum.CALL && (
-                  <div className="flex items-center gap-3 py-1 min-w-[210px]">
+                  <div className="flex items-center gap-3 py-1 min-w-[200px]">
                     <div
                       className={cn(
                         "p-2.5 rounded-full shrink-0",
@@ -440,92 +443,94 @@ export const MessageBubble = memo(
             )}
           </div>
 
-          {/* Thanh công cụ tương tác khi Hover (Chuẩn Messenger/Zalo) */}
-          {!isRecalled && message.status !== "sending" && (
-            <div
-              className={cn(
-                "opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 bg-background/95 backdrop-blur border rounded-full px-1.5 py-0.5 shadow-sm z-20",
-              )}
-            >
-              <div className="relative">
+          {/* Thanh công cụ tương tác khi Hover */}
+          {!isRecalled &&
+            message.status !== "sending" &&
+            message.status !== "failed" && (
+              <div
+                className={cn(
+                  "opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 bg-background/95 backdrop-blur border rounded-full px-1.5 py-0.5 shadow-sm z-20 shrink-0",
+                )}
+              >
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowReactionPicker((v) => !v)}
+                    className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                    title="Thả cảm xúc"
+                  >
+                    <SmilePlus className="w-3.5 h-3.5" />
+                  </button>
+
+                  {showReactionPicker && (
+                    <div
+                      className={cn(
+                        "absolute bottom-full mb-1.5 flex items-center gap-1 bg-background border rounded-full px-2.5 py-1 shadow-xl z-40 animate-in fade-in zoom-in-95 duration-150",
+                        isMe ? "right-0" : "left-0",
+                      )}
+                    >
+                      {QUICK_REACTIONS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => {
+                            onReact?.(message, emoji);
+                            setShowReactionPicker(false);
+                          }}
+                          className="text-base hover:scale-125 transition-transform px-0.5 cursor-pointer"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setShowReactionPicker((v) => !v)}
+                  onClick={() => onReply?.(message)}
                   className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-                  title="Thả cảm xúc"
+                  title="Trả lời"
                 >
-                  <SmilePlus className="w-3.5 h-3.5" />
+                  <Reply className="w-3.5 h-3.5" />
                 </button>
 
-                {showReactionPicker && (
-                  <div
-                    className={cn(
-                      "absolute bottom-full mb-1.5 flex items-center gap-1 bg-background border rounded-full px-2.5 py-1 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-150",
-                      isMe ? "right-0" : "left-0",
-                    )}
+                <button
+                  type="button"
+                  onClick={() => onTogglePin?.(message)}
+                  className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                  title={
+                    message.isPinned || message.metadata?.isPinned
+                      ? "Bỏ ghim tin nhắn"
+                      : "Ghim tin nhắn"
+                  }
+                >
+                  <Pin className="w-3.5 h-3.5" />
+                </button>
+
+                {isMe && message.type === MessageTypeEnum.TEXT && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit?.(message)}
+                    className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                    title="Chỉnh sửa"
                   >
-                    {QUICK_REACTIONS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => {
-                          onReact?.(message, emoji);
-                          setShowReactionPicker(false);
-                        }}
-                        className="text-base hover:scale-125 transition-transform px-0.5 cursor-pointer"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {isMe && (
+                  <button
+                    type="button"
+                    onClick={() => onRecall?.(message)}
+                    className="p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer"
+                    title="Thu hồi"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
-
-              <button
-                type="button"
-                onClick={() => onReply?.(message)}
-                className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-                title="Trả lời"
-              >
-                <Reply className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onTogglePin?.(message)}
-                className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-                title={
-                  message.isPinned || message.metadata?.isPinned
-                    ? "Bỏ ghim tin nhắn"
-                    : "Ghim tin nhắn"
-                }
-              >
-                <Pin className="w-3.5 h-3.5" />
-              </button>
-
-              {isMe && message.type === MessageTypeEnum.TEXT && (
-                <button
-                  type="button"
-                  onClick={() => onEdit?.(message)}
-                  className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-                  title="Chỉnh sửa"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              {isMe && (
-                <button
-                  type="button"
-                  onClick={() => onRecall?.(message)}
-                  className="p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer"
-                  title="Thu hồi"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          )}
+            )}
         </div>
 
         {isMe && displayReaders && displayReaders.length > 0 && (

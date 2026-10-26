@@ -4,43 +4,45 @@ import type {
   IForgotPassword,
   ILogin,
   IRegister,
+  IResendActivation,
   IResetPassword,
   IVerifyOtp,
 } from "@/types/common";
 
 export const registerApi = async (payload: { data: IRegister }) => {
   const { data } = payload;
-  const result = await apiClient.post("/auth/register", data);
-  return result;
+  return apiClient.post("/auth/register", data);
+};
+
+export const resendActivationApi = async (payload: {
+  data: IResendActivation;
+}) => {
+  const { data } = payload;
+  return apiClient.post("/auth/resend-activation", data);
 };
 
 export const loginApi = async (payload: { data: ILogin }) => {
   const { data } = payload;
-  const result = await apiClient.post("/auth/login", data);
-  return result;
+  return apiClient.post("/auth/login", data);
 };
 
 export const logoutApi = async () => {
-  const result = await apiClient.post("/auth/logout");
-  return result;
+  return apiClient.post("/auth/logout");
 };
 
 export const forgotPasswordApi = async (payload: { data: IForgotPassword }) => {
   const { data } = payload;
-  const result = await apiClient.post(`/auth/forgot-password`, data);
-  return result;
+  return apiClient.post("/auth/forgot-password", data);
 };
 
 export const verifyOtpApi = async (payload: { data: IVerifyOtp }) => {
   const { data } = payload;
-  const result = await apiClient.post(`/auth/verify-otp`, data);
-  return result;
+  return apiClient.post("/auth/verify-otp", data);
 };
 
 export const resetPasswordApi = async (payload: { data: IResetPassword }) => {
   const { data } = payload;
-  const result = await apiClient.post(`/auth/reset-password`, data);
-  return result;
+  return apiClient.post("/auth/reset-password", data);
 };
 
 export const loginWithGoogleApi = async () => {
@@ -49,6 +51,5 @@ export const loginWithGoogleApi = async () => {
 };
 
 export const callbackLoginApi = async () => {
-  const result = await apiClient.get("/auth/callback");
-  return result;
+  return apiClient.get("/auth/callback");
 };

@@ -30,30 +30,29 @@ interface NavHeaderProps {
 }
 
 export function NavHeader({
-  logo = { text: "LiquidGlass", href: "/" },
+  logo = { text: "LiquidChat", href: "/" },
   links = [
-    { label: "Home", href: "/" },
-    { label: "Chats", href: config.routes.private.chat },
-    { label: "Services", href: "/services" },
-    { label: "Contact", href: "/contact" },
+    { label: "Trang chủ", href: "/" },
+    { label: "Trò chuyện", href: config.routes.private.chat },
+    { label: "Danh bạ", href: config.routes.private.directory },
+    { label: "Kết bạn", href: config.routes.private.addNew },
   ],
-  actions = { showSignIn: true, showSignUp: true, showAccount: false },
   className,
 }: NavHeaderProps) {
   const isAuthenticated = useAuthStore((s) => s.authenticated);
-  actions = {
+  const resolvedActions = {
     showSignIn: !isAuthenticated,
     showSignUp: !isAuthenticated,
     showAccount: isAuthenticated,
   };
   return (
     <header
-      className={cn("sticky z-50 top-0 w-full bg-transparent p-1", className)}
+      className={cn("sticky z-40 top-0 w-full bg-transparent p-1", className)}
     >
       <LiquidGlassNavigation>
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between bg-transparent">
+        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between bg-transparent">
           <div className="md:hidden h-full relative flex items-center justify-between space-x-1.5">
-            <MobileMenuTrigger links={links} actions={actions} />
+            <MobileMenuTrigger links={links} actions={resolvedActions} />
           </div>
           {/* Logo Section */}
           <NavLogo logo={logo} />
@@ -65,8 +64,8 @@ export function NavHeader({
 
           {/* Desktop Actions */}
           <div className="hidden h-full md:flex items-center gap-3">
-            <NavActions actions={actions} />
-            <div className="h-1/2">
+            <NavActions actions={resolvedActions} />
+            <div className="h-5">
               <Separator orientation="vertical" />
             </div>
             <ModeToggle />
@@ -74,8 +73,8 @@ export function NavHeader({
 
           {/* Mobile Menu Trigger */}
           <div className="md:hidden h-full relative flex items-center justify-between space-x-2">
-            {actions.showAccount && <AccountMenu />}
-            <div className="h-1/2">
+            {resolvedActions.showAccount && <AccountMenu />}
+            <div className="h-5">
               <Separator orientation="vertical" />
             </div>
             <ModeToggle />

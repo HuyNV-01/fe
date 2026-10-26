@@ -7,8 +7,11 @@ import type {
   ILoginResponse,
   ILoginThirdResponse,
   IRegister,
+  IResendActivation,
   IResetPassword,
+  IUserRes,
   IVerifyOtp,
+  IVerifyOtpResponse,
 } from "@/types/common";
 import {
   callbackLoginApi,
@@ -17,19 +20,26 @@ import {
   loginWithGoogleApi,
   logoutApi,
   registerApi,
+  resendActivationApi,
   resetPasswordApi,
   verifyOtpApi,
 } from "./api";
 import { createPersistedStore } from "../create-persisted-store";
 import type { IAuthState } from "@/types/state";
+import { socketService } from "@/services/socket/socket-client";
 
 interface AuthActions {
   setStatus: (status: TStoreStatus) => void;
   resetState: () => void;
 
   setAccessToken: (token: string) => void;
+  updateCurrentUser: (patch: Partial<IUserRes>) => void;
 
   register: (payload: IRegister, cb?: ActionCallbacks) => Promise<void>;
+  resendActivation: (
+    payload: IResendActivation,
+    cb?: ActionCallbacks,
+  ) => Promise<void>;
   login: (payload: ILogin, cb?: ActionCallbacks) => Promise<void>;
   logout: (cb?: ActionCallbacks) => Promise<void>;
 
@@ -77,7 +87,20 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
           state.authenticated = true;
         }
       });
-      localStorage.setItem("accessToken", token);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("accessToken", token);
+      }
+    },
+
+    updateCurrentUser: (patch: Partial<IUserRes>) => {
+      set((state) => {
+        if (state.currentAccount?.user) {
+          state.currentAccount.user = {
+            ...state.currentAccount.user,
+            ...patch,
+          };
+        }
+      });
     },
 
     register: async (payload, cb) => {
@@ -99,6 +122,32 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
           state.status = "failed";
         });
         cb?.onError?.(error.response?.data?.code || error.status);
+      } finally {
+        cb?.onFinally?.();
+      }
+    },
+
+    resendActivation: async (payload, cb) => {
+      set((state) => {
+        state.status = "wait";
+      });
+      try {
+        const response = (await resendActivationApi({
+          data: payload,
+        })) as unknown as IBaseResponse;
+        if (response.status === 200) {
+          set((state) => {
+            state.status = "idle";
+          });
+          cb?.onSuccess?.(response.code);
+        }
+      } catch (error: any) {
+        set((state) => {
+          state.status = "failed";
+        });
+        cb?.onError?.(error.response?.data?.code || error.status);
+      } finally {
+        cb?.onFinally?.();
       }
     },
 
@@ -117,7 +166,9 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
             state.status = "idle";
           });
 
-          localStorage.setItem("accessToken", response.data.accessToken);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("accessToken", response.data.accessToken);
+          }
           cb?.onSuccess?.(response.code);
         }
       } catch (error: any) {
@@ -125,6 +176,8 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
           state.status = "failed";
         });
         cb?.onError?.(error.response?.data?.code || error.status);
+      } finally {
+        cb?.onFinally?.();
       }
     },
 
@@ -133,9 +186,11 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
         state.status = "loading";
       });
       try {
+        socketService.disconnectAll();
         await logoutApi();
         cb?.onSuccess?.();
-      } catch (error) {
+      } catch {
+        // Ignore network errors on logout
       } finally {
         set((state) => {
           state.currentAccount = undefined;
@@ -143,7 +198,12 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
           state.status = "idle";
           state.authenticated = false;
         });
-        localStorage.clear();
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("auth-storage");
+          localStorage.removeItem("chat-storage");
+        }
+        cb?.onFinally?.();
       }
     },
 
@@ -167,6 +227,8 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
           state.status = "failed";
         });
         cb?.onError?.(error.response?.data?.code || error.status);
+      } finally {
+        cb?.onFinally?.();
       }
     },
 
@@ -175,16 +237,21 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
         state.status = "wait";
       });
 
-      const currentEmail = get().value?.email;
+      const currentEmail = payload.email || get().value?.email;
 
       try {
         const response = (await verifyOtpApi({
           data: { email: currentEmail, otp: payload.otp },
-        })) as unknown as IBaseResponse;
+        })) as unknown as IVerifyOtpResponse;
 
         if (response.status === 200) {
           set((state) => {
             state.status = "idle";
+            state.value = {
+              ...state.value,
+              email: currentEmail,
+              resetToken: response.data?.resetToken,
+            };
           });
           cb?.onSuccess?.(response.code);
         }
@@ -193,6 +260,8 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
           state.status = "failed";
         });
         cb?.onError?.(error.response?.data?.code || error.status);
+      } finally {
+        cb?.onFinally?.();
       }
     },
 
@@ -200,16 +269,22 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
       set((state) => {
         state.status = "wait";
       });
-      const currentEmail = get().value?.email;
+      const currentEmail = payload.email || get().value?.email;
+      const currentResetToken = payload.resetToken || get().value?.resetToken;
 
       try {
         const response = (await resetPasswordApi({
-          data: { email: currentEmail, newPassword: payload.newPassword },
+          data: {
+            email: currentEmail,
+            newPassword: payload.newPassword,
+            ...(currentResetToken ? { resetToken: currentResetToken } : {}),
+          },
         })) as unknown as IBaseResponse;
 
         if (response.status === 200) {
           set((state) => {
             state.status = "idle";
+            state.value = undefined;
           });
           cb?.onSuccess?.(response.code);
         }
@@ -218,6 +293,8 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
           state.status = "failed";
         });
         cb?.onError?.(error.response?.data?.code || error.status);
+      } finally {
+        cb?.onFinally?.();
       }
     },
 
@@ -236,7 +313,9 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
       set((state) => {
         state.status = "loading";
       });
-      localStorage.setItem("accessToken", payload.accessToken);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("accessToken", payload.accessToken);
+      }
 
       try {
         const response =
@@ -256,7 +335,11 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
         set((state) => {
           state.status = "failed";
         });
-        cb?.onError?.(error.response?.data?.data?.code || error.status);
+        cb?.onError?.(
+          error.response?.data?.code ||
+            error.response?.data?.data?.code ||
+            error.status,
+        );
       }
     },
   }),

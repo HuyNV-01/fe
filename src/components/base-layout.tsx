@@ -24,11 +24,11 @@ export default async function BaseLayout({ children, locale }: Props) {
   const messages = await getMessages();
 
   return (
-    <html className="h-screen" lang={locale} suppressHydrationWarning>
+    <html className="h-dvh" lang={locale} suppressHydrationWarning>
       <body
         className={cn(
-          `${quicksand.className} antialiased flex h-full flex-col`,
-          "flex items-center justify-center relative overflow-hidden",
+          `${quicksand.className} antialiased flex h-dvh flex-col`,
+          "relative overflow-hidden",
         )}
       >
         <ThemeProvider
@@ -39,16 +39,16 @@ export default async function BaseLayout({ children, locale }: Props) {
         >
           <NextIntlClientProvider messages={messages}>
             <TooltipProvider>
-              <div className="absolute top-0 inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-300 dark:bg-blue-900/50 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-                <div className="absolute top-1/3 -right-32 w-96 h-96 bg-pink-300 dark:bg-pink-900/50 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-                <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-blue-200 dark:bg-blue-900/30 rounded-full mix-blend-multiply filter blur-3xl opacity-25 animate-blob animation-delay-4000"></div>
+              <div className="absolute top-0 inset-0 overflow-hidden pointer-events-none -z-10">
+                <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-300 dark:bg-blue-900/50 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
+                <div className="absolute top-1/3 -right-32 w-96 h-96 bg-pink-300 dark:bg-pink-900/50 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
+                <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-blue-200 dark:bg-blue-900/30 rounded-full mix-blend-multiply filter blur-3xl opacity-25 animate-blob animation-delay-4000" />
               </div>
-              <div className="w-full h-full flex flex-col flex-1">
-                <div className="flex-none">
+              <div className="w-full h-full flex flex-col flex-1 min-h-0">
+                <div className="flex-none z-40">
                   <NavHeader />
                 </div>
-                <div className="w-full h-full min-h-0 flex-1 overflow-scroll">
+                <div className="w-full h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
                   {children}
                 </div>
               </div>

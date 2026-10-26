@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ContactStatusEnum } from "@/common/enum";
@@ -10,35 +10,26 @@ import type { IUserProfile } from "@/types/profile";
 
 export const useProfileActions = (profile: IUserProfile) => {
   const router = useRouter();
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
-  const {
-    requestContact,
-    acceptFriend,
-    removeContact,
-    findContactUsers,
-    contacts,
-    isRequest,
-  } = useContactStore();
-  const { updateRelationship } = useUserStore();
+  const { requestContact, acceptFriend, removeContact, isRequest } =
+    useContactStore();
+  const { updateRelationship, updateAvatar, deleteAvatar } = useUserStore();
   const { createDirectChat } = useChatStore();
-
-  useEffect(() => {
-    findContactUsers({
-      params: {
-        search: profile.email,
-      },
-    });
-  }, [findContactUsers, profile]);
 
   const performAction = async (
     action: () => Promise<any>,
     newStatus: ContactStatusEnum | null,
+    successMessage?: string,
   ) => {
     if (!profile.id) return;
     try {
       await action();
       updateRelationship(newStatus);
-    } catch (error) {
+      if (successMessage) {
+        toast.success(successMessage);
+      }
+    } catch {
       toast.error("Đã có lỗi xảy ra, vui lòng thử lại.");
     }
   };
@@ -47,18 +38,21 @@ export const useProfileActions = (profile: IUserProfile) => {
     performAction(
       () => requestContact({ data: { targetUserId: profile.id! } }),
       ContactStatusEnum.PENDING_SENT,
+      "Đã gửi lời mời kết bạn",
     );
 
   const onAcceptFriend = () =>
     performAction(
       () => acceptFriend({ data: { senderId: profile.id! } }),
       ContactStatusEnum.FRIEND,
+      "Đã chấp nhận lời mời kết bạn",
     );
 
   const onRemoveContact = () =>
     performAction(
       () => removeContact({ data: { targetId: profile.id! } }),
       null,
+      "Đã cập nhật trạng thái liên hệ",
     );
 
   const onSendMessage = useCallback(async () => {
@@ -68,17 +62,50 @@ export const useProfileActions = (profile: IUserProfile) => {
       if (conversation) {
         router.push(config.routes.private.detailChat(conversation));
       }
-    } catch (error) {
+    } catch {
       toast.error("Không thể tạo cuộc trò chuyện.");
     }
   }, [profile.id, createDirectChat, router]);
 
+  const onUploadAvatar = useCallback(
+    async (file: File) => {
+      if (!file) return;
+      setIsUploadingAvatar(true);
+      await updateAvatar(file, {
+        onSuccess: () => {
+          toast.success("Đã cập nhật ảnh đại diện mới");
+        },
+        onError: (errMsg) => {
+          toast.error(errMsg || "Không thể tải lên ảnh đại diện");
+        },
+      });
+      setIsUploadingAvatar(false);
+    },
+    [updateAvatar],
+  );
+
+  const onDeleteAvatar = useCallback(async () => {
+    setIsUploadingAvatar(true);
+    await deleteAvatar({
+      onSuccess: () => {
+        toast.success("Đã xóa ảnh đại diện");
+      },
+      onError: (errMsg) => {
+        toast.error(errMsg || "Không thể xóa ảnh đại diện");
+      },
+    });
+    setIsUploadingAvatar(false);
+  }, [deleteAvatar]);
+
   return {
     isLoading: isRequest,
+    isUploadingAvatar,
+    relationship: profile.relationship ?? ContactStatusEnum.NONE,
     onAddFriend,
     onAcceptFriend,
     onRemoveContact,
     onSendMessage,
-    contacts,
+    onUploadAvatar,
+    onDeleteAvatar,
   };
 };

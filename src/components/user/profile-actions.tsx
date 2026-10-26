@@ -1,12 +1,13 @@
+"use client";
+
+import { useRef } from "react";
 import {
   MessageCircle,
-  Settings,
   UserX,
   MoreHorizontal,
-  Flag,
-  Ban,
+  Camera,
+  Trash2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ContactStatusEnum } from "@/common/enum";
 import {
   DropdownMenu,
@@ -26,25 +27,63 @@ interface ProfileActionsProps {
 }
 
 export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     isLoading,
+    isUploadingAvatar,
+    relationship,
     onAddFriend,
     onAcceptFriend,
     onRemoveContact,
     onSendMessage,
-    contacts,
+    onUploadAvatar,
+    onDeleteAvatar,
   } = useProfileActions(profile);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onUploadAvatar(file);
+    }
+    e.target.value = "";
+  };
 
   if (profile.isMe) {
     return (
-      <div className={cn("flex justify-end", className)}>
-        <Button
-          variant="secondary"
-          className="gap-2 bg-white/10 hover:bg-white/20 text-foreground border border-white/10 backdrop-blur-md transition-all"
+      <div className={cn("flex flex-wrap items-center gap-2.5", className)}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
+        <PatternButton
+          size="sm"
+          variant="glass"
+          color="primary"
+          rounded="full"
+          isLoading={isUploadingAvatar}
+          icon={<Camera className="w-4 h-4" />}
+          onClick={() => fileInputRef.current?.click()}
         >
-          <Settings className="w-4 h-4" />
-          Chỉnh sửa hồ sơ
-        </Button>
+          Đổi ảnh đại diện
+        </PatternButton>
+
+        {profile.avatar && (
+          <PatternButton
+            size="sm"
+            variant="ghost"
+            color="danger"
+            rounded="full"
+            disabled={isUploadingAvatar}
+            icon={<Trash2 className="w-4 h-4" />}
+            onClick={onDeleteAvatar}
+          >
+            Xóa ảnh
+          </PatternButton>
+        )}
       </div>
     );
   }
@@ -52,69 +91,66 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
   return (
     <div
       className={cn(
-        "flex items-center gap-3 w-full md:w-auto justify-center md:justify-end",
+        "flex flex-wrap items-center gap-2.5 justify-center md:justify-end",
         className,
       )}
     >
       <ContactActionButton
-        contactStatus={
-          contacts.data[0]?.contactStatus ?? ContactStatusEnum.NONE
-        }
+        contactStatus={relationship}
         isLoading={isLoading}
         onClick={(e) => {
           e.stopPropagation();
           onAddFriend();
         }}
-        handleAccept={() => onAcceptFriend()}
+        handleAccept={onAcceptFriend}
+        handleRemove={onRemoveContact}
       />
       <PatternButton
         size="sm"
         onClick={onSendMessage}
-        rounded={"full"}
+        rounded="full"
         icon={<MessageCircle className="w-3.5 h-3.5" />}
-        variant={"glass"}
+        variant="solid"
+        color="primary"
       >
         Nhắn tin
       </PatternButton>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <PatternButton variant="glass" size="sm" rounded={"full"}>
-            <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
-          </PatternButton>
-        </DropdownMenuTrigger>
-        <DropdownMenuContentCus align="end" className="w-48">
-          {contacts.data[0]?.contactStatus && (
-            <>
-              {contacts.data[0]?.contactStatus === ContactStatusEnum.FRIEND && (
-                <ItemMenu
-                  onClick={onRemoveContact}
-                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                  icon={<UserX className="w-4 h-4" />}
-                >
-                  Hủy kết bạn
-                </ItemMenu>
-              )}
-              {contacts.data[0]?.contactStatus ===
-                ContactStatusEnum.PENDING_SENT && (
-                <ItemMenu
-                  onClick={onRemoveContact}
-                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                  icon={<UserX className="w-4 h-4" />}
-                >
-                  Thu hồi lời mời
-                </ItemMenu>
-              )}
-            </>
-          )}
-          <ItemMenu icon={<Flag className="w-4 h-4" />}>
-            Báo cáo người dùng
-          </ItemMenu>
-          <ItemMenu icon={<Ban className="w-4 h-4" />}>
-            Chặn người dùng
-          </ItemMenu>
-        </DropdownMenuContentCus>
-      </DropdownMenu>
+      {(relationship === ContactStatusEnum.FRIEND ||
+        relationship === ContactStatusEnum.PENDING_SENT) && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <PatternButton
+              variant="glass"
+              size="icon"
+              rounded="full"
+              className="h-8 w-8"
+            >
+              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+            </PatternButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContentCus align="end" className="w-48">
+            {relationship === ContactStatusEnum.FRIEND && (
+              <ItemMenu
+                onClick={onRemoveContact}
+                className="text-red-600 focus:text-red-600"
+                icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
+              >
+                Hủy kết bạn
+              </ItemMenu>
+            )}
+            {relationship === ContactStatusEnum.PENDING_SENT && (
+              <ItemMenu
+                onClick={onRemoveContact}
+                className="text-red-600 focus:text-red-600"
+                icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
+              >
+                Thu hồi lời mời
+              </ItemMenu>
+            )}
+          </DropdownMenuContentCus>
+        </DropdownMenu>
+      )}
     </div>
   );
 };

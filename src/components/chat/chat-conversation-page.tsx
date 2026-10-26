@@ -16,9 +16,9 @@ import {
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
+import { CreateGroupModal } from "@/components/chat/create-group-modal";
 import { Button } from "@/components/ui/button";
 import { PatternButton } from "../button/button-patterns";
-import { cn } from "@/lib/utils";
 
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
@@ -30,6 +30,8 @@ import {
   ConversationTypeEnum,
   MessageTypeEnum,
 } from "@/common/enum";
+import { useRouter } from "@/i18n/navigation";
+import config from "@/config";
 
 interface ChatConversationPageProps {
   params: { id: string };
@@ -38,6 +40,7 @@ interface ChatConversationPageProps {
 export default function ChatConversationPage({
   params,
 }: ChatConversationPageProps) {
+  const router = useRouter();
   const currentUser = useHydratedStore(useAuthStore, (s) => s.currentAccount);
 
   const {
@@ -58,6 +61,7 @@ export default function ChatConversationPage({
     setEditingMessage,
     initiateCall,
     toggleMuteConversation,
+    removeGroupMember,
     setActiveConversation,
     resendMessage,
     removeFailedMessage,
@@ -67,6 +71,7 @@ export default function ChatConversationPage({
   const conversationId = params?.id || "";
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     string | null
   >(null);
@@ -249,6 +254,17 @@ export default function ChatConversationPage({
     [conversationId, removeFailedMessage],
   );
 
+  const handleLeaveGroup = useCallback(async () => {
+    if (!conversationId || !currentUser?.user?.id) return;
+    const ok = await removeGroupMember({
+      conversationId,
+      memberId: currentUser.user.id,
+    });
+    if (ok) {
+      router.push(config.routes.private.chat);
+    }
+  }, [conversationId, currentUser?.user?.id, removeGroupMember, router]);
+
   if (!currentUser) return null;
 
   return (
@@ -261,6 +277,9 @@ export default function ChatConversationPage({
           isOnline={currentConversation?.isOnline}
           isTyping={isPartnerTyping}
           isMuted={currentConversation?.isMuted}
+          isGroupChat={isGroupChat}
+          isAdmin={currentConversation?.isAdmin}
+          partnerId={currentConversation?.partnerId}
           onAudioCall={() => initiateCall(conversationId, CallTypeEnum.AUDIO)}
           onVideoCall={() => initiateCall(conversationId, CallTypeEnum.VIDEO)}
           onToggleMute={() =>
@@ -269,6 +288,8 @@ export default function ChatConversationPage({
               !currentConversation?.isMuted,
             )
           }
+          onAddGroupMembers={() => setIsAddMemberOpen(true)}
+          onLeaveGroup={handleLeaveGroup}
         />
 
         {/* Thanh hiển thị Tin nhắn đã ghim */}
@@ -290,7 +311,7 @@ export default function ChatConversationPage({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 rounded-full"
+              className="h-6 w-6 rounded-full shrink-0"
               onClick={() =>
                 pinMessage({
                   conversationId,
@@ -310,7 +331,7 @@ export default function ChatConversationPage({
         <div
           ref={scrollRef}
           onScroll={onContainerScroll}
-          className="h-full overflow-y-auto px-2 md:px-4 pt-4 pb-2 scroll-smooth [overflow-anchor:none]"
+          className="h-full overflow-y-auto overflow-x-hidden px-2 md:px-4 pt-4 pb-2 scroll-smooth [overflow-anchor:none]"
         >
           {/* Top Loader */}
           {isLoadingMessages && currentPage > 1 && (
@@ -322,8 +343,8 @@ export default function ChatConversationPage({
           {/* Message List */}
           {groupedMessages.map((group, gIndex) => (
             <div key={`${group.label}-${gIndex}`} className="mb-6">
-              <div className="flex justify-center mb-6 sticky top-0 z-10">
-                <span className="text-[10px] font-medium bg-muted/90 backdrop-blur-md px-3 py-1 rounded-full border border-border/40 select-none">
+              <div className="flex justify-center mb-4 sticky top-0 z-10 pointer-events-none">
+                <span className="text-[10px] font-medium bg-muted/90 backdrop-blur-md px-3 py-1 rounded-full border border-border/40 select-none shadow-2xs">
                   {group.label}
                 </span>
               </div>
@@ -343,105 +364,77 @@ export default function ChatConversationPage({
                       key={msg.id}
                       className="group relative flex w-full flex-col"
                     >
-                      <div
-                        className={cn(
-                          "flex w-full",
-                          isMe ? "justify-end" : "justify-start",
-                        )}
-                      >
-                        <div className="relative max-w-[85%] md:max-w-[70%] flex flex-1 items-end group/row">
-                          {/* Left Actions (Retry/Delete - Chỉ hiện khi lỗi) */}
-                          {isMe && msg.status === "failed" && (
-                            <div className="absolute right-full top-1/2 -translate-y-1/2 mr-3 flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity z-10">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-destructive hover:bg-destructive/10 rounded-full"
-                                onClick={() => handleDeleteFailed(msg.id)}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-blue-500 hover:bg-blue-500/10 rounded-full"
-                                onClick={() => handleRetry(msg.id, msg.content)}
-                              >
-                                <RefreshCw className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          )}
+                      <MessageBubble
+                        message={msg}
+                        currentUserId={currentUser.user.id}
+                        isMe={isMe}
+                        isGroupChat={isGroupChat}
+                        isContinuous={!!isContinuous}
+                        isLastInGroup={isLastInGroup}
+                        isHighlighted={highlightedMessageId === msg.id}
+                        avatarUrl={
+                          isMe
+                            ? currentUser.user.avatar || undefined
+                            : msg.sender?.avatar || undefined
+                        }
+                        displayName={isMe ? "Tôi" : msg.sender?.name}
+                        displayReaders={readReceiptsMap[msg.id]}
+                        uploadPercent={
+                          msg.tempId ? uploadProgress[msg.tempId] : undefined
+                        }
+                        onReply={(m) => setReplyingTo(conversationId, m)}
+                        onEdit={(m) => setEditingMessage(conversationId, m)}
+                        onRecall={(m) =>
+                          recallMessage({
+                            conversationId,
+                            messageId: m.id,
+                          })
+                        }
+                        onReact={(m, emoji) =>
+                          reactMessage({
+                            conversationId,
+                            messageId: m.id,
+                            emoji,
+                          })
+                        }
+                        onTogglePin={(m) =>
+                          pinMessage({
+                            conversationId,
+                            messageId: m.id,
+                            isPinned: !(m.isPinned || m.metadata?.isPinned),
+                          })
+                        }
+                        onCallbackCall={(callType) =>
+                          initiateCall(conversationId, callType)
+                        }
+                        onScrollToMessage={scrollToMessage}
+                      />
 
-                          {/* Message Bubble Component */}
-                          <div className="flex-1">
-                            <MessageBubble
-                              message={msg}
-                              currentUserId={currentUser.user.id}
-                              isMe={isMe}
-                              isGroupChat={isGroupChat}
-                              isContinuous={!!isContinuous}
-                              isLastInGroup={isLastInGroup}
-                              isHighlighted={highlightedMessageId === msg.id}
-                              avatarUrl={
-                                isMe
-                                  ? currentUser.user.avatar
-                                  : msg.sender?.avatar
-                              }
-                              displayName={isMe ? "Tôi" : msg.sender?.name}
-                              displayReaders={readReceiptsMap[msg.id]}
-                              uploadPercent={
-                                msg.tempId
-                                  ? uploadProgress[msg.tempId]
-                                  : undefined
-                              }
-                              onReply={(m) => setReplyingTo(conversationId, m)}
-                              onEdit={(m) =>
-                                setEditingMessage(conversationId, m)
-                              }
-                              onRecall={(m) =>
-                                recallMessage({
-                                  conversationId,
-                                  messageId: m.id,
-                                })
-                              }
-                              onReact={(m, emoji) =>
-                                reactMessage({
-                                  conversationId,
-                                  messageId: m.id,
-                                  emoji,
-                                })
-                              }
-                              onTogglePin={(m) =>
-                                pinMessage({
-                                  conversationId,
-                                  messageId: m.id,
-                                  isPinned: !(
-                                    m.isPinned || m.metadata?.isPinned
-                                  ),
-                                })
-                              }
-                              onCallbackCall={(callType) =>
-                                initiateCall(conversationId, callType)
-                              }
-                              onScrollToMessage={scrollToMessage}
-                            />
-                          </div>
-
-                          {/* Error Icon */}
-                          {isMe && msg.status === "failed" && (
-                            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2">
-                              <AlertCircle className="w-4 h-4 text-destructive animate-pulse" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Error Text */}
+                      {/* Thanh hành động Gửi lại / Xóa khi gửi lỗi */}
                       {isMe && msg.status === "failed" && (
-                        <div className="w-full flex justify-end pr-2 mt-0.5">
-                          <span className="text-[10px] text-destructive font-medium">
+                        <div className="w-full flex items-center justify-end gap-2 pr-4 mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] text-destructive font-medium">
+                            <AlertCircle className="w-3.5 h-3.5" />
                             Gửi thất bại
                           </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-[11px] text-blue-600 hover:bg-blue-500/10 rounded-full"
+                            onClick={() => handleRetry(msg.id, msg.content)}
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            Thử lại
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10 rounded-full"
+                            onClick={() => handleDeleteFailed(msg.id)}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Xóa
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -478,7 +471,7 @@ export default function ChatConversationPage({
         )}
       </div>
 
-      <div className="flex-none bg-background p-4 border-t">
+      <div className="flex-none bg-background p-3 md:p-4 border-t">
         <ChatInput
           onSendMessage={handleSendMessage}
           onSendAttachments={handleSendAttachments}
@@ -486,6 +479,16 @@ export default function ChatConversationPage({
           onScrollToMessage={scrollToMessage}
         />
       </div>
+
+      {isGroupChat && (
+        <CreateGroupModal
+          open={isAddMemberOpen}
+          onOpenChange={setIsAddMemberOpen}
+          mode="add-members"
+          conversationId={conversationId}
+          groupName={currentConversation?.name}
+        />
+      )}
     </div>
   );
 }

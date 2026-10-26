@@ -1,7 +1,7 @@
 export const EMPTY_STRING = "";
 
 export const VALIDATION_CONFIG = {
-  MIN_LENGTH_STRING: 3,
+  MIN_LENGTH_STRING: 2,
   MEDIUM_LENGTH_STRING: 100,
   MAX_LENGTH_STRING: 255,
   LENGTH_STRING: 8,
@@ -33,4 +33,10 @@ export const NOTIFICATION_MESSAGES = 99;
 
 export const MAP_ARRAY = [1, 2, 3, 4, 5];
 
-export const STATIC_DETAIL_ROUTES = ["add-new", "directory"];
+export const STATIC_DETAIL_ROUTES = [
+  "add-new",
+  "directory",
+  "groups",
+  "friend-requests",
+  "group-requests",
+];

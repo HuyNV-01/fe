@@ -36,6 +36,7 @@ export function NavActions({ actions, className }: NavActionsProps) {
           className="w-32"
           rounded={"full"}
           onClick={handleLogin}
+          glassZIndex={40}
         >
           {t("login")}
         </PatternButton>

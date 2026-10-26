@@ -41,7 +41,7 @@ export function VerifyOtpForm({ handleStep }: VerifyOtpFormProps) {
   const dataValue = useAuthStore((state) => state.value);
   const authStatus = useAuthStore((state) => state.status);
   const isWait = useStoreWait(authStatus);
-  const { seconds, isFinished, start, formatTime } = usePersistentCountdown(
+  const { isFinished, start, formatTime } = usePersistentCountdown(
     KEY_TIMEOUT_OTP,
     DEFAULT_TIMEOUT_OTP,
   );
@@ -51,10 +51,10 @@ export function VerifyOtpForm({ handleStep }: VerifyOtpFormProps) {
   const handleReSendOtp = async () => {
     if (dataValue?.email) {
       await forgotPassword(
-        { email: dataValue?.email },
+        { email: dataValue.email },
         {
           onSuccess: (code) => {
-            handleStep();
+            start(DEFAULT_TIMEOUT_OTP);
             showSuccessToast(tMessage(`toast.${code}`));
           },
           onError: (code) => {
@@ -119,8 +119,9 @@ export function VerifyOtpForm({ handleStep }: VerifyOtpFormProps) {
                     </FieldLabel>
                     <FieldDescription>
                       {tForm("description.otp")}
+                      {dataValue?.email ? ` (${dataValue.email})` : ""}
                     </FieldDescription>
-                    <div className="w-full flex items-center justify-center">
+                    <div className="w-full flex items-center justify-center py-2">
                       <InputOTP
                         maxLength={DEFAULT_LENGTH_OTP}
                         id={field.name}
@@ -144,19 +145,19 @@ export function VerifyOtpForm({ handleStep }: VerifyOtpFormProps) {
                         </InputOTPGroup>
                       </InputOTP>
                     </div>
-                    <div className="w-full flex items-center justify-start">
+                    <div className="w-full flex items-center justify-between px-1">
                       <Button
-                        variant={"link"}
-                        className="hover:text-sky-600"
+                        type="button"
+                        variant="link"
+                        disabled={!isFinished || isWait}
+                        className="hover:text-sky-600 px-0"
                         onClick={handleReSendOtp}
                       >
                         {tForm("button.reSend")}
                       </Button>
-                      <p className="text-sky-600">
-                        <span className="font-mono font-bold text-sky-600 text-base">
-                          {formatTime()}
-                        </span>
-                      </p>
+                      <span className="font-mono font-bold text-sky-600 text-sm">
+                        {formatTime()}
+                      </span>
                     </div>
                   </Field>
                 );

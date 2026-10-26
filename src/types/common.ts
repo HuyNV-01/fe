@@ -4,7 +4,7 @@ import type {
   StatusEnum,
   ValidRolesEnum,
 } from "@/common/enum";
-import { IPaginationOptions } from ".";
+import type { IPaginationOptions } from ".";
 
 //#region interface
 export interface IRegister {
@@ -22,6 +22,10 @@ export interface IForgotPassword {
   email: string;
 }
 
+export interface IResendActivation {
+  email: string;
+}
+
 export interface IVerifyOtp {
   email?: string;
   otp: string;
@@ -30,6 +34,7 @@ export interface IVerifyOtp {
 export interface IResetPassword {
   email?: string;
   newPassword: string;
+  resetToken?: string;
 }
 
 export interface ICallbackLogin {
@@ -59,17 +64,22 @@ export interface IRemoveContactPayload {
   targetId: string;
 }
 
+export interface IUpdateContactAliasPayload {
+  targetId: string;
+  alias: string;
+}
+
 export interface IPaginationContacts extends IPaginationOptions {
-  type?: KeyContactsEnum;
+  type?: KeyContactsEnum | ContactStatusEnum;
 }
 //#endregion interface
 
 //#region Res
-export interface IBaseResponse {
+export interface IBaseResponse<T = any> {
   status: number;
   code: number;
   message: string;
-  data?: any;
+  data?: T;
 }
 
 export interface IUserRes {
@@ -77,18 +87,19 @@ export interface IUserRes {
   name?: string;
   role?: ValidRolesEnum;
   status?: StatusEnum;
-  currentSignInAt?: Date;
-  lastSignInAt?: Date;
+  currentSignInAt?: Date | string;
+  lastSignInAt?: Date | string;
   provider?: string;
   uid?: string;
   id?: string;
-  createdAt?: Date;
-  createdBy?: string;
-  updatedAt?: Date;
-  updatedBy?: string;
-  deletedAt?: Date;
-  deletedBy?: string;
-  avatar?: string;
+  createdAt?: Date | string;
+  createdBy?: string | null;
+  updatedAt?: Date | string;
+  updatedBy?: string | null;
+  deletedAt?: Date | string | null;
+  deletedBy?: string | null;
+  avatar?: string | null;
+  resetToken?: string;
 }
 
 export interface IContactsDataRes {
@@ -97,7 +108,7 @@ export interface IContactsDataRes {
   contactId: string;
   status: ContactStatusEnum;
   contactUser: IUserRes;
-  alias?: string;
+  alias?: string | null;
 }
 
 export interface IBaseGetListRes {
@@ -138,6 +149,7 @@ export interface IRegisterResponse extends IBaseResponse {}
 export interface ILoginRes {
   user: IUserRes;
   accessToken: string;
+  refreshToken?: string;
 }
 
 export interface ILoginResponse extends IBaseResponse {
@@ -148,8 +160,16 @@ export interface ILoginThirdResponse extends IBaseResponse {
   data: IUserRes;
 }
 
+export interface IVerifyOtpDataRes {
+  resetToken: string;
+  expiresInSeconds: number;
+}
+
+export interface IVerifyOtpResponse extends IBaseResponse<IVerifyOtpDataRes> {}
+
 export interface IVerifyEmailRes {
   email: string;
+  resetToken?: string;
 }
 
 //#endregion Res

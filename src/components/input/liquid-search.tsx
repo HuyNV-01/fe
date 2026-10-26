@@ -264,7 +264,7 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
   if (mode === "input") {
     return (
       <div className={cn("relative w-full group", className)}>
-        <LiquidGlassAnchor className="h-full">
+        <LiquidGlassAnchor zIndex={0} className="h-full">
           <LiquidGlassInput className="w-full h-full! overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
             <div className="flex items-center px-3 w-full h-full">
               {startIcon || (
@@ -351,7 +351,7 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
           className="bg-transparent border-none shadow-none overflow-visible w-full"
         >
           <LiquidPopover open={showInlineDropdown} onOpenChange={setOpen}>
-            <LiquidGlassAnchor>
+            <LiquidGlassAnchor zIndex={0}>
               <LiquidPopoverTrigger asChild>
                 <LiquidGlassInput className="w-full overflow-visible focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
                   <div className="flex items-center px-3 w-full">

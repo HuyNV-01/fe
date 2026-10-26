@@ -18,12 +18,14 @@ export default function LoginBase() {
   const tForm = useTranslations("Form.Login");
   const router = useRouter();
   return (
-    <div className="w-full flex items-start justify-center">
+    <div className="w-full min-h-full py-6 px-4 flex items-center justify-center">
       <div className="relative z-10 w-full max-w-md">
         <LiquidGlassCard>
           <Card className="bg-transparent border-0">
             <CardHeader>
-              <CardTitle>{tForm("title.login")}</CardTitle>
+              <CardTitle className="text-xl font-bold">
+                {tForm("title.login")}
+              </CardTitle>
               <CardDescription>{tForm("description.title")}</CardDescription>
               <CardAction>
                 <Button

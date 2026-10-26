@@ -24,6 +24,7 @@ export default function LoginThird() {
       fullWidth
       icon={<GoogleIcon />}
       onClick={handleWithGoogle}
+      glassZIndex={10}
     >
       {tForm("button.google")}
     </PatternButton>

@@ -10,8 +10,8 @@ import type { IUserRes } from "./common";
 export interface IConversation {
   id: string;
   name?: string;
-  avatar?: string;
-  lastMessage?: string;
+  avatar?: string | null;
+  lastMessage?: string | null;
   lastMessageAt?: string;
   lastMessageType?: string;
   lastMessageSenderId?: string;
@@ -21,6 +21,28 @@ export interface IConversation {
   partnerId?: string;
   isAdmin?: boolean;
   isMuted?: boolean;
+}
+
+export interface ICreateGroupPayload {
+  name: string;
+  memberIds: string[];
+}
+
+export interface IAddGroupMembersPayload {
+  conversationId: string;
+  memberIds: string[];
+}
+
+export interface IRemoveGroupMemberPayload {
+  conversationId: string;
+  memberId: string;
+}
+
+export interface IGroupUpdatedPayload {
+  action: "members_added" | "member_removed";
+  conversationId: string;
+  addedMemberIds?: string[];
+  removedUserId?: string;
 }
 
 export interface IMessageAttachment {

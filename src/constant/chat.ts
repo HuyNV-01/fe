@@ -1,10 +1,10 @@
-import { ContactStatusEnum, KeyContactsEnum } from "@/common/enum";
+import { KeyContactsEnum } from "@/common/enum";
 import config from "@/config";
 import type { IMenuItem } from "@/types/chat";
 import type { TSidebarViewMode } from "@/types/common";
 import {
+  Clock,
   Contact,
-  MessageCirclePlus,
   MessagesSquare,
   UserPlus,
   Users,
@@ -15,7 +15,7 @@ export const VIEW_CONFIG = {
   CHAT: {
     labelKey: "chat",
     icon: MessagesSquare,
-    targetRoute: config.routes.private.contacts,
+    targetRoute: config.routes.private.directory,
     targetMode: "CONTACTS" as TSidebarViewMode,
     switchLabelKey: "contacts",
     switchIcon: Users,
@@ -38,13 +38,13 @@ export const MENU_GROUPS: { title?: string; items: IMenuItem[] }[] = [
         key: KeyContactsEnum.FRIENDS,
         label: "contact.sidebar.friendList",
         icon: Contact,
-        href: config.routes.private.directory,
+        href: `${config.routes.private.directory}?tab=${KeyContactsEnum.FRIENDS}`,
       },
       {
         key: KeyContactsEnum.GROUPS,
         label: "contact.sidebar.groupList",
         icon: UsersRound,
-        href: "/contacts/groups",
+        href: `${config.routes.private.directory}?tab=${KeyContactsEnum.GROUPS}`,
       },
     ],
   },
@@ -55,14 +55,14 @@ export const MENU_GROUPS: { title?: string; items: IMenuItem[] }[] = [
         key: KeyContactsEnum.PENDING_RECEIVED,
         label: "contact.sidebar.friendRequests",
         icon: UserPlus,
-        href: "/contacts/friend-requests",
+        href: `${config.routes.private.directory}?tab=${KeyContactsEnum.PENDING_RECEIVED}`,
         countKey: "friendRequests",
       },
       {
-        key: KeyContactsEnum.GROUPS_RECEIVED,
+        key: KeyContactsEnum.PENDING_SENT,
         label: "contact.sidebar.groupRequests",
-        icon: MessageCirclePlus,
-        href: "/contacts/group-requests",
+        icon: Clock,
+        href: `${config.routes.private.directory}?tab=${KeyContactsEnum.PENDING_SENT}`,
         countKey: "groupRequests",
       },
     ],

@@ -59,7 +59,7 @@ export default function ChatList() {
   );
   return (
     <ScrollArea className="h-full w-full flex-1" onScrollCapture={handleScroll}>
-      <div className="flex flex-col gap-1.5 px-4 pb-4 pt-1">
+      <div className="flex flex-col gap-1.5 px-3 pb-4 pt-1">
         {!isLoadingInbox && conversations.length === 0 && (
           <div className="mt-10 animate-in fade-in zoom-in-95 duration-500">
             <ChatSidebarEmpty />
@@ -81,8 +81,9 @@ export default function ChatList() {
               subtitle={chat.lastMessage}
               isSelected={activeConversationId === chat.id}
               isOnline={chat.isOnline}
+              isMuted={chat.isMuted}
               onSelect={() => handleSelectChat(chat.id)}
-              isTyping={typingUsers[chat.id]?.length > 0}
+              isTyping={(typingUsers[chat.id]?.length || 0) > 0}
             />
           ))}
 

@@ -8,6 +8,7 @@ import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import { CallStatusEnum, SocketNamespaceEnum } from "@/common/enum";
 import { SOCKET_EVENTS } from "@/constant/socket-events";
 import type {
+  IGroupUpdatedPayload,
   IMessage,
   ITypingPayload,
   ISocketErrorPayload,
@@ -26,6 +27,7 @@ export const useChatSocket = () => {
     handleMessageRecalled,
     handleMessageReaction,
     handleMessagePinned,
+    handleGroupUpdated,
     setTypingUser,
     setUserStatus,
     updateMessageStatus,
@@ -87,6 +89,14 @@ export const useChatSocket = () => {
       SOCKET_EVENTS.CHAT.MESSAGE_PINNED,
       (payload) => {
         handleMessagePinned(payload);
+      },
+    );
+
+    const cleanGroupUpdated = socketService.on<IGroupUpdatedPayload>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CHAT.GROUP_UPDATED,
+      (payload) => {
+        handleGroupUpdated(payload);
       },
     );
 
@@ -233,6 +243,7 @@ export const useChatSocket = () => {
       cleanRecalled();
       cleanReaction();
       cleanPinned();
+      cleanGroupUpdated();
       cleanStatusUpdate();
       cleanRead();
       cleanTyping();
@@ -253,6 +264,7 @@ export const useChatSocket = () => {
     handleMessageRecalled,
     handleMessageReaction,
     handleMessagePinned,
+    handleGroupUpdated,
     updateMessageStatus,
     handleReadMessage,
     setTypingUser,

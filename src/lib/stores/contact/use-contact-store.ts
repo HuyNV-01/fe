@@ -1,12 +1,14 @@
 import type { ActionCallbacks } from "@/types/store";
 import type {
   IAcceptFriendPayload,
+  IBaseResponse,
   IContactRes,
   IGetContactsResponse,
   IGetListContactsResponse,
   IPaginationContacts,
   IRemoveContactPayload,
   IRequestContactPayload,
+  IUpdateContactAliasPayload,
 } from "@/types/common";
 import {
   acceptFriendApi,
@@ -14,6 +16,7 @@ import {
   getContactsApi,
   removeContactApi,
   requestContactApi,
+  updateContactAliasApi,
 } from "./api";
 import { createPersistedStore } from "../create-persisted-store";
 import type { IContactState } from "@/types/state";
@@ -33,6 +36,10 @@ interface ContactActions {
     payload: { data: IRemoveContactPayload },
     cb?: ActionCallbacks,
   ) => Promise<void>;
+  updateAlias: (
+    payload: { data: IUpdateContactAliasPayload },
+    cb?: ActionCallbacks,
+  ) => Promise<void>;
   findContactUsers: (
     payload: { params: IPaginationOptions },
     cb?: ActionCallbacks,
@@ -46,12 +53,13 @@ interface ContactActions {
     payload: { params: IPaginationContacts },
     cb?: ActionCallbacks,
   ) => Promise<void>;
+  resetListContacts: () => void;
 }
 
 export const useContactStore = createPersistedStore<
   IContactState & ContactActions
 >(
-  (set, get) => ({
+  (set) => ({
     contacts: {
       data: [],
       meta: { page: 0, limit: 0, total: 0, totalPages: 0 },
@@ -75,6 +83,7 @@ export const useContactStore = createPersistedStore<
             state.contacts = res.data;
             state.status = "idle";
           });
+          cb?.onSuccess?.(res.data);
         }
       } catch (error: any) {
         cb?.onError?.(error.response?.data?.code || error.status);
@@ -96,20 +105,21 @@ export const useContactStore = createPersistedStore<
       const { data } = payload;
       set({ isRequest: true });
       try {
-        const res = await requestContactApi({
+        const res = (await requestContactApi({
           data,
-        });
+        })) as unknown as IBaseResponse;
         if (res.status === 200) {
           set((state) => {
             const targetUser = state.contacts.data.find(
               (item) => item.id === data.targetUserId,
-            ) as any as IContactRes;
+            ) as IContactRes | undefined;
 
             if (targetUser) {
               targetUser.contactStatus = ContactStatusEnum.PENDING_SENT;
             }
             state.isRequest = false;
           });
+          cb?.onSuccess?.();
         }
       } catch (error: any) {
         cb?.onError?.(error.response?.data?.code || error.status);
@@ -121,20 +131,39 @@ export const useContactStore = createPersistedStore<
       const { data } = payload;
       set({ isRequest: true });
       try {
-        const res = await acceptFriendApi({
+        const res = (await acceptFriendApi({
           data,
-        });
+        })) as unknown as IBaseResponse;
         if (res.status === 200) {
           set((state) => {
             const targetUser = state.contacts.data.find(
               (item) => item.id === data.senderId,
-            ) as any as IContactRes;
+            ) as IContactRes | undefined;
 
             if (targetUser) {
               targetUser.contactStatus = ContactStatusEnum.FRIEND;
             }
+
+            const reqIndex = state.listContacts.data.findIndex(
+              (item) =>
+                item.contactId === data.senderId ||
+                item.contactUser?.id === data.senderId,
+            );
+            if (reqIndex !== -1) {
+              const currentItem = state.listContacts.data[reqIndex];
+              if (currentItem.status === ContactStatusEnum.PENDING_RECEIVED) {
+                state.listContacts.data.splice(reqIndex, 1);
+                if (state.listContacts.meta.total > 0) {
+                  state.listContacts.meta.total -= 1;
+                }
+              } else {
+                currentItem.status = ContactStatusEnum.FRIEND;
+              }
+            }
+
             state.isRequest = false;
           });
+          cb?.onSuccess?.();
         }
       } catch (error: any) {
         cb?.onError?.(error.response?.data?.code || error.status);
@@ -146,20 +175,58 @@ export const useContactStore = createPersistedStore<
       const { data } = payload;
       set({ isRequest: true });
       try {
-        const res = await removeContactApi({
+        const res = (await removeContactApi({
           data,
-        });
+        })) as unknown as IBaseResponse;
         if (res.status === 200) {
           set((state) => {
             const targetUser = state.contacts.data.find(
               (item) => item.id === data.targetId,
-            ) as any as IContactRes;
+            ) as IContactRes | undefined;
 
             if (targetUser) {
               targetUser.contactStatus = null;
             }
+
+            state.listContacts.data = state.listContacts.data.filter(
+              (item) =>
+                item.contactId !== data.targetId &&
+                item.contactUser?.id !== data.targetId,
+            );
+            if (state.listContacts.meta.total > 0) {
+              state.listContacts.meta.total -= 1;
+            }
+
             state.isRequest = false;
           });
+          cb?.onSuccess?.();
+        }
+      } catch (error: any) {
+        cb?.onError?.(error.response?.data?.code || error.status);
+        set({ isRequest: false });
+      }
+    },
+
+    updateAlias: async (payload, cb) => {
+      const { data } = payload;
+      set({ isRequest: true });
+      try {
+        const res = (await updateContactAliasApi({
+          data,
+        })) as unknown as IBaseResponse;
+        if (res.status === 200) {
+          set((state) => {
+            const contactItem = state.listContacts.data.find(
+              (item) =>
+                item.contactId === data.targetId ||
+                item.contactUser?.id === data.targetId,
+            );
+            if (contactItem) {
+              contactItem.alias = data.alias.trim() || null;
+            }
+            state.isRequest = false;
+          });
+          cb?.onSuccess?.();
         }
       } catch (error: any) {
         cb?.onError?.(error.response?.data?.code || error.status);
@@ -169,19 +236,27 @@ export const useContactStore = createPersistedStore<
 
     handleSocketUpdate: (userId, status) => {
       set((state) => {
-        const updatedData = state.contacts.data.map((user) => {
+        state.contacts.data = state.contacts.data.map((user) => {
           if (user.id === userId) {
-            return { ...user, contactStatus: status ?? (null as any) };
+            return { ...user, contactStatus: status ?? null };
           }
           return user;
         });
 
-        return {
-          contacts: {
-            ...state.contacts,
-            data: updatedData,
-          },
-        };
+        if (status === null) {
+          state.listContacts.data = state.listContacts.data.filter(
+            (item) =>
+              item.contactId !== userId && item.contactUser?.id !== userId,
+          );
+        } else {
+          const existing = state.listContacts.data.find(
+            (item) =>
+              item.contactId === userId || item.contactUser?.id === userId,
+          );
+          if (existing) {
+            existing.status = status;
+          }
+        }
       });
     },
 
@@ -197,6 +272,7 @@ export const useContactStore = createPersistedStore<
             state.listContacts = res.data;
             state.status = "idle";
           });
+          cb?.onSuccess?.(res.data);
         }
       } catch (error: any) {
         cb?.onError?.(error.response?.data?.code || error.status);
@@ -216,6 +292,6 @@ export const useContactStore = createPersistedStore<
   }),
   "contact-storage",
   {
-    partialize: (state) => ({}) as any,
+    partialize: () => ({}) as any,
   },
 );

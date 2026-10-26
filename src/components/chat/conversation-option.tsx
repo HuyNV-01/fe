@@ -1,12 +1,13 @@
 /** biome-ignore-all lint/suspicious/noArrayIndexKey: <explanation> */
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { PatternButton } from "@/components/button/button-patterns";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { MENU_GROUPS } from "@/constant/chat";
+import { KeyContactsEnum } from "@/common/enum";
 import type { IMenuItem, IOptionCounts, TOptionKey } from "@/types/chat";
 import { ScrollArea } from "../ui/scroll-area";
 import { useContactMenu } from "@/utils/hooks/use-contact-menu";
@@ -24,7 +25,16 @@ export default function ConversationOption({
 }: IConversationOptionProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const isActive = (href: string) => pathname.includes(href);
+  const searchParams = useSearchParams();
+  const activeTab =
+    (searchParams.get("tab") as KeyContactsEnum | null) ||
+    KeyContactsEnum.FRIENDS;
+
+  const isActive = (item: IMenuItem) => {
+    if (!pathname.includes("/contacts/directory")) return false;
+    return activeTab === item.key;
+  };
+
   const { menuGroups } = useContactMenu();
 
   const handleNavigation = (item: IMenuItem) => {
@@ -45,7 +55,7 @@ export default function ConversationOption({
 
             <div className="flex flex-col gap-1">
               {group.items.map((item) => {
-                const active = isActive(item.href);
+                const active = isActive(item);
                 const badgeCount = item.countKey ? counts[item.countKey] : 0;
                 const Icon = item.icon;
 
@@ -63,20 +73,18 @@ export default function ConversationOption({
                     icon={
                       <div className="flex items-center">
                         {badgeCount && badgeCount > 0 ? (
-                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-sm animate-in zoom-in duration-300">
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-xs animate-in zoom-in duration-300">
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
                         ) : (
                           active && (
-                            <ChevronRight className="size-3 text-muted-foreground/50 animate-in slide-in-from-left-1" />
+                            <ChevronRight className="size-3.5 text-primary/70 animate-in slide-in-from-left-1" />
                           )
                         )}
                       </div>
                     }
                     iconPosition="right"
                     contentAlign="between"
-                    glassZIndex={0}
-                    overflowPadding={0}
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -94,7 +102,7 @@ export default function ConversationOption({
                         className={cn(
                           "text-sm font-medium transition-colors",
                           active
-                            ? "text-foreground"
+                            ? "text-foreground font-semibold"
                             : "text-muted-foreground group-hover:text-foreground",
                         )}
                       >

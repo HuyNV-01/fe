@@ -127,6 +127,18 @@ export const pinMessageApi = async (payload: {
   return apiClient.post("/chat/messages/pin", payload);
 };
 
+export const registerE2EEPublicKeyApi = async (payload: {
+  publicKey: string;
+  algorithm?: string;
+  keyId: string;
+}) => {
+  return apiClient.post("/chat/e2ee/keys", payload);
+};
+
+export const getConversationPublicKeysApi = async (conversationId: string) => {
+  return apiClient.get(`/chat/conversations/${conversationId}/e2ee-keys`);
+};
+
 export const getIceServersApi = async () => {
   return apiClient.get("/chat/calls/ice-servers");
 };

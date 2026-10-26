@@ -16,11 +16,11 @@ export default function TriggerSelect({
   return (
     <LiquidGlassAnchor
       contentClassName="flex items-center justify-end"
-      zIndex={50}
+      zIndex={0}
     >
-      <LiquidGlassInput className="w-max rounded-xl">
+      <LiquidGlassInput className="w-max ">
         <SelectTrigger
-          className={cn("rounded-xl cursor-pointer", className)}
+          className={cn("w-full rounded-full cursor-pointer", className)}
           size={size}
           {...props}
         >

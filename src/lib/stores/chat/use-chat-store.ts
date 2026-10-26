@@ -1,13 +1,17 @@
 /** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 import type {
   IActiveCallState,
+  IAddGroupMembersPayload,
   IConversation,
+  ICreateGroupPayload,
+  IGroupUpdatedPayload,
   IMessage,
   IMessagePinnedPayload,
   IMessageReactionPayload,
   IMessageReadPayload,
   IMessageRecalledPayload,
   IMessageStatusUpdatePayload,
+  IRemoveGroupMemberPayload,
   ISendMessagePayload,
   ITypingPayload,
   IUserStatusPayload,
@@ -20,6 +24,9 @@ import {
   getInbox,
   getMessages,
   createDirectChat,
+  createGroup,
+  addGroupMembersApi,
+  removeGroupMemberApi,
   markAsReadApi,
   uploadChatAttachmentsApi,
   editMessageApi,
@@ -34,6 +41,7 @@ import { socketService } from "@/services/socket/socket-client";
 import {
   CallStatusEnum,
   CallTypeEnum,
+  ConversationTypeEnum,
   MessageTypeEnum,
   SocketNamespaceEnum,
 } from "@/common/enum";
@@ -83,6 +91,7 @@ interface ChatState {
   handleMessageRecalled: (payload: IMessageRecalledPayload) => void;
   handleMessageReaction: (payload: IMessageReactionPayload) => void;
   handleMessagePinned: (payload: IMessagePinnedPayload) => void;
+  handleGroupUpdated: (payload: IGroupUpdatedPayload) => void;
 
   updateMessageStatus: (payload: IMessageStatusUpdatePayload) => void;
   handleReadMessage: (payload: IMessageReadPayload) => void;
@@ -106,6 +115,18 @@ interface ChatState {
     payload: CreateDirectChatPayload,
     cb?: ActionCallbacks,
   ) => Promise<string | null>;
+  createGroupChat: (
+    payload: ICreateGroupPayload,
+    cb?: ActionCallbacks<IConversation>,
+  ) => Promise<string | null>;
+  addGroupMembers: (
+    payload: IAddGroupMembersPayload,
+    cb?: ActionCallbacks,
+  ) => Promise<boolean>;
+  removeGroupMember: (
+    payload: IRemoveGroupMemberPayload,
+    cb?: ActionCallbacks,
+  ) => Promise<boolean>;
   sendMessage: (payload: ISendMessagePayload) => Promise<void>;
   sendAttachmentMessage: (payload: {
     conversationId: string;
@@ -490,6 +511,26 @@ export const useChatStore = createPersistedStore<ChatState>(
       });
     },
 
+    handleGroupUpdated: (payload) => {
+      const currentUserId = useAuthStore.getState().currentAccount?.user?.id;
+      if (
+        payload.action === "member_removed" &&
+        payload.removedUserId === currentUserId
+      ) {
+        set((state) => {
+          state.conversations = state.conversations.filter(
+            (c) => c.id !== payload.conversationId,
+          );
+          if (state.activeConversationId === payload.conversationId) {
+            state.activeConversationId = null;
+          }
+        });
+        toast.info("Bạn đã rời khỏi hoặc bị xóa khỏi nhóm trò chuyện");
+      } else {
+        get().fetchInbox({ page: 1 });
+      }
+    },
+
     updateMessageStatus: ({ conversationId, id, status, userId }) => {
       set((state) => {
         const msgs = state.messages[conversationId];
@@ -749,6 +790,98 @@ export const useChatStore = createPersistedStore<ChatState>(
         const message = error.response?.data?.message || "Lỗi tạo chat";
         cb?.onError?.(message);
         return null;
+      }
+    },
+
+    createGroupChat: async (payload, cb) => {
+      try {
+        const res = (await createGroup(payload)) as any;
+        const rawGroup = res?.data ?? res;
+        if (!rawGroup?.id) return null;
+
+        const newGroupConv: IConversation = {
+          id: rawGroup.id,
+          name: rawGroup.name || payload.name,
+          avatar: rawGroup.avatar || null,
+          type: ConversationTypeEnum.GROUP,
+          lastMessage: "Nhóm mới được tạo",
+          lastMessageAt: rawGroup.lastMessageAt || new Date().toISOString(),
+          unreadCount: 0,
+          isAdmin: true,
+          isMuted: false,
+        };
+
+        set((state) => {
+          state.activeConversationId = newGroupConv.id;
+          const exists = state.conversations.some(
+            (c) => c.id === newGroupConv.id,
+          );
+          if (!exists) {
+            state.conversations.unshift(newGroupConv);
+          }
+        });
+
+        if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
+          socketService
+            .emit(SocketNamespaceEnum.CHAT, SOCKET_EVENTS.CHAT.JOIN_ROOM, {
+              conversationId: newGroupConv.id,
+            })
+            .catch(() => {});
+        }
+
+        toast.success(`Đã tạo nhóm "${newGroupConv.name}"`);
+        cb?.onSuccess?.(newGroupConv);
+        return newGroupConv.id;
+      } catch (error: any) {
+        const message =
+          error.response?.data?.message || "Không thể tạo nhóm trò chuyện";
+        toast.error(message);
+        cb?.onError?.(message);
+        return null;
+      }
+    },
+
+    addGroupMembers: async (payload, cb) => {
+      try {
+        await addGroupMembersApi(payload);
+        toast.success("Đã thêm thành viên vào nhóm");
+        cb?.onSuccess?.();
+        return true;
+      } catch (error: any) {
+        const message =
+          error.response?.data?.message || "Không thể thêm thành viên vào nhóm";
+        toast.error(message);
+        cb?.onError?.(message);
+        return false;
+      }
+    },
+
+    removeGroupMember: async (payload, cb) => {
+      try {
+        await removeGroupMemberApi(payload);
+        const currentUserId = useAuthStore.getState().currentAccount?.user?.id;
+        if (payload.memberId === currentUserId) {
+          set((state) => {
+            state.conversations = state.conversations.filter(
+              (c) => c.id !== payload.conversationId,
+            );
+            if (state.activeConversationId === payload.conversationId) {
+              state.activeConversationId = null;
+            }
+          });
+          toast.success("Đã rời khỏi nhóm trò chuyện");
+        } else {
+          toast.success("Đã xóa thành viên khỏi nhóm");
+        }
+        cb?.onSuccess?.();
+        return true;
+      } catch (error: any) {
+        const message =
+          error.response?.data?.message ||
+          "Không thể thực hiện thao tác với thành viên nhóm";
+        toast.error(message);
+        cb?.onError?.(message);
+        return false;
       }
     },
 
