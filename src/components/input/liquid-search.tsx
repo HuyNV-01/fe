@@ -33,7 +33,7 @@ import {
   LiquidPopoverContent,
   LiquidPopoverTrigger,
 } from "../liquid-glass/liquid-popover";
-import { LiquidGlassAnchor } from "../liquid-glass/liquid-glass-anchor";
+import { useTranslations } from "next-intl";
 
 // --- TYPES ---
 export interface SearchResultItem {
@@ -86,8 +86,6 @@ interface LiquidSearchProps<T extends SearchResultItem = SearchResultItem> {
   endIcon?: React.ReactNode;
 }
 
-// --- SUB-COMPONENTS ---
-
 const GlassKbd = ({
   children,
   className,
@@ -105,8 +103,6 @@ const GlassKbd = ({
     {children}
   </Kbd>
 );
-
-// --- MAIN COMPONENT ---
 
 export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
   open,
@@ -129,19 +125,20 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
   placeholder,
 }: LiquidSearchProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
+  const tDefault = useTranslations("Common.Search");
 
   const isDialogOpen = open !== undefined ? open : internalOpen;
   const setOpen = onOpenChange || setInternalOpen;
 
   const t = {
-    placeholder: placeholder || labels.placeholder || "Type to search...",
-    emptyMessage: labels.emptyMessage || "No results found.",
-    searching: labels.searching || "Searching...",
-    navigate: labels.navigate || "Navigate",
-    select: labels.select || "Select",
-    close: labels.close || "Close",
-    searchEngine: labels.searchEngine || "Search Engine",
-    clear: labels.clear || "Clear search",
+    placeholder: placeholder || labels.placeholder || tDefault("placeholder"),
+    emptyMessage: labels.emptyMessage || tDefault("emptyMessage"),
+    searching: labels.searching || tDefault("searching"),
+    navigate: labels.navigate || tDefault("navigate"),
+    select: labels.select || tDefault("select"),
+    close: labels.close || tDefault("close"),
+    searchEngine: labels.searchEngine || tDefault("searchEngine"),
+    clear: labels.clear || tDefault("clear"),
   };
 
   React.useEffect(() => {
@@ -179,7 +176,6 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
     (e: React.MouseEvent) => {
       e.stopPropagation();
       onSearch?.("");
-      // e.currentTarget.parentElement?.querySelector('input')?.focus();
     },
     [onSearch],
   );
@@ -259,52 +255,49 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
     </CommandList>
   );
 
-  // --- RENDER MODES ---
   // 1. INPUT MODE
   if (mode === "input") {
     return (
       <div className={cn("relative w-full group", className)}>
-        <LiquidGlassAnchor zIndex={0} className="h-full">
-          <LiquidGlassInput className="w-full h-full! overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
-            <div className="flex items-center px-3 w-full h-full">
-              {startIcon || (
-                <Search className="h-4 w-4 text-muted-foreground/50 mr-2 shrink-0" />
+        <LiquidGlassInput className="w-full h-full! overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
+          <div className="flex items-center px-3 w-full h-full">
+            {startIcon || (
+              <Search className="h-4 w-4 text-muted-foreground/50 mr-2 shrink-0" />
+            )}
+
+            <Input
+              value={value}
+              onChange={(e) => onSearch?.(e.target.value)}
+              placeholder={t.placeholder}
+              className={cn(
+                "flex h-full w-full py-2 text-sm",
+                "bg-transparent!",
+                "border-none",
+                "shadow-none",
+                "focus-visible:ring-0 focus-visible:ring-offset-0",
+                "px-0",
               )}
+            />
 
-              <Input
-                value={value}
-                onChange={(e) => onSearch?.(e.target.value)}
-                placeholder={t.placeholder}
-                className={cn(
-                  "flex h-full w-full py-2 text-sm",
-                  "bg-transparent!",
-                  "border-none",
-                  "shadow-none",
-                  "focus-visible:ring-0 focus-visible:ring-offset-0",
-                  "px-0",
-                )}
-              />
-
-              <div className="flex items-center gap-1 shrink-0">
-                {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
-                ) : value && clearable ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleClear}
-                    className="h-6 w-6 rounded-full hover:bg-muted/50 text-muted-foreground"
-                    aria-label={t.clear}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                ) : null}
-                {endIcon}
-              </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
+              ) : value && clearable ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleClear}
+                  className="h-6 w-6 rounded-full hover:bg-muted/50 text-muted-foreground"
+                  aria-label={t.clear}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              ) : null}
+              {endIcon}
             </div>
-          </LiquidGlassInput>
-        </LiquidGlassAnchor>
+          </div>
+        </LiquidGlassInput>
       </div>
     );
   }
@@ -345,62 +338,61 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
     const showInlineDropdown = isDialogOpen && (value.length > 0 || loading);
 
     return (
-      <div className={cn("relative w-full group z-50", className)}>
+      <div className={cn("relative w-full group z-40", className)}>
         <Command
           shouldFilter={shouldFilter}
           className="bg-transparent border-none shadow-none overflow-visible w-full"
         >
           <LiquidPopover open={showInlineDropdown} onOpenChange={setOpen}>
-            <LiquidGlassAnchor zIndex={0}>
-              <LiquidPopoverTrigger asChild>
-                <LiquidGlassInput className="w-full overflow-visible focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
-                  <div className="flex items-center px-3 w-full">
-                    {startIcon || (
-                      <Search className="h-4 w-4 text-muted-foreground/50 mr-2 shrink-0" />
+            <LiquidPopoverTrigger asChild>
+              <LiquidGlassInput className="w-full overflow-visible focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
+                <div className="flex items-center px-3 w-full">
+                  {startIcon || (
+                    <Search className="h-4 w-4 text-muted-foreground/50 mr-2 shrink-0" />
+                  )}
+
+                  <CommandInput
+                    value={value}
+                    onValueChange={(val) => {
+                      onSearch?.(val);
+                      if (!isDialogOpen) setOpen(true);
+                    }}
+                    placeholder={t.placeholder}
+                    useIcon={false}
+                    className={cn(
+                      "flex w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50 border-none focus:ring-0 h-10 py-2 shadow-none",
                     )}
+                  />
 
-                    <CommandInput
-                      value={value}
-                      onValueChange={(val) => {
-                        onSearch?.(val);
-                        if (!isDialogOpen) setOpen(true);
-                      }}
-                      placeholder={t.placeholder}
-                      useIcon={false}
-                      className={cn(
-                        "flex w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-50 border-none focus:ring-0 h-10 py-2 shadow-none",
-                      )}
-                    />
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      {loading && (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
-                      )}
-                      {!loading && value && clearable && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            handleClear(e);
-                          }}
-                          className="h-6 w-6 rounded-full hover:bg-muted/50 text-muted-foreground"
-                          aria-label={t.clear}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                      {endIcon}
-                    </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {loading && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground/50" />
+                    )}
+                    {!loading && value && clearable && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          handleClear(e);
+                        }}
+                        className="h-6 w-6 rounded-full hover:bg-muted/50 text-muted-foreground"
+                        aria-label={t.clear}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {endIcon}
                   </div>
-                </LiquidGlassInput>
-              </LiquidPopoverTrigger>
-            </LiquidGlassAnchor>
+                </div>
+              </LiquidGlassInput>
+            </LiquidPopoverTrigger>
 
-            <LiquidPopoverContent className="z-50 w-[var(--radix-popover-trigger-width)] p-0 border-none bg-transparent shadow-none">
+            <LiquidPopoverContent className="z-50 p-0 border-none bg-transparent shadow-none">
               <LiquidGlassCard
-                blur="md"
-                className="p-0 overflow-hidden border border-white/10 shadow-xl"
+                blur="xl"
+                opacity="90"
+                className="p-0 overflow-hidden border border-border/60 shadow-xl"
               >
                 {SearchContent}
               </LiquidGlassCard>
@@ -414,7 +406,7 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
   // 4. COMMAND MODE (Dialog)
   return (
     <Dialog open={isDialogOpen} onOpenChange={setOpen}>
-      <DialogTitle className="sr-only">Search</DialogTitle>
+      <DialogTitle className="sr-only">{t.searchEngine}</DialogTitle>
       <DialogContent
         className={cn(
           "p-0 bg-transparent border-none shadow-none gap-0",
@@ -424,8 +416,8 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
         showCloseButton={false}
       >
         <LiquidGlassModal
-          opacity="60"
-          blur="sm"
+          opacity="80"
+          blur="xl"
           className="overflow-hidden p-0 flex flex-col shadow-2xl border border-white/10"
         >
           <Command

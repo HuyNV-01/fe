@@ -29,6 +29,7 @@ export default function ChatSidebar({
   viewMode: TSidebarViewMode;
 }) {
   const t = useTranslations("Chat.Sidebar.header.title");
+  const tFooter = useTranslations("Chat.Sidebar.footer");
   const router = useRouter();
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
 
@@ -51,14 +52,14 @@ export default function ChatSidebar({
         "w-full h-full flex flex-col items-start overflow-hidden border-r transition-all duration-300",
       )}
     >
-      <div className="w-full flex-none px-4 pt-4 pb-3 z-20">
-        <div className="flex items-center justify-between gap-2 mb-4">
+      <div className="w-full flex-none px-3.5 sm:px-4 pt-3.5 sm:pt-4 pb-2.5 sm:pb-3 z-20">
+        <div className="flex items-center justify-between gap-2 mb-3.5">
           <div className="flex items-center gap-2 min-w-0">
             <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0">
               <currentConfig.icon className="size-5" />
             </div>
             <TruncatedText
-              className="text-lg font-bold tracking-tight text-slate-900 dark:text-white"
+              className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white"
               text={t(currentConfig.labelKey)}
             />
           </div>
@@ -76,7 +77,7 @@ export default function ChatSidebar({
               </PatternButton>
             </BaseTooltip>
 
-            <BaseTooltip content="Tạo nhóm trò chuyện">
+            <BaseTooltip content={t("createGroup")}>
               <PatternButton
                 variant="ghost"
                 size="icon"
@@ -115,7 +116,9 @@ export default function ChatSidebar({
       </div>
 
       <div className="w-full flex-none px-4 py-2 border-t border-border/50 bg-background/40 backdrop-blur-sm text-[11px] text-muted-foreground flex items-center justify-between">
-        <span>{conversations.length} cuộc trò chuyện</span>
+        <span>
+          {tFooter("conversationCount", { count: conversations.length })}
+        </span>
         <span className="inline-flex items-center gap-1.5">
           <span
             className={cn(
@@ -125,7 +128,7 @@ export default function ChatSidebar({
                 : "bg-amber-500 animate-pulse",
             )}
           />
-          {isSocketConnected ? "Trực tuyến" : "Đang đồng bộ..."}
+          {isSocketConnected ? tFooter("online") : tFooter("syncing")}
         </span>
       </div>
 

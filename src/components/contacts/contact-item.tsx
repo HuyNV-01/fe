@@ -39,7 +39,7 @@ import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useContactStore } from "@/lib/stores/contact/use-contact-store";
 import { ContactStatusEnum } from "@/common/enum";
 import { toast } from "sonner";
-import { LiquidGlassAnchor } from "../liquid-glass/liquid-glass-anchor";
+import { useTranslations } from "next-intl";
 
 interface ContactItemProps {
   contact: IContactsDataRes;
@@ -47,13 +47,14 @@ interface ContactItemProps {
 
 export const ContactItem = ({ contact }: ContactItemProps) => {
   const router = useRouter();
+  const t = useTranslations("Chat.Detail.contact.item");
   const { createDirectChat } = useChatStore();
   const { acceptFriend, removeContact, updateAlias, isRequest } =
     useContactStore();
 
   const user = contact.contactUser;
   const targetUserId = user?.id || contact.contactId;
-  const displayName = contact.alias || user?.name || "Người dùng";
+  const displayName = contact.alias || user?.name || t("defaultUser");
 
   const [isAliasOpen, setIsAliasOpen] = useState(false);
   const [aliasValue, setAliasValue] = useState(contact.alias || "");
@@ -84,7 +85,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
     if (!targetUserId) return;
     const trimmed = aliasValue.trim();
     if (!trimmed) {
-      toast.warning("Vui lòng nhập tên gợi nhớ");
+      toast.warning(t("aliasModal.emptyWarning"));
       return;
     }
 
@@ -97,28 +98,29 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
       },
       {
         onSuccess: () => {
-          toast.success("Đã cập nhật tên gợi nhớ");
+          toast.success(t("aliasModal.updateSuccess"));
           setIsAliasOpen(false);
         },
         onError: () => {
-          toast.error("Không thể cập nhật tên gợi nhớ");
+          toast.error(t("aliasModal.updateError"));
         },
       },
     );
   };
 
   return (
-    <LiquidGlassAnchor zIndex={0}>
+    <>
       <LiquidGlassCard
         onKeyDown={handleKeyDown}
         interactive
         hover
-        className="p-3 group"
+        isolate={false}
+        className="p-2.5 sm:p-3 group"
         onClick={handleNavigate}
       >
-        <div className="flex items-center justify-between gap-3 sm:gap-4 transition-all">
+        <div className="flex items-center justify-between gap-2.5 sm:gap-4 transition-all">
           <div className="relative shrink-0">
-            <Avatar className="h-12 w-12 border border-border/50 shadow-xs">
+            <Avatar className="h-11 w-11 sm:h-12 sm:w-12 border border-border/50 shadow-xs">
               <AvatarImage src={user?.avatar || undefined} alt={displayName} />
               <AvatarFallback className="bg-primary/10 text-primary font-bold">
                 {getInitials(displayName)}
@@ -127,13 +129,14 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
           </div>
 
           <div className="flex-1 min-w-0 text-left">
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               <h4 className="font-semibold text-foreground truncate text-sm sm:text-base">
                 {displayName}
               </h4>
               {contact.alias && (
-                <span className="text-xs text-muted-foreground/70 inline-flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-full">
-                  <User className="w-3 h-3" /> {user?.name}
+                <span className="text-[11px] sm:text-xs text-muted-foreground/70 inline-flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-full truncate max-w-[140px]">
+                  <User className="w-3 h-3 shrink-0" />{" "}
+                  <span className="truncate">{user?.name}</span>
                 </span>
               )}
             </div>
@@ -143,7 +146,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
           </div>
 
           <div
-            className="flex items-center gap-1.5 shrink-0"
+            className="flex items-center gap-1 sm:gap-1.5 shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             {contact.status === ContactStatusEnum.PENDING_RECEIVED && (
@@ -159,13 +162,12 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                     acceptFriend(
                       { data: { senderId: targetUserId } },
                       {
-                        onSuccess: () =>
-                          toast.success("Đã chấp nhận lời mời kết bạn"),
+                        onSuccess: () => toast.success(t("toast.accepted")),
                       },
                     )
                   }
                 >
-                  Đồng ý
+                  <span className="hidden xs:inline">{t("accept")}</span>
                 </PatternButton>
                 <PatternButton
                   size="icon"
@@ -174,13 +176,12 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                   rounded="full"
                   className="h-8 w-8"
                   disabled={isRequest}
-                  title="Từ chối"
+                  title={t("reject")}
                   onClick={() =>
                     removeContact(
                       { data: { targetId: targetUserId } },
                       {
-                        onSuccess: () =>
-                          toast.info("Đã từ chối lời mời kết bạn"),
+                        onSuccess: () => toast.info(t("toast.rejected")),
                       },
                     )
                   }
@@ -201,12 +202,12 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                   removeContact(
                     { data: { targetId: targetUserId } },
                     {
-                      onSuccess: () => toast.info("Đã thu hồi lời mời kết bạn"),
+                      onSuccess: () => toast.info(t("toast.revoked")),
                     },
                   )
                 }
               >
-                Thu hồi
+                {t("revoke")}
               </PatternButton>
             )}
 
@@ -214,9 +215,9 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
               size="icon"
               variant="glass"
               rounded="full"
-              className="h-9 w-9"
+              className="h-8 w-8 sm:h-9 sm:w-9"
               onClick={handleSendMessage}
-              title="Nhắn tin"
+              title={t("sendMessage")}
             >
               <MessageCircle className="w-4 h-4" />
             </PatternButton>
@@ -227,7 +228,8 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                   size="icon"
                   variant="ghost"
                   rounded="full"
-                  className="h-9 w-9"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  aria-label={t("moreOptions")}
                 >
                   <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                 </PatternButton>
@@ -249,26 +251,27 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
 
       <Dialog open={isAliasOpen} onOpenChange={setIsAliasOpen}>
         <DialogContent
-          className="p-0 bg-transparent border-none shadow-none sm:max-w-sm"
+          className="p-0 bg-transparent border-none shadow-none max-w-[calc(100vw-1.5rem)] sm:max-w-sm"
           onClick={(e) => e.stopPropagation()}
         >
-          <LiquidGlassModal className="p-6">
+          <LiquidGlassModal className="p-5 sm:p-6">
             <form onSubmit={handleSaveAlias} className="space-y-4">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-base font-bold">
                   <Pencil className="w-4 h-4 text-primary" />
-                  <span>Đặt tên gợi nhớ</span>
+                  <span>{t("aliasModal.title")}</span>
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Đặt biệt danh dễ nhớ cho <strong>{user?.name}</strong> trong
-                  danh bạ của bạn.
+                  {t("aliasModal.description", {
+                    name: user?.name || t("defaultUser"),
+                  })}
                 </DialogDescription>
               </DialogHeader>
 
               <Input
                 value={aliasValue}
                 onChange={(e) => setAliasValue(e.target.value)}
-                placeholder="Nhập tên gợi nhớ..."
+                placeholder={t("aliasModal.placeholder")}
                 className="rounded-xl bg-background/60"
                 autoFocus
               />
@@ -281,7 +284,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                   rounded="full"
                   onClick={() => setIsAliasOpen(false)}
                 >
-                  Hủy
+                  {t("aliasModal.cancel")}
                 </PatternButton>
                 <PatternButton
                   type="submit"
@@ -290,13 +293,13 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                   rounded="full"
                   isLoading={isRequest}
                 >
-                  Lưu thay đổi
+                  {t("aliasModal.save")}
                 </PatternButton>
               </DialogFooter>
             </form>
           </LiquidGlassModal>
         </DialogContent>
       </Dialog>
-    </LiquidGlassAnchor>
+    </>
   );
 };

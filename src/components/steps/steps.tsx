@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AlertCircle, Check } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export interface Step {
   title: string;
@@ -203,6 +204,7 @@ export const Steps: React.FC<StepsProps> = ({
   connectorConfig = { show: true, animated: true, style: "solid" },
   cardClassName = "",
 }) => {
+  const t = useTranslations("Common.Steps");
   const [deviceType, setDeviceType] = useState<"mobile" | "tablet" | "desktop">(
     "desktop",
   );
@@ -267,7 +269,7 @@ export const Steps: React.FC<StepsProps> = ({
           <div className="space-y-2.5 px-4">
             <div className="flex justify-between items-center gap-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Step {currentStep} of {steps.length}
+                {t("stepOf", { current: currentStep, total: steps.length })}
               </span>
               {showProgressPercentage && (
                 <Badge
@@ -369,10 +371,10 @@ export const Steps: React.FC<StepsProps> = ({
     return (
       <div className={cn("w-full space-y-3", className)}>
         {showProgressBar && (
-          <div className="space-y-2.5 px-4">
+          <div className="space-y-2.5 px-2 sm:px-4">
             <div className="flex justify-between items-center gap-3">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Step {currentStep} of {steps.length}
+                {t("stepOf", { current: currentStep, total: steps.length })}
               </span>
               {showProgressPercentage && (
                 <Badge
@@ -387,7 +389,7 @@ export const Steps: React.FC<StepsProps> = ({
           </div>
         )}
 
-        <div className="space-y-0 px-4">
+        <div className="space-y-0 px-1 sm:px-4">
           {steps.map((step, index) => (
             <React.Fragment key={index}>
               <motion.button
@@ -397,7 +399,7 @@ export const Steps: React.FC<StepsProps> = ({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.06 }}
                 className={cn(
-                  "w-full p-4 rounded-lg border-2 transition-all flex items-start gap-3.5 text-left relative group",
+                  "w-full p-3 sm:p-4 rounded-lg border-2 transition-all flex items-start gap-3 text-left relative group",
                   "disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98] min-h-fit",
                   "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary",
                   stepStatus.isError(index)
@@ -463,7 +465,7 @@ export const Steps: React.FC<StepsProps> = ({
                     className="ml-3 transition-all duration-500 ease-out rounded-full"
                     style={{
                       width: "4px",
-                      minHeight: "20px",
+                      minHeight: "16px",
                       ...getConnectorStyle(
                         stepStatus.isCompleted(index),
                         stepStatus.isError(index),
@@ -488,7 +490,7 @@ export const Steps: React.FC<StepsProps> = ({
           <div className="mb-6 space-y-2.5">
             <div className="flex justify-between items-center px-2">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Progress
+                {t("progress")}
               </span>
               {showProgressPercentage && (
                 <span className="text-xs font-bold text-foreground tabular-nums">
@@ -668,7 +670,7 @@ export const Steps: React.FC<StepsProps> = ({
           <div className="mb-8 space-y-2.5">
             <div className="flex justify-between items-center px-1">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Progress
+                {t("progress")}
               </span>
               {showProgressPercentage && (
                 <span className="text-xs font-bold text-foreground tabular-nums">
@@ -867,7 +869,7 @@ export const Steps: React.FC<StepsProps> = ({
         <div className="mb-6 sm:mb-8 space-y-2.5">
           <div className="flex justify-between items-center px-1">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Progress
+              {t("progress")}
             </span>
             {showProgressPercentage && (
               <span className="text-xs font-bold text-foreground tabular-nums">

@@ -7,14 +7,28 @@ import { LiquidGlassDropdown } from "../liquid-glass/liquid-glass";
 export default function DropdownMenuContentCus({
   className,
   children,
+  collisionPadding = 12,
+  sideOffset = 6,
+  avoidCollisions = true,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
     <DropdownMenuContent
-      className={cn("rounded-xl bg-transparent p-0", className)}
+      sideOffset={sideOffset}
+      collisionPadding={collisionPadding}
+      avoidCollisions={avoidCollisions}
+      className={cn(
+        "rounded-2xl bg-transparent p-0 border-0 shadow-none max-w-[calc(100vw-1rem)] overflow-visible",
+        className,
+      )}
       {...props}
     >
-      <LiquidGlassDropdown className="p-1">{children}</LiquidGlassDropdown>
+      <LiquidGlassDropdown
+        rounded="2xl"
+        className="p-1 max-w-full overflow-hidden shadow-xl"
+      >
+        {children}
+      </LiquidGlassDropdown>
     </DropdownMenuContent>
   );
 }

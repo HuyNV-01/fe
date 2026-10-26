@@ -9,18 +9,20 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { useTranslations } from "next-intl";
 
 interface ContactEmptyStateProps {
   searchTerm: string;
 }
 
 export const ContactEmptyState = ({ searchTerm }: ContactEmptyStateProps) => {
+  const t = useTranslations("Chat.Detail.contact.directory.empty");
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
-      className="col-span-full flex flex-col items-center justify-center py-20"
+      className="col-span-full flex flex-col items-center justify-center py-16 sm:py-20 px-4"
     >
       <Empty className="max-w-md mx-auto bg-transparent p-0">
         <EmptyHeader className="space-y-4">
@@ -35,14 +37,14 @@ export const ContactEmptyState = ({ searchTerm }: ContactEmptyStateProps) => {
           </EmptyMedia>
 
           <div className="space-y-2">
-            <EmptyTitle className="text-xl font-semibold tracking-tight">
-              {searchTerm ? "Không tìm thấy kết quả" : "Danh bạ trống"}
+            <EmptyTitle className="text-lg sm:text-xl font-semibold tracking-tight">
+              {searchTerm ? t("noResultsTitle") : t("emptyTitle")}
             </EmptyTitle>
 
-            <EmptyDescription className="text-base text-muted-foreground leading-relaxed max-w-xs mx-auto">
+            <EmptyDescription className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-xs mx-auto">
               {searchTerm
-                ? `Không tìm thấy liên hệ nào phù hợp với từ khóa "${searchTerm}".`
-                : "Bạn chưa có liên hệ nào trong danh sách này."}
+                ? t("noResultsDesc", { keyword: searchTerm })
+                : t("emptyDesc")}
             </EmptyDescription>
           </div>
         </EmptyHeader>

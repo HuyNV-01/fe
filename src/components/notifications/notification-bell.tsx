@@ -28,10 +28,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/lib/stores/notification/use-notification-store";
+import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { type INotification, NotificationTypeEnum } from "@/types/notification";
 import { calculateRelativeTime } from "@/utils/date-helper";
 import { getInitials } from "@/utils/helper";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 import { Badge } from "../ui/badge";
@@ -39,6 +40,7 @@ import { Badge } from "../ui/badge";
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const locale = useLocale();
+  const t = useTranslations("Notifications");
   const router = useRouter();
 
   const {
@@ -54,6 +56,8 @@ export function NotificationBell() {
     removeNotification,
   } = useNotificationStore();
 
+  const { fetchMessages, markConversationReadOptimistic } = useChatStore();
+
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
     if (nextOpen) {
@@ -67,19 +71,30 @@ export function NotificationBell() {
   const handleSelectNotification = useCallback(
     async (item: INotification) => {
       if (!item.isRead) {
-        await markAsRead(item.id);
+        markAsRead(item.id);
       }
       setOpen(false);
 
-      if (item.metadata?.actionUrl) {
-        router.push(item.metadata.actionUrl);
+      const targetConvId =
+        item.metadata?.conversationId ||
+        (item.resourceType === "CONVERSATION" ? item.resourceId : null);
+      const targetMsgId = item.metadata?.messageId;
+
+      if (targetConvId) {
+        markConversationReadOptimistic(targetConvId);
+        // Pre-fetch messages immediately so the conversation has the latest message ready on arrival
+        fetchMessages(targetConvId, 1);
+
+        const baseUrl = config.routes.private.detailChat(targetConvId);
+        const finalUrl = targetMsgId
+          ? `${baseUrl}?messageId=${encodeURIComponent(targetMsgId)}`
+          : baseUrl;
+        router.push(finalUrl);
         return;
       }
 
-      if (item.metadata?.conversationId) {
-        router.push(
-          config.routes.private.detailChat(item.metadata.conversationId),
-        );
+      if (item.metadata?.actionUrl) {
+        router.push(item.metadata.actionUrl);
         return;
       }
 
@@ -92,20 +107,20 @@ export function NotificationBell() {
         router.push(config.routes.private.profile(item.actorId));
       }
     },
-    [markAsRead, router],
+    [markAsRead, markConversationReadOptimistic, fetchMessages, router],
   );
 
   const renderTypeBadgeIcon = (type: NotificationTypeEnum) => {
     switch (type) {
       case NotificationTypeEnum.NEW_MESSAGE:
         return (
-          <Badge className="p-1 rounded-full bg-cyan-500 shadow-xs">
+          <Badge className="p-1 rounded-full bg-cyan-500 text-white shadow-xs">
             <MessageSquare className="size-3.5" />
           </Badge>
         );
       case NotificationTypeEnum.MESSAGE_REPLY:
         return (
-          <Badge className="p-1 rounded-full bg-indigo-500 shadow-xs">
+          <Badge className="p-1 rounded-full bg-indigo-500 text-white shadow-xs">
             <Reply className="size-3.5" />
           </Badge>
         );
@@ -167,7 +182,7 @@ export function NotificationBell() {
           variant="ghost"
           size="icon"
           className="relative h-9 w-9 rounded-full text-slate-700 dark:text-slate-200 hover:bg-white/25 dark:hover:bg-white/10 transition-transform hover:scale-105 cursor-pointer"
-          aria-label="Thông báo"
+          aria-label={t("ariaLabel")}
         >
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
@@ -180,15 +195,16 @@ export function NotificationBell() {
 
       <DropdownMenuContentCus
         align="end"
-        className="w-[340px] sm:w-[380px] p-0 overflow-hidden"
+        collisionPadding={12}
+        className="w-[calc(100vw-1.5rem)] max-w-[360px] sm:w-[380px] sm:max-w-[380px] p-0 overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5 border-b border-border/50">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-foreground">Thông báo</h3>
+            <h3 className="text-sm font-bold text-foreground">{t("title")}</h3>
             {unreadCount > 0 && (
               <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                {unreadCount} mới
+                {t("newBadge", { count: unreadCount })}
               </span>
             )}
           </div>
@@ -200,7 +216,7 @@ export function NotificationBell() {
               className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer"
             >
               <CheckCheck className="w-3.5 h-3.5" />
-              Đọc tất cả
+              {t("markAllRead")}
             </button>
           )}
         </div>
@@ -217,7 +233,7 @@ export function NotificationBell() {
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
-            Tất cả
+            {t("tabs.all")}
           </button>
           <button
             type="button"
@@ -229,12 +245,12 @@ export function NotificationBell() {
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
-            Chưa đọc
+            {t("tabs.unread")}
           </button>
         </div>
 
         {/* Notification List */}
-        <ScrollArea className="h-[360px] w-full">
+        <ScrollArea className="h-[min(360px,65dvh)] w-full">
           <div className="flex flex-col divide-y divide-border/30">
             {notifications.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
@@ -243,18 +259,17 @@ export function NotificationBell() {
                 </div>
                 <p className="text-sm font-medium text-foreground/80">
                   {filterMode === "UNREAD"
-                    ? "Không có thông báo chưa đọc"
-                    : "Chưa có thông báo nào"}
+                    ? t("empty.unreadTitle")
+                    : t("empty.allTitle")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Các cập nhật mới về tin nhắn, lời mời kết bạn và cuộc gọi sẽ
-                  xuất hiện tại đây.
+                  {t("empty.description")}
                 </p>
               </div>
             )}
 
             {notifications.map((item) => {
-              const actorName = item.actor?.name || "Hệ thống";
+              const actorName = item.actor?.name || t("systemActor");
               const unreadMsgCount = item.metadata?.unreadMessageCount || 0;
 
               return (
@@ -312,7 +327,7 @@ export function NotificationBell() {
                     </span>
                   </div>
 
-                  {/* Chấm xanh chưa đọc + nút xóa */}
+                  {/* Nút xóa thông báo */}
                   <div className="my-auto flex flex-col items-center justify-center gap-2 shrink-0">
                     <button
                       type="button"
@@ -320,10 +335,10 @@ export function NotificationBell() {
                         e.stopPropagation();
                         removeNotification(item.id);
                       }}
-                      className="opacity-0 cursor-pointer group-hover:opacity-100 p-1 rounded-full hover:bg-destructive/10 text-foreground hover:text-destructive transition-opacity"
-                      title="Xóa thông báo"
+                      className="opacity-100 sm:opacity-0 cursor-pointer group-hover:opacity-100 p-1 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-opacity"
+                      title={t("deleteTitle")}
                     >
-                      <Trash2 className="size-4.5" />
+                      <Trash2 className="size-4" />
                     </button>
                   </div>
                 </div>
@@ -344,7 +359,7 @@ export function NotificationBell() {
                   onClick={handleLoadMore}
                   className="w-full text-xs text-primary"
                 >
-                  Xem thêm thông báo cũ
+                  {t("loadMore")}
                 </Button>
               </div>
             )}

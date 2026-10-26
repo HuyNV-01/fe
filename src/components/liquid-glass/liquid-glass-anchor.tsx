@@ -24,20 +24,30 @@ export interface LiquidGlassAnchorProps {
   portalContainer?: HTMLElement | null;
   boundaryElement?: HTMLElement | null;
   overflowPadding?: number;
+  /** Disable portal rendering and render inline (avoids nested clipper conflicts) */
+  disabled?: boolean;
 }
 
 const findDefaultBoundary = (node: HTMLElement | null): HTMLElement => {
   if (!node || node === document.body || node === document.documentElement) {
     return document.body;
   }
-  if (node.hasAttribute("data-radix-scroll-area-viewport")) {
+  if (
+    node.hasAttribute("data-radix-scroll-area-viewport") ||
+    (node.hasAttribute("data-slot") &&
+      node.getAttribute("data-slot") === "scroll-area-viewport")
+  ) {
     return node;
   }
   const style = window.getComputedStyle(node);
   const isClipping = ["auto", "scroll", "hidden", "overlay"].some(
     (val) => style.overflowY.includes(val) || style.overflowX.includes(val),
   );
-  if (isClipping && node.scrollHeight >= node.clientHeight) {
+  if (
+    isClipping &&
+    node.scrollHeight >= node.clientHeight &&
+    node.clientHeight > 0
+  ) {
     return node;
   }
   return findDefaultBoundary(node.parentElement);
@@ -49,10 +59,11 @@ export const LiquidGlassAnchor = ({
   style,
   contentClassName,
   contentStyle,
-  zIndex = 50,
+  zIndex = 20,
   portalContainer,
   boundaryElement,
   overflowPadding = 0,
+  disabled = false,
 }: LiquidGlassAnchorProps) => {
   const anchorRef = useRef<HTMLDivElement>(null);
   const clipperRef = useRef<HTMLDivElement>(null);
@@ -64,17 +75,18 @@ export const LiquidGlassAnchor = ({
   }, []);
 
   useIsomorphicLayoutEffect(() => {
-    if (!mounted || !anchorRef.current) return;
+    if (disabled || !mounted || !anchorRef.current) return;
 
-    let rAF: number;
-    const observerRef = { current: null as IntersectionObserver | null };
+    let rAF: number | null = null;
+    let isVisible = true;
 
     const syncPosition = () => {
+      rAF = null;
       const anchor = anchorRef.current;
       const clipper = clipperRef.current;
       const mover = moverRef.current;
 
-      if (!anchor || !clipper || !mover) return;
+      if (!anchor || !clipper || !mover || !isVisible) return;
 
       let boundary: HTMLElement;
 
@@ -83,7 +95,7 @@ export const LiquidGlassAnchor = ({
       } else {
         const parentGlass = anchor.closest(
           ".liquid-glass-clipper",
-        ) as HTMLElement;
+        ) as HTMLElement | null;
         if (parentGlass) {
           boundary = parentGlass;
         } else {
@@ -99,24 +111,35 @@ export const LiquidGlassAnchor = ({
       ) {
         clipper.style.opacity = "0";
         clipper.style.pointerEvents = "none";
-        rAF = requestAnimationFrame(syncPosition);
         return;
       }
 
       const anchorRect = anchor.getBoundingClientRect();
-      let boundaryRect:
-        | DOMRect
-        | { top: number; left: number; bottom: number; right: number };
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      let boundaryRect: {
+        top: number;
+        left: number;
+        bottom: number;
+        right: number;
+      };
 
       if (boundary === document.body) {
         boundaryRect = {
           top: 0,
           left: 0,
-          right: window.innerWidth,
-          bottom: window.innerHeight,
+          right: vw,
+          bottom: vh,
         };
       } else {
-        boundaryRect = boundary.getBoundingClientRect();
+        const rect = boundary.getBoundingClientRect();
+        boundaryRect = {
+          top: rect.top,
+          left: rect.left,
+          right: rect.right,
+          bottom: rect.bottom,
+        };
       }
 
       const isParentGlass = boundary.classList.contains("liquid-glass-clipper");
@@ -124,29 +147,23 @@ export const LiquidGlassAnchor = ({
         boundary === document.body || isParentGlass ? 0 : overflowPadding;
 
       const clipTop = Math.max(0, boundaryRect.top - padding);
-      const clipBottom = Math.min(
-        window.innerHeight,
-        boundaryRect.bottom + padding,
-      );
+      const clipBottom = Math.min(vh, boundaryRect.bottom + padding);
       const clipLeft = Math.max(0, boundaryRect.left - padding);
-      const clipRight = Math.min(
-        window.innerWidth,
-        boundaryRect.right + padding,
-      );
+      const clipRight = Math.min(vw, boundaryRect.right + padding);
 
       const clipWidth = Math.max(0, clipRight - clipLeft);
       const clipHeight = Math.max(0, clipBottom - clipTop);
 
-      clipper.style.transform = `translate3d(${clipLeft}px, ${clipTop}px, 0)`;
-      clipper.style.width = `${clipWidth}px`;
-      clipper.style.height = `${clipHeight}px`;
+      clipper.style.transform = `translate3d(${Math.round(clipLeft)}px, ${Math.round(clipTop)}px, 0)`;
+      clipper.style.width = `${Math.round(clipWidth)}px`;
+      clipper.style.height = `${Math.round(clipHeight)}px`;
 
       const relativeTop = anchorRect.top - clipTop;
       const relativeLeft = anchorRect.left - clipLeft;
 
-      mover.style.transform = `translate3d(${relativeLeft}px, ${relativeTop}px, 0)`;
-      mover.style.width = `${anchorRect.width}px`;
-      mover.style.height = `${anchorRect.height}px`;
+      mover.style.transform = `translate3d(${Math.round(relativeLeft)}px, ${Math.round(relativeTop)}px, 0)`;
+      mover.style.width = `${Math.round(anchorRect.width)}px`;
+      mover.style.height = `${Math.round(anchorRect.height)}px`;
 
       const isOutsideVertical =
         anchorRect.bottom < clipTop || anchorRect.top > clipBottom;
@@ -164,59 +181,86 @@ export const LiquidGlassAnchor = ({
       } else {
         clipper.style.opacity = "";
       }
-
-      rAF = requestAnimationFrame(syncPosition);
     };
 
-    observerRef.current = new IntersectionObserver(
+    const scheduleSync = () => {
+      if (rAF === null && isVisible) {
+        rAF = requestAnimationFrame(syncPosition);
+      }
+    };
+
+    const intersectionObserver = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          syncPosition();
+        isVisible = entry.isIntersecting;
+        if (isVisible) {
+          scheduleSync();
         } else {
-          cancelAnimationFrame(rAF);
-          if (clipperRef.current) clipperRef.current.style.opacity = "0";
+          if (rAF !== null) {
+            cancelAnimationFrame(rAF);
+            rAF = null;
+          }
+          if (clipperRef.current) {
+            clipperRef.current.style.opacity = "0";
+            clipperRef.current.style.pointerEvents = "none";
+          }
         }
       },
-      { rootMargin: "500px" },
+      { rootMargin: "350px" },
     );
 
-    observerRef.current.observe(anchorRef.current);
+    intersectionObserver.observe(anchorRef.current);
+
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleSync();
+    });
+    resizeObserver.observe(anchorRef.current);
+
+    syncPosition();
+
+    window.addEventListener("scroll", scheduleSync, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("resize", scheduleSync, { passive: true });
+    window.visualViewport?.addEventListener("resize", scheduleSync, {
+      passive: true,
+    });
 
     return () => {
-      cancelAnimationFrame(rAF);
-      observerRef.current?.disconnect();
+      if (rAF !== null) cancelAnimationFrame(rAF);
+      intersectionObserver.disconnect();
+      resizeObserver.disconnect();
+      window.removeEventListener("scroll", scheduleSync, true);
+      window.removeEventListener("resize", scheduleSync);
+      window.visualViewport?.removeEventListener("resize", scheduleSync);
     };
-  }, [mounted, children, boundaryElement, overflowPadding]);
+  }, [mounted, disabled, boundaryElement, overflowPadding]);
 
   useEffect(() => {
-    if (!mounted || !moverRef.current) return;
+    if (disabled || !mounted || !moverRef.current) return;
     const mover = moverRef.current;
 
     const handleWheel = (e: WheelEvent) => {
-      let scrollTarget: HTMLElement | null = null;
-
-      const currentBoundary = anchorRef.current?.closest(
-        ".liquid-glass-clipper",
-      ) as HTMLElement;
-
-      if (currentBoundary) {
-        scrollTarget = findDefaultBoundary(
-          anchorRef.current?.parentElement || null,
-        );
-      } else {
-        scrollTarget = findDefaultBoundary(
-          anchorRef.current?.parentElement || null,
-        );
-      }
+      const scrollTarget = findDefaultBoundary(
+        anchorRef.current?.parentElement || null,
+      );
 
       if (scrollTarget && scrollTarget !== document.body) {
         scrollTarget.scrollTop += e.deltaY;
         scrollTarget.scrollLeft += e.deltaX;
       }
     };
-    mover.addEventListener("wheel", handleWheel, { passive: false });
+    mover.addEventListener("wheel", handleWheel, { passive: true });
     return () => mover.removeEventListener("wheel", handleWheel);
-  }, [mounted]);
+  }, [mounted, disabled]);
+
+  if (disabled) {
+    return (
+      <div className={cn("relative w-full", className)} style={style}>
+        {children}
+      </div>
+    );
+  }
 
   if (!mounted) {
     return (

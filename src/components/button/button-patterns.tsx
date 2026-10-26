@@ -210,8 +210,8 @@ const PatternButton = React.forwardRef<HTMLButtonElement, PatternButtonProps>(
       style,
       disabled,
       contentAlign = "center",
-      glassZIndex = 0,
-      enableGlassPortal = true,
+      glassZIndex = 10,
+      enableGlassPortal = false,
       overflowPadding = 4,
       ...props
     },

@@ -8,72 +8,40 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useCallback,
+  memo,
 } from "react";
-
-import { cn } from "@/lib/utils";
-
 import { createPortal } from "react-dom";
+import { cn } from "@/lib/utils";
+import {
+  type GlassVariant,
+  type GlassBlur,
+  type GlassOpacity,
+  type GlassBorder,
+  type GlassTexture,
+  type GlassSurface,
+  type GlassRounded,
+  type GlassShadow,
+  LIQUID_VARIANT_OPACITY_MAP,
+  LIQUID_STYLES,
+  useLiquidGlassConfig,
+} from "./liquid-glass-config";
 
-// ==========================================
-
-// 1. TYPES DEFINITION (Strict & Scalable)
-
-// ==========================================
-
-export type GlassVariant =
-  | "primary" // Standard: Clean White/Black
-  | "secondary" // Muted: Gray/Zinc
-  | "accent" // Brand: Indigo/Blue
-  | "ghost" // Transparent: Effects only
-  | "frosted" // Heavy blur: High contrast
-  | "danger" // Alert: Red
-  | "success"; // Success: Green (New)
-
-export type GlassBlur =
-  | "none"
-  | "sm"
-  | "md"
-  | "lg"
-  | "xl"
-  | "2xl"
-  | "3xl"
-  | "4xl";
-
-// Opacity mapped strictly to Tailwind scale
-
-export type GlassOpacity =
-  | "0"
-  | "5"
-  | "10"
-  | "20"
-  | "30"
-  | "40"
-  | "50"
-  | "60"
-  | "70"
-  | "80"
-  | "90"
-  | "95"
-  | "100";
-
-export type GlassBorder =
-  | "none"
-  | "subtle"
-  | "distinct"
-  | "highlight"
-  | "gradient";
-
-export type GlassTexture = "none" | "noise" | "matte" | "grid" | "dots";
-
-export type GlassSurface =
-  | "flat"
-  | "gradient-y"
-  | "gradient-diagonal"
-  | "glossy";
+// Re-export types for backward compatibility
+export type {
+  GlassVariant,
+  GlassBlur,
+  GlassOpacity,
+  GlassBorder,
+  GlassTexture,
+  GlassSurface,
+  GlassRounded,
+  GlassShadow,
+};
 
 export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
-  as?: React.ElementType; // Polymorphic support (render as section, article, etc.)
+  as?: React.ElementType;
   // --- Visual Configuration ---
   variant?: GlassVariant;
   blur?: GlassBlur;
@@ -81,163 +49,65 @@ export interface LiquidGlassProps extends React.HTMLAttributes<HTMLDivElement> {
   surface?: GlassSurface;
   texture?: GlassTexture;
   border?: boolean | GlassBorder;
-  rounded?: "none" | "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "full";
-  shadow?: "none" | "sm" | "md" | "lg" | "xl" | "2xl" | "inner";
+  rounded?: GlassRounded;
+  shadow?: GlassShadow;
   // --- Lighting & FX ---
-  shimmer?: boolean; // Skeleton/Loading effect
-  glow?: boolean; // Inner glowing edge
-  spotlight?: boolean; // Mouse tracking light
-  spotlightColor?: string; // Custom spotlight color
+  shimmer?: boolean;
+  glow?: boolean;
+  spotlight?: boolean;
+  spotlightColor?: string;
   // --- Interaction & State ---
-  hover?: boolean; // Uplift on hover
-  interactive?: boolean; // Behaves like a button
+  hover?: boolean;
+  interactive?: boolean;
   disabled?: boolean;
-  animate?: boolean; // Entrance animation
-  // --- Advanced ---
-  isolate?: boolean; // CSS isolation
-  fluid?: boolean; // Width 100% vs auto
+  animate?: boolean;
+  // --- Advanced Conflict Protection & Layout ---
+  /** Isolates stacking context (`isolate`). Automatically disabled if nested or containing floating children when `containPortal` is false */
+  isolate?: boolean;
+  /** Width 100% vs inline-block auto */
+  fluid?: boolean;
+  /** Render inside document.body portal */
   portal?: boolean;
+  /** Custom wrapper class for the inner content layer (fixes flex/scroll layout issues) */
+  contentClassName?: string;
+  /** Allow inner content to overflow (e.g. when hosting non-portaled tooltips/badges) */
+  allowOverflow?: boolean;
 }
 
-// ==========================================
-// 2. CONTEXT & UTILS
-//==========================================
+// ============================================================================
+// 1. NESTING & CONFLICT GUARD CONTEXT
+// ============================================================================
 
-const GlassContext = createContext<number>(0);
+const GlassNestingContext = createContext<number>(0);
 
-/**
- * Enterprise Style Dictionary
- * Organized for maintainability and theme consistency.
- */
+export const useGlassNestingLevel = () => useContext(GlassNestingContext);
 
-const STYLES = {
-  variants: {
-    primary: {
-      bg: "bg-white/var-opacity dark:bg-zinc-950/var-opacity",
-      border: "border-white/20 dark:border-white/10",
-      highlight: "after:bg-white/20",
-    },
+// ============================================================================
+// 2. MEMOIZED TEXTURE & SPOTLIGHT LAYERS (Zero SVG Filter ID Collision)
+// ============================================================================
 
-    secondary: {
-      bg: "bg-zinc-100/var-opacity dark:bg-zinc-900/var-opacity",
-      border: "border-zinc-200/50 dark:border-zinc-700/50",
-      highlight: "after:bg-zinc-500/10",
-    },
+const NOISE_SVG_DATA_URI = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='lgNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23lgNoise)'/%3E%3C/svg%3E")`;
+const MATTE_SVG_DATA_URI = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='lgMatte'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23lgMatte)'/%3E%3C/svg%3E")`;
 
-    accent: {
-      bg: "bg-indigo-500/var-opacity dark:bg-indigo-600/var-opacity",
-      border: "border-indigo-400/30 dark:border-indigo-400/30",
-      highlight: "after:bg-indigo-400/20",
-    },
-
-    frosted: {
-      bg: "bg-white/var-opacity dark:bg-zinc-800/var-opacity",
-      border: "border-white/40 dark:border-white/20",
-      highlight: "after:bg-white/30",
-    },
-
-    danger: {
-      bg: "bg-red-500/var-opacity dark:bg-red-900/var-opacity",
-      border: "border-red-200/30 dark:border-red-500/30",
-      highlight: "after:bg-red-400/20",
-    },
-
-    success: {
-      bg: "bg-emerald-500/var-opacity dark:bg-emerald-900/var-opacity",
-      border: "border-emerald-200/30 dark:border-emerald-500/30",
-      highlight: "after:bg-emerald-400/20",
-    },
-
-    ghost: {
-      bg: "bg-transparent",
-      border: "border-transparent",
-      highlight: "after:bg-transparent",
-    },
-  },
-
-  blur: {
-    none: "backdrop-blur-none",
-    sm: "backdrop-blur-sm",
-    md: "backdrop-blur-md",
-    lg: "backdrop-blur-lg",
-    xl: "backdrop-blur-xl",
-    "2xl": "backdrop-blur-2xl",
-    "3xl": "backdrop-blur-3xl",
-    "4xl": "backdrop-blur-[80px]",
-  },
-
-  border: {
-    none: "border-0",
-    subtle: "border", // Color handled by variant
-    distinct: "border ring-1 ring-black/5 dark:ring-white/5",
-    highlight:
-      "border border-t-white/50 border-l-white/40 border-b-black/5 border-r-black/5 dark:border-t-white/20 dark:border-l-white/10 dark:border-b-black/40 dark:border-r-black/40",
-    gradient: "border-transparent bg-origin-border", // Requires complex masking, simplified here
-  },
-
-  surface: {
-    flat: "",
-
-    "gradient-y":
-      "bg-gradient-to-b from-white/10 to-transparent dark:from-white/5",
-
-    "gradient-diagonal":
-      "bg-gradient-to-br from-white/20 via-white/5 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent",
-
-    glossy:
-      "bg-gradient-to-b from-white/15 via-white/5 to-transparent dark:from-white/10 dark:via-transparent",
-  },
-
-  shadow: {
-    none: "",
-    sm: "shadow-sm",
-    md: "shadow-md",
-    lg: "shadow-lg",
-    xl: "shadow-xl",
-    "2xl": "shadow-2xl",
-    inner: "shadow-inner",
-  },
-
-  rounded: {
-    none: "rounded-none",
-    sm: "rounded-sm",
-    md: "rounded-md",
-    lg: "rounded-lg",
-    xl: "rounded-xl",
-    "2xl": "rounded-2xl",
-    "3xl": "rounded-3xl",
-    full: "rounded-full",
-  },
-};
-
-// ==========================================
-// 3. SUB-COMPONENTS (Performance & Separation)
-// ==========================================
-
-const TextureLayer = ({ type }: { type: GlassTexture }) => {
-  if (type === "none") return null;
+const TextureLayer = memo(({ type }: { type: GlassTexture }) => {
+  if (!type || type === "none") return null;
 
   return (
     <div
-      className={`absolute inset-0 z-0 pointer-events-none rounded-[inherit] overflow-hidden`}
+      aria-hidden="true"
+      className="absolute inset-0 z-0 pointer-events-none rounded-[inherit] overflow-hidden select-none"
     >
       {type === "noise" && (
         <div
-          aria-hidden="true"
           className="w-full h-full opacity-[0.03] dark:opacity-[0.05] mix-blend-soft-light"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-          }}
+          style={{ backgroundImage: NOISE_SVG_DATA_URI }}
         />
       )}
 
       {type === "matte" && (
         <div
-          aria-hidden="true"
           className="w-full h-full opacity-[0.04] dark:opacity-[0.06] mix-blend-overlay"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='matteFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23matteFilter)'/%3E%3C/svg%3E")`,
-          }}
+          style={{ backgroundImage: MATTE_SVG_DATA_URI }}
         />
       )}
 
@@ -250,40 +120,45 @@ const TextureLayer = ({ type }: { type: GlassTexture }) => {
       )}
     </div>
   );
-};
+});
+TextureLayer.displayName = "TextureLayer";
 
-const SpotlightLayer = ({ show, color }: { show: boolean; color: string }) => {
-  if (!show) return null;
+const SpotlightLayer = memo(
+  ({ show, color }: { show: boolean; color: string }) => {
+    if (!show) return null;
 
-  return (
-    <div
-      aria-hidden="true"
-      className="absolute inset-0 z-[1] pointer-events-none transition-opacity duration-500 rounded-[inherit]"
-      style={{
-        opacity: "var(--spotlight-opacity, 0)",
-        background: `radial-gradient(600px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), ${color}, transparent 40%)`,
-      }}
-    />
-  );
-};
+    return (
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 z-[1] pointer-events-none transition-opacity duration-500 rounded-[inherit]"
+        style={{
+          opacity: "var(--lg-spotlight-opacity, 0)",
+          background: `radial-gradient(550px circle at var(--lg-mouse-x, 0px) var(--lg-mouse-y, 0px), ${color}, transparent 40%)`,
+        }}
+      />
+    );
+  },
+);
+SpotlightLayer.displayName = "SpotlightLayer";
 
-// ==========================================
-// 4. MAIN COMPONENT
-// ==========================================
+// ============================================================================
+// 3. MAIN LIQUID GLASS COMPONENT
+// ============================================================================
 
 export const LiquidGlass = forwardRef<HTMLDivElement, LiquidGlassProps>(
   (
     {
       children,
       className,
+      contentClassName,
       style,
       as: Component = "div",
       // Visuals
       variant = "primary",
-      blur = "lg",
+      blur,
       opacity,
       surface = "flat",
-      texture = "noise",
+      texture,
       border = "subtle",
       shadow = "sm",
       rounded = "2xl",
@@ -297,196 +172,252 @@ export const LiquidGlass = forwardRef<HTMLDivElement, LiquidGlassProps>(
       interactive = false,
       disabled = false,
       animate = false,
-      // Layout
+      // Layout & Conflict Guards
       isolate = true,
       fluid = true,
       portal = false,
+      allowOverflow = false,
       onClick,
+      onMouseMove,
+      onMouseLeave,
+      onKeyDown,
       ...props
     },
-
     ref,
   ) => {
-    const localRef = useRef<HTMLDivElement>(null);
-    const nestingLevel = useContext(GlassContext);
+    const localRef = useRef<HTMLDivElement | null>(null);
+    const rafSpotlightRef = useRef<number | null>(null);
+    const themeConfig = useLiquidGlassConfig();
+    const nestingLevel = useContext(GlassNestingContext);
+
     const effectiveNesting = portal ? 0 : nestingLevel;
     const isNested = effectiveNesting > 0;
-    const defaultOpacity = isNested ? "40" : "60";
-    const safeOpacity = opacity || defaultOpacity;
+    const exceedsMaxBackdropDepth =
+      effectiveNesting >= themeConfig.maxBackdropNestingDepth;
 
-    // --- Dynamic Styles ---
-    const variantConfig = STYLES.variants[variant];
-    const bgClass = variantConfig.bg.replace(/var-opacity/g, safeOpacity);
+    // Resolve defaults safely
+    const resolvedBlur: GlassBlur = exceedsMaxBackdropDepth
+      ? "none"
+      : blur || themeConfig.defaultBlur;
+    const resolvedTexture: GlassTexture =
+      themeConfig.performanceMode === "low"
+        ? "none"
+        : (texture ?? themeConfig.defaultTexture);
 
-    const borderClassBase =
-      border === true ? STYLES.border.subtle : STYLES.border[border || "none"];
+    const defaultOpacity: GlassOpacity = isNested ? "40" : "60";
+    const safeOpacity: GlassOpacity = opacity || defaultOpacity;
+
+    // Static Tailwind Lookup (Guarantees classes exist in CSS bundle)
+    const bgClass =
+      LIQUID_VARIANT_OPACITY_MAP[variant]?.[safeOpacity] ||
+      LIQUID_VARIANT_OPACITY_MAP.primary["60"];
+    const variantMeta =
+      LIQUID_STYLES.variantMeta[variant] || LIQUID_STYLES.variantMeta.primary;
+
+    const borderKey =
+      border === true ? "subtle" : border === false ? "none" : border || "none";
+    const borderClassBase = LIQUID_STYLES.border[borderKey];
 
     const finalBorderClass =
-      border === "distinct" || border === "highlight"
+      borderKey === "distinct" ||
+      borderKey === "highlight" ||
+      borderKey === "none"
         ? borderClassBase
-        : cn(borderClassBase, variantConfig.border);
+        : cn(borderClassBase, variantMeta.border);
 
-    // --- Interaction Logic ---
-    const isInteractive = interactive || !!onClick;
-    const canSpotlight = spotlight && !disabled;
+    const isInteractive = interactive || Boolean(onClick);
+    const canSpotlight =
+      spotlight && !disabled && themeConfig.performanceMode !== "low";
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!canSpotlight) return;
+    useEffect(() => {
+      return () => {
+        if (rafSpotlightRef.current !== null) {
+          cancelAnimationFrame(rafSpotlightRef.current);
+        }
+      };
+    }, []);
 
-      const element = localRef.current;
-      if (!element) return;
+    const handleMouseMove = useCallback(
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        onMouseMove?.(e);
+        if (!canSpotlight) return;
 
-      const rect = element.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      element.style.setProperty("--mouse-x", `${x}px`);
-      element.style.setProperty("--mouse-y", `${y}px`);
-      element.style.setProperty("--spotlight-opacity", "1");
-    };
+        const clientX = e.clientX;
+        const clientY = e.clientY;
 
-    const handleMouseLeave = () => {
-      if (!canSpotlight) return;
+        if (rafSpotlightRef.current !== null) {
+          cancelAnimationFrame(rafSpotlightRef.current);
+        }
 
-      localRef.current?.style.setProperty("--spotlight-opacity", "0");
-    };
+        rafSpotlightRef.current = requestAnimationFrame(() => {
+          const element = localRef.current;
+          if (!element) return;
+          const rect = element.getBoundingClientRect();
+          element.style.setProperty("--lg-mouse-x", `${clientX - rect.left}px`);
+          element.style.setProperty("--lg-mouse-y", `${clientY - rect.top}px`);
+          element.style.setProperty("--lg-spotlight-opacity", "1");
+        });
+      },
+      [canSpotlight, onMouseMove],
+    );
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (isInteractive && !disabled && (e.key === "Enter" || e.key === " ")) {
-        e.preventDefault();
+    const handleMouseLeave = useCallback(
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        onMouseLeave?.(e);
+        if (!canSpotlight) return;
+        localRef.current?.style.setProperty("--lg-spotlight-opacity", "0");
+      },
+      [canSpotlight, onMouseLeave],
+    );
 
-        onClick?.(e as any);
-      }
+    const handleKeyDown = useCallback(
+      (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (
+          isInteractive &&
+          !disabled &&
+          (e.key === "Enter" || e.key === " ")
+        ) {
+          // Guard: Do not hijack Space/Enter if focus is inside an input, textarea, or button child
+          const target = e.target as HTMLElement;
+          const isNativeControl =
+            target !== localRef.current &&
+            (target.tagName === "INPUT" ||
+              target.tagName === "TEXTAREA" ||
+              target.tagName === "BUTTON" ||
+              target.tagName === "A" ||
+              target.isContentEditable);
 
-      props.onKeyDown?.(e);
-    };
+          if (!isNativeControl) {
+            e.preventDefault();
+            onClick?.(e as unknown as React.MouseEvent<HTMLDivElement>);
+          }
+        }
+        onKeyDown?.(e);
+      },
+      [isInteractive, disabled, onClick, onKeyDown],
+    );
 
-    // --- Spotlight Color Logic ---
+    const resolvedSpotlightColor = spotlightColor || variantMeta.spotlight;
 
-    const getSpotlightColor = () => {
-      if (spotlightColor) return spotlightColor;
-      if (variant === "accent") return "rgba(99, 102, 241, 0.15)"; // Indigo
-      if (variant === "danger") return "rgba(239, 68, 68, 0.15)"; // Red
-      if (variant === "success") return "rgba(16, 185, 129, 0.15)"; // Green
+    const setRefs = useCallback(
+      (element: HTMLDivElement | null) => {
+        localRef.current = element;
+        if (typeof ref === "function") ref(element);
+        else if (ref) {
+          (ref as React.MutableRefObject<HTMLDivElement | null>).current =
+            element;
+        }
+      },
+      [ref],
+    );
 
-      return isNested
-        ? "rgba(255, 255, 255, 0.15)"
-        : "rgba(255, 255, 255, 0.1)";
-    };
-
-    // Merge refs
-
-    const setRefs = (element: HTMLDivElement) => {
-      localRef.current = element;
-
-      if (typeof ref === "function") ref(element);
-      else if (ref) ref.current = element;
-    };
+    const isButtonTag = Component === "button";
 
     const renderContent = () => (
       <Component
         ref={setRefs}
-        role={isInteractive ? "button" : undefined}
-        tabIndex={isInteractive && !disabled ? 0 : -1}
-        aria-disabled={disabled}
+        role={isInteractive && !isButtonTag ? "button" : undefined}
+        tabIndex={isInteractive && !disabled ? 0 : undefined}
+        aria-disabled={disabled || undefined}
+        data-slot="liquid-glass"
+        data-variant={variant}
         data-state={disabled ? "disabled" : "active"}
-        data-nested={isNested}
+        data-nested={isNested ? "true" : "false"}
         onClick={isInteractive && !disabled ? onClick : undefined}
-        onKeyDown={handleKeyDown}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        onKeyDown={isInteractive || onKeyDown ? handleKeyDown : undefined}
+        onMouseMove={canSpotlight || onMouseMove ? handleMouseMove : undefined}
+        onMouseLeave={
+          canSpotlight || onMouseLeave ? handleMouseLeave : undefined
+        }
         className={cn(
-          // Layout Base
-          "relative overflow-hidden backface-visibility-hidden",
+          "relative backface-visibility-hidden",
+          allowOverflow ? "overflow-visible" : "overflow-hidden",
           fluid ? "w-full" : "w-auto inline-block",
           isolate && !isNested ? "isolate" : "",
           "group/glass",
-          // Shape & Visuals
-          STYLES.rounded[rounded],
+          // Visual tokens
+          LIQUID_STYLES.rounded[rounded],
           bgClass,
-          STYLES.surface[surface],
-          STYLES.blur[blur],
+          LIQUID_STYLES.surface[surface],
+          LIQUID_STYLES.blur[resolvedBlur],
           finalBorderClass,
-          STYLES.shadow[shadow],
-          // Optical Corrections
-          "backdrop-saturate-[1.1] dark:backdrop-saturate-[1.5]", // Default boosts
-          variant !== "ghost" && "group-hover/glass:backdrop-saturate-[1.2]",
-          // Interaction Styles
+          LIQUID_STYLES.shadow[shadow],
+          // Optical saturation boost
+          resolvedBlur !== "none" &&
+            "backdrop-saturate-[1.15] dark:backdrop-saturate-[1.4]",
+          variant !== "ghost" &&
+            resolvedBlur !== "none" &&
+            "group-hover/glass:backdrop-saturate-[1.25]",
+          // Interactive states
           isInteractive &&
             !disabled && [
               "cursor-pointer outline-none select-none",
               "transition-all duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
               hover && "hover:-translate-y-[2px] hover:shadow-lg",
               "active:scale-[0.98] active:duration-100",
-              // Focus Rings
               "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
-              variant === "danger"
-                ? "focus-visible:ring-red-500/50"
-                : "focus-visible:ring-indigo-500/50 dark:focus-visible:ring-indigo-400/50",
+              variantMeta.focusRing,
             ],
-          disabled && "opacity-60 cursor-not-allowed grayscale-[0.5]",
-          // Animation
-          animate &&
-            "animate-in fade-in zoom-in-95 duration-500 ease-out slide-in-from-bottom-2",
+          disabled && "opacity-60 cursor-not-allowed grayscale-[0.4]",
+          animate && "animate-in fade-in zoom-in-95 duration-300 ease-out",
           className,
         )}
         style={style}
         {...props}
       >
-        {/* Layer 1: Texture (Noise/Grid) */}
+        {/* Layer 1: Texture */}
+        <TextureLayer type={resolvedTexture} />
 
-        <TextureLayer type={texture || "none"} />
-
-        {/* Layer 2: Shimmer Effect (Skeleton/Loading) */}
-
+        {/* Layer 2: Shimmer Effect */}
         {shimmer && (
           <div
             aria-hidden="true"
             className="absolute inset-0 z-[1] pointer-events-none overflow-hidden rounded-[inherit]"
           >
-            <div className="absolute top-0 left-[-100%] w-[50%] h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg] animate-[shimmer_2s_infinite]" />
+            <div className="absolute top-0 left-[-100%] w-[50%] h-full bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-[-20deg] animate-[shimmer_2s_infinite]" />
           </div>
         )}
 
-        {/* Layer 3: Inner Glow (Edge lighting) */}
-
+        {/* Layer 3: Inner Glow */}
         {glow && (
           <div
             aria-hidden="true"
-            className="absolute inset-0 z-[1] pointer-events-none rounded-[inherit] shadow-[inset_0_0_40px_rgba(255,255,255,0.3)] dark:shadow-[inset_0_0_40px_rgba(255,255,255,0.05)]"
+            className="absolute inset-0 z-[1] pointer-events-none rounded-[inherit] shadow-[inset_0_0_36px_rgba(255,255,255,0.28)] dark:shadow-[inset_0_0_36px_rgba(255,255,255,0.06)]"
           />
         )}
 
         {/* Layer 4: Interactive Spotlight */}
+        <SpotlightLayer show={canSpotlight} color={resolvedSpotlightColor} />
 
-        <SpotlightLayer show={!!spotlight} color={getSpotlightColor()} />
+        {/* Layer 5: Specular Top Edge Highlight */}
+        {variant !== "ghost" && (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 z-[2] pointer-events-none rounded-[inherit] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] mix-blend-overlay"
+          />
+        )}
 
-        {/* Layer 5: Top Highlight Border (Glass feel) */}
-
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 z-[2] pointer-events-none rounded-[inherit] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)] mix-blend-overlay"
-        />
-
-        {/* Content Layer */}
-
-        <div className="relative z-10 w-full h-full">{children}</div>
+        {/* Layer 6: Content Container */}
+        <div className={cn("relative z-10 w-full h-full", contentClassName)}>
+          {children}
+        </div>
       </Component>
     );
 
     if (portal) {
       return (
         <PortalWrapper>
-          <GlassContext.Provider value={effectiveNesting + 1}>
+          <GlassNestingContext.Provider value={effectiveNesting + 1}>
             {renderContent()}
-          </GlassContext.Provider>
+          </GlassNestingContext.Provider>
         </PortalWrapper>
       );
     }
 
     return (
-      <GlassContext.Provider value={effectiveNesting + 1}>
+      <GlassNestingContext.Provider value={effectiveNesting + 1}>
         {renderContent()}
-      </GlassContext.Provider>
+      </GlassNestingContext.Provider>
     );
   },
 );
@@ -496,18 +427,18 @@ LiquidGlass.displayName = "LiquidGlass";
 const PortalWrapper = ({ children }: { children: ReactNode }) => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
+  if (!mounted || typeof document === "undefined") return null;
   return createPortal(children, document.body);
 };
 
-// ==========================================
-// 5. ENTERPRISE PRESETS
-// ==========================================
+// ============================================================================
+// 4. ENTERPRISE PRESETS (ForwardRef-compatible & Conflict-free)
+// ============================================================================
 
 export const LiquidGlassPresets = {
-  /** Standard container for content */
-  Card: (props: LiquidGlassProps) => (
+  Card: forwardRef<HTMLDivElement, LiquidGlassProps>((props, ref) => (
     <LiquidGlass
+      ref={ref}
       variant="primary"
       opacity="60"
       blur="xl"
@@ -517,11 +448,11 @@ export const LiquidGlassPresets = {
       animate={true}
       {...props}
     />
-  ),
+  )),
 
-  /** Floating dialogs */
-  Modal: (props: LiquidGlassProps) => (
+  Modal: forwardRef<HTMLDivElement, LiquidGlassProps>((props, ref) => (
     <LiquidGlass
+      ref={ref}
       variant="primary"
       opacity="95"
       blur="2xl"
@@ -533,94 +464,118 @@ export const LiquidGlassPresets = {
       isolate={true}
       {...props}
     />
+  )),
+
+  Feature: forwardRef<HTMLDivElement, LiquidGlassProps>(
+    ({ className, ...props }, ref) => (
+      <LiquidGlass
+        ref={ref}
+        variant="secondary"
+        opacity="30"
+        blur="lg"
+        surface="gradient-diagonal"
+        border="subtle"
+        shadow="md"
+        texture="noise"
+        spotlight={true}
+        interactive={true}
+        hover={true}
+        rounded="2xl"
+        className={cn(
+          "hover:border-white/40 dark:hover:border-white/20",
+          className,
+        )}
+        {...props}
+      />
+    ),
   ),
 
-  /** Interactive clickable feature block */
-  Feature: (props: LiquidGlassProps) => (
-    <LiquidGlass
-      variant="secondary"
-      opacity="30"
-      blur="lg"
-      surface="gradient-diagonal"
-      border="subtle"
-      shadow="md"
-      texture="noise"
-      spotlight={true}
-      interactive={true}
-      hover={true}
-      rounded="2xl"
-      className="hover:border-white/40 dark:hover:border-white/20"
-      {...props}
-    />
+  Alert: forwardRef<HTMLDivElement, LiquidGlassProps>(
+    ({ className, ...props }, ref) => (
+      <LiquidGlass
+        ref={ref}
+        variant="danger"
+        opacity="10"
+        blur="md"
+        border="subtle"
+        shadow="none"
+        texture="noise"
+        spotlight={true}
+        rounded="xl"
+        className={cn(
+          "text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/30",
+          className,
+        )}
+        {...props}
+      />
+    ),
   ),
 
-  /** Error or Danger zone */
-  Alert: (props: LiquidGlassProps) => (
-    <LiquidGlass
-      variant="danger"
-      opacity="10"
-      blur="md"
-      border="subtle"
-      shadow="none"
-      texture="noise"
-      spotlight={true}
-      rounded="xl"
-      className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/30"
-      {...props}
-    />
+  Input: forwardRef<HTMLDivElement, LiquidGlassProps>(
+    ({ className, ...props }, ref) => (
+      <LiquidGlass
+        ref={ref}
+        variant="secondary"
+        opacity="10"
+        blur="md"
+        border="distinct"
+        rounded="full"
+        shadow="none"
+        interactive={false}
+        isolate={false}
+        className={cn(
+          "transition-all ring-0 group-focus-within/glass:ring-2 group-focus-within/glass:ring-indigo-500/20 group-focus-within/glass:bg-white/50 dark:group-focus-within/glass:bg-zinc-800/80",
+          className,
+        )}
+        {...props}
+      />
+    ),
   ),
 
-  /** Form Input Field Wrapper */
-  Input: ({ className, ...props }: LiquidGlassProps) => (
-    <LiquidGlass
-      variant="secondary"
-      opacity="10"
-      blur="md"
-      border="distinct"
-      rounded="full"
-      shadow="none"
-      interactive={false} // Inputs handle their own interaction
-      className={cn(
-        "transition-all ring-0 group-focus-within/glass:ring-2 group-focus-within/glass:ring-indigo-500/20 group-focus-within/glass:bg-white/50 dark:group-focus-within/glass:bg-zinc-800/80",
-
-        className,
-      )}
-      {...props}
-    />
+  Navigation: forwardRef<HTMLDivElement, LiquidGlassProps>(
+    ({ className, ...props }, ref) => (
+      <LiquidGlass
+        ref={ref}
+        variant="frosted"
+        blur="lg"
+        opacity="80"
+        border="distinct"
+        shadow="sm"
+        texture="noise"
+        rounded="2xl"
+        isolate={false}
+        className={cn("sticky top-0 z-40 border-x-0 border-t-0", className)}
+        {...props}
+      />
+    ),
   ),
 
-  /** Sticky Nav Bar */
-  Navigation: (props: LiquidGlassProps) => (
-    <LiquidGlass
-      variant="frosted"
-      blur="lg"
-      opacity="80"
-      border="distinct"
-      shadow="sm"
-      texture="noise"
-      rounded="2xl"
-      className="sticky top-0 z-50 border-x-0 border-t-0"
-      {...props}
-    />
-  ),
-
-  Dropdown: (props: LiquidGlassProps) => (
-    <LiquidGlass
-      variant="primary"
-      opacity="80"
-      blur="lg"
-      border="distinct"
-      shadow="lg"
-      texture="none"
-      rounded="xl"
-      {...props}
-    />
+  Dropdown: forwardRef<HTMLDivElement, LiquidGlassProps>(
+    ({ className, ...props }, ref) => (
+      <LiquidGlass
+        ref={ref}
+        variant="primary"
+        opacity="80"
+        blur="xl"
+        border="distinct"
+        shadow="xl"
+        texture="none"
+        rounded="xl"
+        isolate={false}
+        {...props}
+        className={cn("w-full", className)}
+      />
+    ),
   ),
 };
 
-// ==========================================
-// 6. EXPORTS
-// ==========================================
+LiquidGlassPresets.Card.displayName = "LiquidGlassCard";
+LiquidGlassPresets.Modal.displayName = "LiquidGlassModal";
+LiquidGlassPresets.Feature.displayName = "LiquidGlassFeature";
+LiquidGlassPresets.Alert.displayName = "LiquidGlassAlert";
+LiquidGlassPresets.Input.displayName = "LiquidGlassInput";
+LiquidGlassPresets.Navigation.displayName = "LiquidGlassNavigation";
+LiquidGlassPresets.Dropdown.displayName = "LiquidGlassDropdown";
 
 export const LiquidGlassCard = LiquidGlassPresets.Card;
 export const LiquidGlassModal = LiquidGlassPresets.Modal;

@@ -72,8 +72,8 @@ export const ChatHeader = memo(
     };
 
     return (
-      <div className="h-16 flex items-center justify-between px-4 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky top-0 z-10">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="h-14 sm:h-16 flex items-center justify-between px-3 sm:px-4 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky top-0 z-10">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
           <div className="md:hidden shrink-0">
             <ButtonBack />
           </div>
@@ -81,10 +81,10 @@ export const ChatHeader = memo(
           <button
             type="button"
             onClick={handleViewProfile}
-            className="flex items-center gap-3 min-w-0 text-left group/header cursor-pointer"
+            className="flex items-center gap-2.5 sm:gap-3 min-w-0 text-left group/header cursor-pointer"
           >
             <div className="relative shrink-0">
-              <Avatar className="h-10 w-10 border transition-transform group-hover/header:scale-105">
+              <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border transition-transform group-hover/header:scale-105">
                 <AvatarImage src={avatarUrl || undefined} alt={displayName} />
                 <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
                   {displayName.substring(0, 2).toUpperCase()}
@@ -106,13 +106,13 @@ export const ChatHeader = memo(
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 )}
               </div>
-              <span className="text-xs text-muted-foreground truncate">
+              <span className="text-[11px] sm:text-xs text-muted-foreground truncate">
                 {isTyping ? (
                   <span className="text-primary font-medium animate-pulse">
-                    Đang soạn tin nhắn...
+                    {t("status.typing")}
                   </span>
                 ) : isGroupChat ? (
-                  "Cuộc trò chuyện nhóm"
+                  t("status.groupChat")
                 ) : isOnline ? (
                   t("status.active")
                 ) : statusText !== EMPTY_STRING ? (
@@ -125,40 +125,42 @@ export const ChatHeader = memo(
           </button>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <BaseTooltip content="Gọi thoại">
+        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          <BaseTooltip content={t("actions.audioCall")}>
             <Button
               variant="ghost"
               size="icon"
               onClick={onAudioCall}
-              className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
             >
-              <Phone className="w-5 h-5" />
+              <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </BaseTooltip>
 
-          <BaseTooltip content="Gọi video">
+          <BaseTooltip content={t("actions.videoCall")}>
             <Button
               variant="ghost"
               size="icon"
               onClick={onVideoCall}
-              className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
             >
-              <Video className="w-5 h-5" />
+              <Video className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </BaseTooltip>
 
-          <BaseTooltip content={isMuted ? "Bật thông báo" : "Tắt thông báo"}>
+          <BaseTooltip
+            content={isMuted ? t("actions.unmute") : t("actions.mute")}
+          >
             <Button
               variant="ghost"
               size="icon"
               onClick={onToggleMute}
-              className="text-muted-foreground hover:text-foreground rounded-full"
+              className="hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
             >
               {isMuted ? (
-                <BellOff className="w-5 h-5 text-amber-500" />
+                <BellOff className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
               ) : (
-                <Bell className="w-5 h-5" />
+                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
               )}
             </Button>
           </BaseTooltip>
@@ -168,10 +170,10 @@ export const ChatHeader = memo(
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-muted-foreground hover:text-foreground rounded-full"
-                aria-label="Tùy chọn hội thoại"
+                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
+                aria-label={t("actions.moreOptions")}
               >
-                <MoreVertical className="w-5 h-5" />
+                <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContentCus align="end" className="w-52">
@@ -180,7 +182,7 @@ export const ChatHeader = memo(
                   onClick={handleViewProfile}
                   icon={<User className="w-4 h-4 mr-2" />}
                 >
-                  Xem hồ sơ cá nhân
+                  {t("actions.viewProfile")}
                 </ItemMenu>
               )}
 
@@ -194,7 +196,7 @@ export const ChatHeader = memo(
                   )
                 }
               >
-                {isMuted ? "Bật thông báo" : "Tắt thông báo"}
+                {isMuted ? t("actions.unmute") : t("actions.mute")}
               </ItemMenu>
 
               {isGroupChat && isAdmin && (
@@ -202,7 +204,7 @@ export const ChatHeader = memo(
                   onClick={onAddGroupMembers}
                   icon={<UserPlus className="w-4 h-4 mr-2" />}
                 >
-                  Thêm thành viên
+                  {t("actions.addMembers")}
                 </ItemMenu>
               )}
 
@@ -212,7 +214,7 @@ export const ChatHeader = memo(
                   className="text-red-600 focus:text-red-600"
                   icon={<LogOut className="w-4 h-4 mr-2 text-red-600" />}
                 >
-                  Rời khỏi nhóm
+                  {t("actions.leaveGroup")}
                 </ItemMenu>
               )}
             </DropdownMenuContentCus>

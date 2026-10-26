@@ -1,4 +1,5 @@
 import { MessageCircleMore } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   Empty,
@@ -10,16 +11,15 @@ import {
 } from "@/components/ui/empty";
 
 export function StartChat() {
+  const t = useTranslations("Chat.Detail.empty");
   return (
-    <Empty className=" h-full bg-transparent">
+    <Empty className="h-full bg-transparent">
       <EmptyHeader>
         <EmptyMedia>
           <MessageCircleMore className="size-14 shrink-0 opacity-60" />
         </EmptyMedia>
-        <EmptyTitle>Chào mừng tới cuộc trò chuyện</EmptyTitle>
-        <EmptyDescription>
-          Cùng bắt đầu cuộc trò chuyện của bạn tại đây.
-        </EmptyDescription>
+        <EmptyTitle>{t("startChatTitle")}</EmptyTitle>
+        <EmptyDescription>{t("startChatDescription")}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent></EmptyContent>
     </Empty>

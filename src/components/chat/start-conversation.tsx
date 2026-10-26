@@ -1,4 +1,5 @@
 import { ContactRound } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   Empty,
@@ -10,16 +11,15 @@ import {
 } from "@/components/ui/empty";
 
 export function StartConversation() {
+  const t = useTranslations("Chat.Detail.empty");
   return (
-    <Empty className=" h-full bg-transparent">
+    <Empty className="h-full bg-transparent">
       <EmptyHeader>
         <EmptyMedia>
           <ContactRound className="size-14 shrink-0 opacity-60" />
         </EmptyMedia>
-        <EmptyTitle>Kết bạn và bắt đầu trò chuyện</EmptyTitle>
-        <EmptyDescription>
-          Tìm kiếm và kết bạn mới để bắt đầu trò chuyện ngay.
-        </EmptyDescription>
+        <EmptyTitle>{t("startContactTitle")}</EmptyTitle>
+        <EmptyDescription>{t("startContactDescription")}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent></EmptyContent>
     </Empty>

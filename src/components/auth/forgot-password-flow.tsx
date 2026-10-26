@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, Mail, ShieldCheck, UserRoundPen } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { ForgotPasswordForm } from "./forgot-password-form";
 import { BaseSteps, type StepConfig } from "../steps/base-steps";
@@ -9,35 +10,37 @@ import { ResetPasswordForm } from "./reset-password-form";
 import { SuccessOtp } from "../common/success-otp";
 
 export function ForgotPasswordFlow() {
+  const t = useTranslations("Form.ForgotPassword.steps");
+
   const FORGOT_PASSWORD_STEPS: StepConfig[] = [
     {
-      title: "Email",
-      description: "Xác thực",
+      title: t("emailTitle"),
+      description: t("emailDesc"),
       icon: <Mail className="w-5 h-5" />,
       component: ({ onNext }) => <ForgotPasswordForm handleStep={onNext} />,
     },
     {
-      title: "Verify OTP",
-      description: "Bảo mật",
+      title: t("otpTitle"),
+      description: t("otpDesc"),
       icon: <ShieldCheck className="w-5 h-5" />,
       component: ({ onNext }) => <VerifyOtpForm handleStep={onNext} />,
     },
     {
-      title: "Reset",
-      description: "Mật khẩu mới",
+      title: t("resetTitle"),
+      description: t("resetDesc"),
       icon: <UserRoundPen className="w-5 h-5" />,
       component: ({ onNext }) => <ResetPasswordForm handleStep={onNext} />,
     },
     {
-      title: "Done",
-      description: "Hoàn tất",
+      title: t("doneTitle"),
+      description: t("doneDesc"),
       icon: <CheckCircle2 className="w-5 h-5" />,
       component: SuccessOtp,
     },
   ];
 
   return (
-    <div className="w-full md:max-w-xl mx-auto p-4">
+    <div className="w-full md:max-w-xl mx-auto p-3 sm:p-4">
       <BaseSteps
         steps={FORGOT_PASSWORD_STEPS}
         size="sm"
@@ -53,7 +56,7 @@ export function ForgotPasswordFlow() {
           style: "solid",
           color: "#3b82f6",
         }}
-        containerClassName="mt-8"
+        containerClassName="mt-6 sm:mt-8"
       />
     </div>
   );

@@ -86,9 +86,6 @@ export const ChatInput = ({
   const audioChunksRef = useRef<Blob[]>([]);
   const shouldSendRecordingRef = useRef<boolean>(true);
 
-  /**
-   * Khóa trạng thái bộ gõ IME (Tiếng Việt Telex/VNI) và khóa chống gửi đúp (Double Submit Lock)
-   */
   const isComposingRef = useRef<boolean>(false);
   const compositionEndedAtRef = useRef<number>(0);
   const isSubmittingRef = useRef<boolean>(false);
@@ -104,6 +101,8 @@ export const ChatInput = ({
     setEditingMessage,
   } = useChatStore();
   const t = useTranslations("Chat.Detail.conversation.input");
+  const tBubble = useTranslations("Chat.Detail.conversation.bubble");
+  const tHeader = useTranslations("Chat.Detail.header");
 
   const activeReply = activeConversationId
     ? replyingTo[activeConversationId]
@@ -149,7 +148,6 @@ export const ChatInput = ({
     return () => clearInterval(timer);
   }, [isRecording]);
 
-  // Đóng bảng Emoji khi click ra ngoài
   useEffect(() => {
     if (!showEmojiPicker) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -164,7 +162,6 @@ export const ChatInput = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showEmojiPicker]);
 
-  // Dọn dẹp URL preview khi unmount
   useEffect(() => {
     return () => {
       selectedItems.forEach((item) => {
@@ -173,27 +170,30 @@ export const ChatInput = ({
     };
   }, []);
 
-  const appendFiles = useCallback((files: File[]) => {
-    if (!files.length) return;
-    const newItems: SelectedFilePreview[] = files.map((file) => ({
-      file,
-      previewUrl:
-        file.type.startsWith("image/") || file.type.startsWith("video/")
-          ? URL.createObjectURL(file)
-          : null,
-    }));
-    setSelectedItems((prev) => {
-      const combined = [...prev, ...newItems];
-      if (combined.length > 10) {
-        toast.warning("Tối đa 10 tệp đính kèm trong một lần gửi");
-        combined.slice(10).forEach((item) => {
-          if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-        });
-        return combined.slice(0, 10);
-      }
-      return combined;
-    });
-  }, []);
+  const appendFiles = useCallback(
+    (files: File[]) => {
+      if (!files.length) return;
+      const newItems: SelectedFilePreview[] = files.map((file) => ({
+        file,
+        previewUrl:
+          file.type.startsWith("image/") || file.type.startsWith("video/")
+            ? URL.createObjectURL(file)
+            : null,
+      }));
+      setSelectedItems((prev) => {
+        const combined = [...prev, ...newItems];
+        if (combined.length > 10) {
+          toast.warning(t("maxFilesWarning"));
+          combined.slice(10).forEach((item) => {
+            if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+          });
+          return combined.slice(0, 10);
+        }
+        return combined;
+      });
+    },
+    [t],
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -249,7 +249,6 @@ export const ChatInput = ({
 
     if (!trimmedMessage && !hasFiles) return;
 
-    // Khóa đồng bộ chống gửi 2 lần liên tiếp
     isSubmittingRef.current = true;
     setTimeout(() => {
       isSubmittingRef.current = false;
@@ -257,7 +256,6 @@ export const ChatInput = ({
 
     stopTypingNotification();
 
-    // Reset state ngay lập tức trước khi gọi async để tránh sự kiện thứ 2 đọc lại message cũ
     setMessage("");
     setShowEmojiPicker(false);
     if (textareaRef.current) {
@@ -291,7 +289,6 @@ export const ChatInput = ({
   ]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Chặn gửi khi đang trong chế độ gõ Tiếng Việt / IME (hoặc vừa kết thúc composition < 50ms trên Safari/Chrome)
     const isImeComposing =
       e.nativeEvent.isComposing ||
       isComposingRef.current ||
@@ -345,7 +342,7 @@ export const ChatInput = ({
           const voiceFile = new File([audioBlob], `voice-${Date.now()}.webm`, {
             type: "audio/webm",
           });
-          onSendAttachments([voiceFile], "Tin nhắn thoại");
+          onSendAttachments([voiceFile], t("voiceMessageLabel"));
         }
       };
 
@@ -353,7 +350,7 @@ export const ChatInput = ({
       recorder.start();
       setIsRecording(true);
     } catch {
-      toast.error("Không thể truy cập Microphone để ghi âm");
+      toast.error(t("micError"));
     }
   };
 
@@ -409,12 +406,16 @@ export const ChatInput = ({
 
   const getReplySummaryText = () => {
     if (!activeReply) return "";
-    if (activeReply.type === MessageTypeEnum.IMAGE) return "📷 [Hình ảnh]";
-    if (activeReply.type === MessageTypeEnum.VIDEO) return "🎬 [Video]";
+    if (activeReply.type === MessageTypeEnum.IMAGE)
+      return tBubble("mediaPreview.image");
+    if (activeReply.type === MessageTypeEnum.VIDEO)
+      return tBubble("mediaPreview.video");
     if (activeReply.type === MessageTypeEnum.AUDIO)
-      return "🎤 [Tin nhắn thoại]";
+      return tBubble("mediaPreview.audio");
     if (activeReply.type === MessageTypeEnum.FILE)
-      return `📎 ${activeReply.content || "[Tệp đính kèm]"}`;
+      return activeReply.content
+        ? `📎 ${activeReply.content}`
+        : tBubble("mediaPreview.file");
     return activeReply.content;
   };
 
@@ -422,7 +423,7 @@ export const ChatInput = ({
     <div className="bg-background relative">
       {/* Thanh hiển thị Trả lời / Chỉnh sửa tin nhắn */}
       {(activeReply || activeEdit) && activeConversationId && (
-        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 mb-2.5 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="flex items-center justify-between gap-2.5 sm:gap-3 px-3 sm:px-3.5 py-2 mb-2 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
           <button
             type="button"
             onClick={() => {
@@ -443,8 +444,10 @@ export const ChatInput = ({
             <div className="min-w-0 flex-1 border-l-2 border-primary pl-2.5">
               <p className="font-semibold text-primary truncate">
                 {activeEdit
-                  ? "Đang chỉnh sửa tin nhắn"
-                  : `Đang trả lời ${activeReply?.sender?.name || "Người dùng"}`}
+                  ? t("editingTitle")
+                  : t("replyingTo", {
+                      name: activeReply?.sender?.name || tHeader("defaultUser"),
+                    })}
               </p>
               <p className="truncate text-muted-foreground group-hover:text-foreground transition-colors mt-0.5">
                 {activeEdit ? activeEdit.content : getReplySummaryText()}
@@ -519,7 +522,7 @@ export const ChatInput = ({
       {showEmojiPicker && (
         <div
           ref={emojiContainerRef}
-          className="absolute bottom-full right-4 mb-2 p-2.5 bg-background/95 backdrop-blur-xl border rounded-2xl shadow-xl grid grid-cols-4 gap-1.5 w-64 z-30 animate-in fade-in zoom-in-95 duration-150"
+          className="absolute bottom-full right-2 sm:right-4 mb-2 p-2.5 bg-background/95 backdrop-blur-xl border rounded-2xl shadow-xl grid grid-cols-4 gap-1.5 w-60 sm:w-64 max-w-[calc(100vw-2rem)] z-30 animate-in fade-in zoom-in-95 duration-150"
         >
           {COMMON_EMOJIS.map((emoji) => (
             <button
@@ -554,52 +557,52 @@ export const ChatInput = ({
         onChange={handleFileChange}
       />
 
-      <div className="flex items-end gap-2 bg-muted/50 p-2 rounded-2xl border focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all">
+      <div className="flex items-end gap-1.5 sm:gap-2 bg-muted/50 p-1.5 sm:p-2 rounded-2xl border focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all">
         {!isRecording && (
-          <div className="flex gap-0.5 pb-0.5">
+          <div className="flex gap-0.5 pb-0.5 shrink-0">
             <Button
               type="button"
               variant="ghost"
               size="icon"
               onClick={() => fileInputRef.current?.click()}
-              className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full"
-              title="Đính kèm tệp"
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
+              title={t("attachFile")}
             >
-              <Paperclip className="w-5 h-5" />
+              <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
             <Button
               type="button"
               variant="ghost"
               size="icon"
               onClick={() => imageInputRef.current?.click()}
-              className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
-              title="Gửi ảnh hoặc video"
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
+              title={t("attachMedia")}
             >
-              <ImageIcon className="w-5 h-5" />
+              <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
             <Button
               type="button"
               variant="ghost"
               size="icon"
               onClick={startVoiceRecording}
-              className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full"
-              title="Ghi âm giọng nói"
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
+              title={t("recordVoice")}
             >
-              <Mic className="w-5 h-5" />
+              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           </div>
         )}
 
         {isRecording ? (
-          <div className="flex-1 flex items-center justify-between gap-3 px-3 py-1.5 bg-red-500/10 rounded-xl border border-red-500/20">
-            <div className="flex items-center gap-2.5 text-xs text-red-500 font-semibold">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-              <span>
-                Đang ghi âm... {Math.floor(recordSeconds / 60)}:
+          <div className="flex-1 flex items-center justify-between gap-2 sm:gap-3 px-2.5 sm:px-3 py-1.5 bg-red-500/10 rounded-xl border border-red-500/20">
+            <div className="flex items-center gap-2 text-xs text-red-500 font-semibold truncate">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+              <span className="truncate">
+                {t("recording")} {Math.floor(recordSeconds / 60)}:
                 {(recordSeconds % 60).toString().padStart(2, "0")}
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <Button
                 type="button"
                 variant="ghost"
@@ -608,7 +611,7 @@ export const ChatInput = ({
                 className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive rounded-lg"
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1" />
-                Hủy
+                {t("cancel")}
               </Button>
               <Button
                 type="button"
@@ -618,7 +621,7 @@ export const ChatInput = ({
                 className="h-7 px-3 text-xs rounded-lg"
               >
                 <Square className="w-3 h-3 mr-1.5 fill-current" />
-                Gửi
+                {t("send")}
               </Button>
             </div>
           </div>
@@ -637,23 +640,23 @@ export const ChatInput = ({
               compositionEndedAtRef.current = Date.now();
             }}
             placeholder={t("placeholder")}
-            className="min-h-9 max-h-[150px] w-full resize-none border-0 bg-transparent px-2 py-1.5 focus-visible:ring-0 shadow-none scrollbar-hide text-sm leading-relaxed"
+            className="min-h-8 sm:min-h-9 max-h-[150px] w-full resize-none border-0 bg-transparent px-1.5 sm:px-2 py-1.5 focus-visible:ring-0 shadow-none scrollbar-hide text-sm leading-relaxed"
             rows={1}
             disabled={disabled}
           />
         )}
 
         {!isRecording && (
-          <div className="flex gap-1 pb-0.5">
+          <div className="flex gap-0.5 sm:gap-1 pb-0.5 shrink-0">
             <Button
               type="button"
               variant="ghost"
               size="icon"
               onClick={() => setShowEmojiPicker((v) => !v)}
-              className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
-              title="Biểu tượng cảm xúc"
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
+              title={t("emoji")}
             >
-              <Smile className="w-5 h-5" />
+              <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
             <Button
               type="button"
@@ -663,7 +666,7 @@ export const ChatInput = ({
               }
               size="icon"
               className={cn(
-                "h-9 w-9 rounded-full transition-all duration-200",
+                "h-8 w-8 sm:h-9 sm:w-9 rounded-full transition-all duration-200",
                 message.trim() || selectedItems.length > 0
                   ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm scale-100"
                   : "bg-transparent text-muted-foreground hover:bg-muted scale-95",

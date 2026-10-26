@@ -27,6 +27,7 @@ import type { IMessage } from "@/types/chat";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
 import { formatFileSize, sanitizeMediaUrl } from "@/utils/crypto-e2ee";
 import { MessageReadList } from "./message-read-list";
+import { useTranslations } from "next-intl";
 
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "😡"];
 
@@ -72,6 +73,7 @@ export const MessageBubble = memo(
     onCallbackCall,
     onScrollToMessage,
   }: MessageBubbleProps) => {
+    const t = useTranslations("Chat.Detail.conversation.bubble");
     const { toMessageTime, toFullDateTime } = useDateFormat();
     const [showReactionPicker, setShowReactionPicker] = useState(false);
 
@@ -122,12 +124,16 @@ export const MessageBubble = memo(
 
     const formatReplyPreviewContent = () => {
       if (!replyPreview) return "";
-      if (replyPreview.type === MessageTypeEnum.IMAGE) return "📷 [Hình ảnh]";
-      if (replyPreview.type === MessageTypeEnum.VIDEO) return "🎬 [Video]";
+      if (replyPreview.type === MessageTypeEnum.IMAGE)
+        return t("mediaPreview.image");
+      if (replyPreview.type === MessageTypeEnum.VIDEO)
+        return t("mediaPreview.video");
       if (replyPreview.type === MessageTypeEnum.AUDIO)
-        return "🎤 [Tin nhắn thoại]";
+        return t("mediaPreview.audio");
       if (replyPreview.type === MessageTypeEnum.FILE)
-        return `📎 ${replyPreview.content || "[Tệp đính kèm]"}`;
+        return replyPreview.content
+          ? `📎 ${replyPreview.content}`
+          : t("mediaPreview.file");
       return replyPreview.content;
     };
 
@@ -135,10 +141,9 @@ export const MessageBubble = memo(
       <div
         id={`msg-${message.id}`}
         className={cn(
-          "flex flex-col w-full mb-1 px-2 md:px-4 py-0.5 rounded-xl transition-all duration-300 group/bubble",
+          "flex flex-col w-full mb-1 px-1.5 sm:px-2 md:px-4 py-0.5 rounded-xl transition-all duration-300 group/bubble",
           isMe ? "items-end" : "items-start",
           !isContinuous ? "mt-3" : "mt-0.5",
-          isHighlighted && "bg-primary/15 ring-2 ring-primary/40",
         )}
         onMouseLeave={() => setShowReactionPicker(false)}
       >
@@ -151,21 +156,21 @@ export const MessageBubble = memo(
 
         <div
           className={cn(
-            "relative flex max-w-[88%] sm:max-w-[78%] md:max-w-[72%] items-end gap-2",
+            "relative flex max-w-[90%] sm:max-w-[78%] md:max-w-[72%] items-end gap-1.5 sm:gap-2",
             isMe ? "flex-row-reverse" : "flex-row",
           )}
         >
           {!isMe && (
-            <div className="w-8 shrink-0 flex flex-col justify-end">
+            <div className="w-7 sm:w-8 shrink-0 flex flex-col justify-end">
               {isLastInGroup ? (
-                <Avatar className="w-8 h-8 border border-border/50 shadow-xs">
+                <Avatar className="w-7 h-7 sm:w-8 sm:h-8 border border-border/50 shadow-xs">
                   <AvatarImage src={avatarUrl} alt={displayName} />
                   <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
                     {displayName?.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               ) : (
-                <div className="w-8" />
+                <div className="w-7 sm:w-8" />
               )}
             </div>
           )}
@@ -173,7 +178,7 @@ export const MessageBubble = memo(
           {/* Bong bóng tin nhắn chính */}
           <div
             className={cn(
-              "relative px-3.5 py-2 text-sm shadow-xs transition-all min-w-0",
+              "relative px-3 sm:px-3.5 py-2 text-sm shadow-xs transition-all min-w-0",
               isRecalled
                 ? "bg-muted/40 text-muted-foreground italic border border-dashed border-border"
                 : isMe
@@ -192,6 +197,7 @@ export const MessageBubble = memo(
                 "rounded-tl-md rounded-bl-md",
               !isMe && isLastInGroup && isContinuous && "rounded-tl-md",
               !isMe && !isContinuous && !isLastInGroup && "rounded-bl-md",
+              isHighlighted && "bg-primary/15 ring-2 ring-primary/40",
             )}
           >
             {/* Nhãn Đã ghim */}
@@ -199,7 +205,7 @@ export const MessageBubble = memo(
               (message.isPinned || message.metadata?.isPinned) && (
                 <div className="flex items-center gap-1 text-[10px] opacity-85 mb-1 font-medium">
                   <Pin className="w-3 h-3 rotate-45" />
-                  <span>Tin nhắn đã ghim</span>
+                  <span>{t("pinnedLabel")}</span>
                 </div>
               )}
 
@@ -222,7 +228,7 @@ export const MessageBubble = memo(
                 <div className="flex items-center gap-1 font-semibold text-[11px]">
                   <CornerUpLeft className="w-3 h-3 shrink-0 opacity-80" />
                   <span className="truncate">
-                    {replyPreview.senderName || "Tin nhắn gốc"}
+                    {replyPreview.senderName || t("originalMessage")}
                   </span>
                 </div>
                 <p className="truncate opacity-85 text-[11px] pl-4">
@@ -234,7 +240,7 @@ export const MessageBubble = memo(
             {/* Nội dung khi đã thu hồi */}
             {isRecalled ? (
               <p className="text-xs py-0.5 select-none">
-                Tin nhắn đã được thu hồi
+                {t("recalledMessage")}
               </p>
             ) : (
               <>
@@ -266,7 +272,7 @@ export const MessageBubble = memo(
                     ) : (
                       <img
                         src={sanitizeMediaUrl(message.content)}
-                        alt="attachment"
+                        alt={t("attachmentAlt")}
                         className="max-h-72 w-full object-cover rounded-lg"
                         loading="lazy"
                       />
@@ -295,7 +301,7 @@ export const MessageBubble = memo(
                   attachments.map((att) => (
                     <div
                       key={att.fileId}
-                      className="my-1 min-w-[210px] sm:min-w-[230px]"
+                      className="my-1 min-w-[180px] sm:min-w-[230px]"
                     >
                       <audio
                         src={sanitizeMediaUrl(att.url)}
@@ -338,7 +344,7 @@ export const MessageBubble = memo(
 
                 {/* 5. Hiển thị Thẻ Lịch sử Cuộc gọi (CALL) */}
                 {message.type === MessageTypeEnum.CALL && (
-                  <div className="flex items-center gap-3 py-1 min-w-[200px]">
+                  <div className="flex items-center gap-3 py-1 min-w-[180px] sm:min-w-[200px]">
                     <div
                       className={cn(
                         "p-2.5 rounded-full shrink-0",
@@ -370,7 +376,7 @@ export const MessageBubble = memo(
                         }
                         className="text-[11px] font-medium underline opacity-90 hover:opacity-100 mt-0.5 cursor-pointer"
                       >
-                        Gọi lại ngay
+                        {t("callAgain")}
                       </button>
                     </div>
                   </div>
@@ -408,7 +414,7 @@ export const MessageBubble = memo(
               )}
             >
               {!isRecalled && message.metadata?.isEdited && (
-                <span className="italic">(Đã sửa)</span>
+                <span className="italic">{t("editedLabel")}</span>
               )}
               <span title={fullTimeTitle}>{timeString}</span>
               {StatusIcon}
@@ -448,21 +454,21 @@ export const MessageBubble = memo(
             )}
           </div>
 
-          {/* Thanh công cụ tương tác khi Hover */}
+          {/* Thanh công cụ tương tác khi Hover/Tap */}
           {!isRecalled &&
             message.status !== "sending" &&
             message.status !== "failed" && (
               <div
                 className={cn(
-                  "opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 bg-background/95 backdrop-blur border rounded-full px-1.5 py-0.5 shadow-sm z-20 shrink-0",
+                  "opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 bg-background/95 backdrop-blur border rounded-full px-1 sm:px-1.5 py-0.5 shadow-sm z-20 shrink-0",
                 )}
               >
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowReactionPicker((v) => !v)}
-                    className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-                    title="Thả cảm xúc"
+                    className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                    title={t("actions.react")}
                   >
                     <SmilePlus className="w-3.5 h-3.5" />
                   </button>
@@ -494,8 +500,8 @@ export const MessageBubble = memo(
                 <button
                   type="button"
                   onClick={() => onReply?.(message)}
-                  className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-                  title="Trả lời"
+                  className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                  title={t("actions.reply")}
                 >
                   <Reply className="w-3.5 h-3.5" />
                 </button>
@@ -503,11 +509,11 @@ export const MessageBubble = memo(
                 <button
                   type="button"
                   onClick={() => onTogglePin?.(message)}
-                  className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                  className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
                   title={
                     message.isPinned || message.metadata?.isPinned
-                      ? "Bỏ ghim tin nhắn"
-                      : "Ghim tin nhắn"
+                      ? t("actions.unpin")
+                      : t("actions.pin")
                   }
                 >
                   <Pin className="w-3.5 h-3.5" />
@@ -517,8 +523,8 @@ export const MessageBubble = memo(
                   <button
                     type="button"
                     onClick={() => onEdit?.(message)}
-                    className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
-                    title="Chỉnh sửa"
+                    className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                    title={t("actions.edit")}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -528,8 +534,8 @@ export const MessageBubble = memo(
                   <button
                     type="button"
                     onClick={() => onRecall?.(message)}
-                    className="p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer"
-                    title="Thu hồi"
+                    className="p-1 sm:p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer"
+                    title={t("actions.recall")}
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>

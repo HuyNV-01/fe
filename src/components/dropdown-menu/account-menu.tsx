@@ -15,10 +15,12 @@ import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import { getInitials } from "@/utils/helper";
 import config from "@/config";
 import { Contact, MessageSquare, User, UserPlus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export function AccountMenu() {
+  const t = useTranslations("DropdownMenu.account");
   const user = useAuthStore((s) => s.currentAccount?.user);
-  const displayName = user?.name || "Tài khoản";
+  const displayName = user?.name || t("defaultName");
   const email = user?.email || "";
 
   return (
@@ -27,7 +29,7 @@ export function AccountMenu() {
         <button
           type="button"
           className="relative rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-transform hover:scale-105 cursor-pointer"
-          aria-label="Menu tài khoản"
+          aria-label={t("ariaLabel")}
         >
           <Avatar className="h-9 w-9 border border-border/60 shadow-xs">
             <AvatarImage
@@ -41,7 +43,10 @@ export function AccountMenu() {
           </Avatar>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContentCus className="w-60" align="end">
+      <DropdownMenuContentCus
+        className="w-60 max-w-[calc(100vw-1.5rem)]"
+        align="end"
+      >
         <DropdownMenuLabel className="font-normal py-2">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border border-border/50 shrink-0">
@@ -73,26 +78,26 @@ export function AccountMenu() {
               route={config.routes.private.profile(user.id)}
               icon={<User className="size-4 text-muted-foreground" />}
             >
-              Hồ sơ cá nhân
+              {t("profile")}
             </ItemMenu>
           )}
           <ItemMenu
             route={config.routes.private.chat}
             icon={<MessageSquare className="size-4 text-muted-foreground" />}
           >
-            Trò chuyện
+            {t("chat")}
           </ItemMenu>
           <ItemMenu
             route={config.routes.private.directory}
             icon={<Contact className="size-4 text-muted-foreground" />}
           >
-            Danh bạ bạn bè
+            {t("directory")}
           </ItemMenu>
           <ItemMenu
             route={config.routes.private.addNew}
             icon={<UserPlus className="size-4 text-muted-foreground" />}
           >
-            Thêm liên hệ mới
+            {t("addContact")}
           </ItemMenu>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

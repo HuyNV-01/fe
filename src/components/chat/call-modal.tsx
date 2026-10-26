@@ -42,7 +42,7 @@ import { socketService } from "@/services/socket/socket-client";
 import { getIceServersApi } from "@/lib/stores/chat/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { LiquidGlassAnchor } from "../liquid-glass/liquid-glass-anchor";
+import { useTranslations } from "next-intl";
 
 interface RemotePeerTileProps {
   userId: string;
@@ -53,6 +53,7 @@ interface RemotePeerTileProps {
   isVideoOff?: boolean;
   isScreenSharing?: boolean;
   isSingleRemote?: boolean;
+  connectingLabel: string;
 }
 
 const RemotePeerTile = React.memo(
@@ -64,6 +65,7 @@ const RemotePeerTile = React.memo(
     isVideoOff,
     isScreenSharing,
     isSingleRemote,
+    connectingLabel,
   }: RemotePeerTileProps) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -81,7 +83,7 @@ const RemotePeerTile = React.memo(
           "relative overflow-hidden flex items-center justify-center bg-slate-900/80 border border-white/15 transition-all",
           isSingleRemote
             ? "w-full h-full rounded-none border-0"
-            : "rounded-2xl h-full w-full min-h-[160px] shadow-lg",
+            : "rounded-2xl h-full w-full min-h-[140px] sm:min-h-[160px] shadow-lg",
         )}
       >
         <video
@@ -99,7 +101,9 @@ const RemotePeerTile = React.memo(
             <Avatar
               className={cn(
                 "border-2 border-white/30 shadow-2xl",
-                isSingleRemote ? "h-28 w-28" : "h-16 w-16",
+                isSingleRemote
+                  ? "h-24 w-24 sm:h-28 sm:w-28"
+                  : "h-14 w-14 sm:h-16 sm:w-16",
               )}
             >
               <AvatarImage src={avatar || undefined} alt={name} />
@@ -109,9 +113,11 @@ const RemotePeerTile = React.memo(
             </Avatar>
             {isSingleRemote && (
               <div className="text-center">
-                <h4 className="text-lg font-bold text-white">{name}</h4>
+                <h4 className="text-base sm:text-lg font-bold text-white">
+                  {name}
+                </h4>
                 <p className="text-xs text-white/60 mt-0.5">
-                  Đang kết nối âm thanh
+                  {connectingLabel}
                 </p>
               </div>
             )}
@@ -141,6 +147,8 @@ const RemotePeerTile = React.memo(
 RemotePeerTile.displayName = "RemotePeerTile";
 
 export function CallModal() {
+  const t = useTranslations("Chat.Detail.call");
+  const tHeader = useTranslations("Chat.Detail.header");
   const { activeCall, setActiveCall, updateActiveCall, conversations } =
     useChatStore();
   const currentUser = useAuthStore((s) => s.currentAccount?.user);
@@ -188,17 +196,17 @@ export function CallModal() {
       if (!isGroupCall && conversation) {
         return {
           id: userId,
-          name: conversation.name || "Người dùng",
+          name: conversation.name || tHeader("defaultUser"),
           avatar: conversation.avatar || null,
         };
       }
       return {
         id: userId,
-        name: "Thành viên",
+        name: t("memberDefault"),
         avatar: null,
       };
     },
-    [activeCall, conversation, isGroupCall],
+    [activeCall, conversation, isGroupCall, t, tHeader],
   );
 
   const fetchIceServers = useCallback(async (): Promise<RTCIceServer[]> => {
@@ -219,48 +227,50 @@ export function CallModal() {
     return fallback;
   }, []);
 
-  const ensureLocalMediaStream = useCallback(async (withVideo: boolean) => {
-    if (localStreamRef.current) {
-      return localStreamRef.current;
-    }
-
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: withVideo
-          ? {
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              facingMode: "user",
-            }
-          : false,
-      });
-      localStreamRef.current = mediaStream;
-      setIsVideoOff(!withVideo);
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = mediaStream;
+  const ensureLocalMediaStream = useCallback(
+    async (withVideo: boolean) => {
+      if (localStreamRef.current) {
+        return localStreamRef.current;
       }
-      return mediaStream;
-    } catch (err) {
-      // Nếu thiết bị không có Camera nhưng có Mic, fallback xuống chỉ lấy Audio
-      if (withVideo) {
-        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: false,
+
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: withVideo
+            ? {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                facingMode: "user",
+              }
+            : false,
         });
-        localStreamRef.current = audioOnlyStream;
-        setIsVideoOff(true);
-        toast.info("Không tìm thấy Camera, đã chuyển sang chế độ âm thanh");
-        return audioOnlyStream;
+        localStreamRef.current = mediaStream;
+        setIsVideoOff(!withVideo);
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = mediaStream;
+        }
+        return mediaStream;
+      } catch (err) {
+        if (withVideo) {
+          const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false,
+          });
+          localStreamRef.current = audioOnlyStream;
+          setIsVideoOff(true);
+          toast.info(t("noCameraFallback"));
+          return audioOnlyStream;
+        }
+        throw err;
       }
-      throw err;
-    }
-  }, []);
+    },
+    [t],
+  );
 
   const flushPendingCandidates = useCallback(
     async (targetUserId: string, pc: RTCPeerConnection) => {
@@ -357,15 +367,6 @@ export function CallModal() {
         }
       };
 
-      pc.onconnectionstatechange = () => {
-        if (
-          pc.connectionState === "failed" ||
-          pc.connectionState === "closed"
-        ) {
-          // Tự động dọn dẹp nếu peer đóng hoàn toàn
-        }
-      };
-
       const mediaStream = await ensureLocalMediaStream(isVideo);
       mediaStream.getTracks().forEach((track) => {
         pc.addTrack(track, mediaStream);
@@ -376,7 +377,6 @@ export function CallModal() {
     [ensureLocalMediaStream, fetchIceServers],
   );
 
-  // Gán lại localVideoRef khi phóng to/thu nhỏ hoặc bật camera
   useEffect(() => {
     if (localVideoRef.current) {
       const activeLocal = screenStreamRef.current || localStreamRef.current;
@@ -386,7 +386,6 @@ export function CallModal() {
     }
   }, [activeCall?.isMinimized, isVideoOff, isScreenSharing]);
 
-  // Lắng nghe tín hiệu WebRTC & sự kiện tham gia/rời phòng gọi nhóm
   useEffect(() => {
     if (!activeCall) {
       cleanupAllMediaAndPeers();
@@ -555,10 +554,7 @@ export function CallModal() {
             },
           );
         } catch (err: any) {
-          toast.error(
-            err?.message ||
-              "Không thể truy cập Microphone/Camera trên thiết bị",
-          );
+          toast.error(err?.message || t("mediaError"));
         }
       })();
     });
@@ -567,6 +563,7 @@ export function CallModal() {
     currentUser?.id,
     conversation?.partnerId,
     getOrCreatePeerConnection,
+    t,
   ]);
 
   useEffect(() => {
@@ -644,7 +641,7 @@ export function CallModal() {
         membersInfo: res?.membersInfo || activeCall.membersInfo,
       });
     } catch (err: any) {
-      toast.error(err?.message || "Không thể nhận cuộc gọi");
+      toast.error(err?.message || t("acceptError"));
     }
   };
 
@@ -738,7 +735,7 @@ export function CallModal() {
           },
         );
       } catch {
-        toast.error("Không thể bật Camera trên thiết bị này");
+        toast.error(t("cameraToggleError"));
       }
       return;
     }
@@ -843,14 +840,22 @@ export function CallModal() {
   ).filter((id) => id !== currentUser?.id);
 
   const displayTitle =
-    conversation?.name || activeCall.callerName || "Cuộc gọi trực tuyến";
+    conversation?.name || activeCall.callerName || t("defaultTitle");
   const displayAvatar = conversation?.avatar || activeCall.callerAvatar;
+
+  const getIncomingText = () => {
+    const isVideo = activeCall.callType === CallTypeEnum.VIDEO;
+    if (isGroupCall) {
+      return isVideo ? t("incomingGroupVideo") : t("incomingGroupAudio");
+    }
+    return isVideo ? t("incomingVideo") : t("incomingAudio");
+  };
 
   if (activeCall.isMinimized) {
     return (
-      <div className="fixed top-20 md:right-6 z-50 md:w-80 w-full px-3 animate-in fade-in slide-in-from-bottom-3">
+      <div className="fixed top-20 right-3 md:right-6 z-50 w-[calc(100vw-1.5rem)] max-w-80 animate-in fade-in slide-in-from-bottom-3">
         <LiquidGlassModal className="p-3.5 flex items-center justify-between gap-3 border border-white/30 shadow-2xl">
-          <div className="flex items-center gap-3 min-w-0 mb-2.5">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="relative shrink-0">
               <Avatar className="h-10 w-10 border border-white/30">
                 <AvatarImage src={displayAvatar || undefined} />
@@ -867,35 +872,33 @@ export function CallModal() {
               <span className="text-[11px] text-emerald-500 font-mono font-medium">
                 {activeCall.status === CallStatusEnum.ONGOING
                   ? formatTimer(durationSec)
-                  : "Đang đổ chuông..."}
+                  : t("ringing")}
               </span>
             </div>
           </div>
-          <div className="flex items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <PatternButton
-                size="icon"
-                variant={isAudioMuted ? "solid" : "ghost"}
-                rounded="full"
-                className="h-8 w-8"
-                onClick={toggleAudio}
-              >
-                {isAudioMuted ? (
-                  <MicOff className="h-3.5 w-3.5" />
-                ) : (
-                  <Mic className="h-3.5 w-3.5" />
-                )}
-              </PatternButton>
-              <PatternButton
-                size="icon"
-                variant="ghost"
-                rounded="full"
-                className="h-8 w-8"
-                onClick={() => updateActiveCall({ isMinimized: false })}
-              >
-                <Maximize2 className="h-4 w-4" />
-              </PatternButton>
-            </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <PatternButton
+              size="icon"
+              variant={isAudioMuted ? "solid" : "ghost"}
+              rounded="full"
+              className="h-8 w-8"
+              onClick={toggleAudio}
+            >
+              {isAudioMuted ? (
+                <MicOff className="h-3.5 w-3.5" />
+              ) : (
+                <Mic className="h-3.5 w-3.5" />
+              )}
+            </PatternButton>
+            <PatternButton
+              size="icon"
+              variant="ghost"
+              rounded="full"
+              className="h-8 w-8"
+              onClick={() => updateActiveCall({ isMinimized: false })}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </PatternButton>
             <PatternButton
               size="icon"
               variant="solid"
@@ -913,15 +916,15 @@ export function CallModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-3 md:p-6 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
       <LiquidGlassModal
         className="w-full max-w-4xl overflow-hidden border border-white/25 shadow-2xl"
         rounded="3xl"
       >
-        <div className="relative flex flex-col h-[82vh] max-h-[680px] min-h-[480px] w-full bg-gradient-to-br from-cyan-200/95 via-cyan-100/85 to-cyan-100/95 text-white">
-          <div className="flex items-center justify-between px-6 py-4 z-20">
+        <div className="relative flex flex-col h-[86dvh] sm:h-[82dvh] max-h-[680px] min-h-[420px] w-full bg-gradient-to-br from-slate-900 via-indigo-950/90 to-slate-900 text-white">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 z-20">
             <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-1.5 text-xs text-emerald-600/95 bg-emerald-500/15 border border-emerald-400/25 px-1 py-1 rounded-full backdrop-blur-md">
+              <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/15 border border-emerald-400/25 px-2 py-1 rounded-full backdrop-blur-md">
                 <ShieldCheck className="w-3.5 h-3.5" />
               </div>
 
@@ -929,14 +932,15 @@ export function CallModal() {
                 <div className="flex items-center gap-1.5 text-xs text-indigo-200 bg-indigo-500/20 border border-indigo-400/30 px-3 py-1 rounded-full">
                   <Users className="w-3.5 h-3.5" />
                   <span>
-                    {Object.keys(activeCall.participants || {}).length} thành
-                    viên
+                    {t("membersCount", {
+                      count: Object.keys(activeCall.participants || {}).length,
+                    })}
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               {activeCall.status === CallStatusEnum.ONGOING && (
                 <>
                   <span className="text-xs font-mono bg-white/10 px-3 py-1 rounded-full border border-white/15">
@@ -948,8 +952,7 @@ export function CallModal() {
                     rounded="full"
                     className="h-8 w-8"
                     onClick={() => updateActiveCall({ isMinimized: true })}
-                    title="Thu nhỏ cửa sổ cuộc gọi"
-                    glassZIndex={50}
+                    title={t("minimizeTitle")}
                   >
                     <Minimize2 className="w-4 h-4" />
                   </PatternButton>
@@ -959,33 +962,30 @@ export function CallModal() {
           </div>
 
           {/* Khu vực hiển thị Video / Avatar */}
-          <div className="relative flex-1 flex flex-col items-center justify-center overflow-hidden px-4 md:px-6">
+          <div className="relative flex-1 flex flex-col items-center justify-center overflow-hidden px-3 sm:px-6">
             {activeCall.status === CallStatusEnum.RINGING ? (
               <div className="relative z-10 flex flex-col items-center gap-5">
                 <div className="relative">
                   <div className="absolute -inset-4 rounded-full bg-indigo-500/25 animate-ping" />
                   <div className="absolute -inset-8 rounded-full bg-indigo-500/10 animate-pulse" />
-                  <Avatar className="h-28 w-28 border-2 border-white/40 shadow-2xl">
+                  <Avatar className="h-24 w-24 sm:h-28 sm:w-28 border-2 border-white/40 shadow-2xl">
                     <AvatarImage src={displayAvatar || undefined} />
-                    <AvatarFallback className="bg-indigo-300 text-white text-2xl font-bold">
+                    <AvatarFallback className="bg-indigo-600 text-white text-2xl font-bold">
                       {displayTitle.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </div>
 
-                <div className="text-center space-y-1.5">
-                  <h3 className="text-xl font-bold tracking-tight">
+                <div className="text-center space-y-1.5 px-4">
+                  <h3 className="text-lg sm:text-xl font-bold tracking-tight">
                     {displayTitle}
                   </h3>
-                  <p className="text-sm text-white/75">
-                    {activeCall.isIncoming
-                      ? `Đang gọi ${activeCall.callType === CallTypeEnum.VIDEO ? "video" : "thoại"}${isGroupCall ? " nhóm" : ""} cho bạn...`
-                      : "Đang đổ chuông..."}
+                  <p className="text-xs sm:text-sm text-white/75">
+                    {activeCall.isIncoming ? getIncomingText() : t("ringing")}
                   </p>
                 </div>
               </div>
             ) : remoteParticipantIds.length <= 1 ? (
-              /* Chế độ 1-1: Fullscreen đối phương */
               <div className="w-full h-full rounded-2xl overflow-hidden relative flex items-center justify-center">
                 {remoteParticipantIds.map((pid) => {
                   const meta = getMemberMeta(pid);
@@ -1004,15 +1004,15 @@ export function CallModal() {
                       }
                       isScreenSharing={pState?.isScreenSharing}
                       isSingleRemote
+                      connectingLabel={t("connectingAudio")}
                     />
                   );
                 })}
               </div>
             ) : (
-              /* Chế độ Gọi Nhóm (Multi-Participant Grid Layout) */
               <div
                 className={cn(
-                  "grid gap-3 w-full h-full py-1",
+                  "grid gap-2.5 sm:gap-3 w-full h-full py-1",
                   remoteParticipantIds.length === 2
                     ? "grid-cols-1 md:grid-cols-2"
                     : remoteParticipantIds.length <= 4
@@ -1036,6 +1036,7 @@ export function CallModal() {
                         activeCall.callType === CallTypeEnum.AUDIO
                       }
                       isScreenSharing={pState?.isScreenSharing}
+                      connectingLabel={t("connectingAudio")}
                     />
                   );
                 })}
@@ -1045,7 +1046,7 @@ export function CallModal() {
             {(activeCall.callType === CallTypeEnum.VIDEO ||
               !isVideoOff ||
               isScreenSharing) && (
-              <div className="absolute bottom-4 right-6 z-20 w-36 h-24 md:w-44 md:h-30 rounded-2xl overflow-hidden border border-white/35 shadow-2xl bg-slate-900/80 backdrop-blur-md">
+              <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-6 z-20 w-28 h-20 sm:w-40 sm:h-28 rounded-2xl overflow-hidden border border-white/35 shadow-2xl bg-slate-900/80 backdrop-blur-md">
                 <video
                   ref={localVideoRef}
                   autoPlay
@@ -1057,118 +1058,117 @@ export function CallModal() {
                   )}
                 />
                 {isVideoOff && !isScreenSharing && (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-[11px] text-white/60">
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-1 text-[10px] sm:text-[11px] text-white/60">
                     <VideoOff className="w-4 h-4 opacity-70" />
-                    <span>Camera tắt</span>
+                    <span>{t("cameraOff")}</span>
                   </div>
                 )}
                 <span className="absolute bottom-1.5 left-2 text-[10px] px-2 py-0.5 rounded-full bg-black/60 text-white/90">
-                  Bạn {isScreenSharing ? "(Màn hình)" : ""}
+                  {t("you")} {isScreenSharing ? t("screenLabel") : ""}
                 </span>
               </div>
             )}
           </div>
 
-          <div className="p-5 flex justify-center z-20 w-max mx-auto">
-            <LiquidGlassAnchor>
-              <LiquidGlass
-                variant="frosted"
-                blur="2xl"
-                opacity="30"
-                rounded="full"
-                border="highlight"
-                fluid={false}
-                className="px-2 py-1 flex items-center justify-between gap-3 md:gap-4 shadow-2xl"
-              >
-                {activeCall.status === CallStatusEnum.RINGING &&
-                activeCall.isIncoming ? (
-                  <>
-                    <PatternButton
-                      variant="solid"
-                      color="success"
-                      rounded="full"
-                      size="lg"
-                      onClick={handleAcceptCall}
-                      icon={<PhoneCall className="w-5 h-5" />}
-                      className="m-2 "
-                    ></PatternButton>
-                    <PatternButton
-                      variant="solid"
-                      color="danger"
-                      rounded="full"
-                      size="lg"
-                      onClick={handleRejectCall}
-                      icon={<PhoneOff className="w-5 h-5" />}
-                      className="m-2 "
-                    ></PatternButton>
-                  </>
-                ) : (
-                  <>
-                    <PatternButton
-                      variant={isAudioMuted ? "solid" : "glass"}
-                      size="icon"
-                      rounded="full"
-                      className="h-14 w-14 m-2"
-                      onClick={toggleAudio}
-                      title={isAudioMuted ? "Bật Micro" : "Tắt Micro"}
-                      glassZIndex={50}
-                    >
-                      {isAudioMuted ? (
-                        <MicOff className="w-5 h-5" />
-                      ) : (
-                        <Mic className="w-5 h-5" />
-                      )}
-                    </PatternButton>
-
-                    <PatternButton
-                      variant={isVideoOff ? "solid" : "glass"}
-                      size="icon"
-                      rounded="full"
-                      className="h-14 w-14 m-2 "
-                      onClick={toggleVideo}
-                      title={isVideoOff ? "Bật Camera" : "Tắt Camera"}
-                      glassZIndex={50}
-                    >
-                      {isVideoOff ? (
-                        <VideoOff className="w-5 h-5" />
-                      ) : (
-                        <VideoIcon className="w-5 h-5" />
-                      )}
-                    </PatternButton>
-
-                    {activeCall.status === CallStatusEnum.ONGOING && (
-                      <PatternButton
-                        variant={isScreenSharing ? "solid" : "glass"}
-                        size="icon"
-                        rounded="full"
-                        className="h-14 w-14 m-2 "
-                        onClick={toggleScreenShare}
-                        title={
-                          isScreenSharing
-                            ? "Dừng chia sẻ màn hình"
-                            : "Chia sẻ màn hình"
-                        }
-                        glassZIndex={50}
-                      >
-                        <MonitorUp className="w-5 h-5" />
-                      </PatternButton>
+          <div className="p-3 sm:p-5 flex justify-center z-20 w-full">
+            <LiquidGlass
+              variant="frosted"
+              blur="2xl"
+              opacity="30"
+              rounded="full"
+              border="highlight"
+              fluid={false}
+              isolate={false}
+              contentClassName="px-3 py-1.5 flex items-center justify-center gap-2.5 sm:gap-4"
+              className="shadow-2xl max-w-full"
+            >
+              {activeCall.status === CallStatusEnum.RINGING &&
+              activeCall.isIncoming ? (
+                <>
+                  <PatternButton
+                    variant="solid"
+                    color="success"
+                    rounded="full"
+                    size="icon"
+                    onClick={handleAcceptCall}
+                    className="h-12 w-12 sm:h-14 sm:w-14"
+                  >
+                    <PhoneCall className="w-5 h-5" />
+                  </PatternButton>
+                  <PatternButton
+                    variant="solid"
+                    color="danger"
+                    rounded="full"
+                    size="icon"
+                    onClick={handleRejectCall}
+                    className="h-12 w-12 sm:h-14 sm:w-14"
+                  >
+                    <PhoneOff className="w-5 h-5" />
+                  </PatternButton>
+                </>
+              ) : (
+                <>
+                  <PatternButton
+                    variant={isAudioMuted ? "solid" : "glass"}
+                    size="icon"
+                    rounded="full"
+                    className="h-11 w-11 sm:h-13 sm:w-13"
+                    onClick={toggleAudio}
+                    title={isAudioMuted ? t("unmuteMic") : t("muteMic")}
+                  >
+                    {isAudioMuted ? (
+                      <MicOff className="w-5 h-5" />
+                    ) : (
+                      <Mic className="w-5 h-5" />
                     )}
+                  </PatternButton>
 
+                  <PatternButton
+                    variant={isVideoOff ? "solid" : "glass"}
+                    size="icon"
+                    rounded="full"
+                    className="h-11 w-11 sm:h-13 sm:w-13"
+                    onClick={toggleVideo}
+                    title={isVideoOff ? t("turnOnCamera") : t("turnOffCamera")}
+                  >
+                    {isVideoOff ? (
+                      <VideoOff className="w-5 h-5" />
+                    ) : (
+                      <VideoIcon className="w-5 h-5" />
+                    )}
+                  </PatternButton>
+
+                  {activeCall.status === CallStatusEnum.ONGOING && (
                     <PatternButton
-                      variant="solid"
-                      color="danger"
+                      variant={isScreenSharing ? "solid" : "glass"}
                       size="icon"
                       rounded="full"
-                      className="h-14 w-14 m-2 "
-                      onClick={handleHangup}
-                      title="Kết thúc cuộc gọi"
+                      className="h-11 w-11 sm:h-13 sm:w-13 hidden sm:inline-flex"
+                      onClick={toggleScreenShare}
+                      title={
+                        isScreenSharing
+                          ? t("stopScreenShare")
+                          : t("startScreenShare")
+                      }
                     >
-                      <PhoneOff className="w-5 h-5" />
+                      <MonitorUp className="w-5 h-5" />
                     </PatternButton>
-                  </>
-                )}
-              </LiquidGlass>
-            </LiquidGlassAnchor>
+                  )}
+
+                  <PatternButton
+                    variant="solid"
+                    color="danger"
+                    size="icon"
+                    rounded="full"
+                    className="h-11 w-11 sm:h-13 sm:w-13"
+                    onClick={handleHangup}
+                    title={t("endCall")}
+                  >
+                    <PhoneOff className="w-5 h-5" />
+                  </PatternButton>
+                </>
+              )}
+            </LiquidGlass>
           </div>
         </div>
       </LiquidGlassModal>

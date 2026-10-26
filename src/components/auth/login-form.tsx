@@ -171,9 +171,9 @@ export function LoginForm() {
         {pendingActivationEmail && (
           <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2 text-xs">
             <p className="text-amber-700 dark:text-amber-300 font-medium">
-              Tài khoản{" "}
-              <span className="font-bold">{pendingActivationEmail}</span> chưa
-              được kích hoạt.
+              {tForm("activation.unactivatedPrefix")}{" "}
+              <span className="font-bold">{pendingActivationEmail}</span>{" "}
+              {tForm("activation.unactivatedSuffix")}
             </p>
             <PatternButton
               type="button"

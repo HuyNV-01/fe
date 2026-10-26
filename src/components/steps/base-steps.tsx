@@ -6,6 +6,7 @@ import { Card } from "../ui/card";
 import { cn } from "@/lib/utils";
 import { Steps, type Step, type StepsProps } from "./steps";
 import { LiquidGlassCard } from "../liquid-glass/liquid-glass";
+import { useTranslations } from "next-intl";
 
 export interface StepComponentProps {
   onNext: () => void;
@@ -34,6 +35,7 @@ export function BaseSteps({
   wrapperCardClassName,
   ...stepsUiProps
 }: BaseStepsProps) {
+  const t = useTranslations("Common.Steps");
   const [currentStep, setCurrentStep] = useState(initialStep);
 
   const isFirstStep = currentStep === 1;
@@ -92,7 +94,7 @@ export function BaseSteps({
             />
           ) : (
             <div className="text-center text-muted-foreground py-10">
-              Missing component configuration for step {currentStep}
+              {t("missingComponent", { step: currentStep })}
             </div>
           )}
         </div>

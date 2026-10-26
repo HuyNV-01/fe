@@ -103,10 +103,10 @@ export const ChatItem = memo(
             variant="ghost"
             type="button"
             onClick={handleSelect}
-            className="flex-1 min-w-0 h-auto flex items-center justify-start gap-3 p-3 rounded-xl text-left font-normal whitespace-normal hover:bg-transparent cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex-1 min-w-0 h-auto flex items-center justify-start gap-3 p-2.5 sm:p-3 rounded-xl text-left font-normal whitespace-normal hover:bg-transparent cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <div className="relative shrink-0">
-              <Avatar className="h-12 w-12 border border-border/40 shadow-xs transition-transform group-hover:scale-105">
+              <Avatar className="h-11 w-11 sm:h-12 sm:w-12 border border-border/40 shadow-xs transition-transform group-hover:scale-105">
                 <AvatarImage
                   src={avatarUrl || undefined}
                   alt={displayName}
@@ -118,7 +118,7 @@ export const ChatItem = memo(
               </Avatar>
 
               {isOnline && (
-                <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+                <span className="absolute bottom-0 right-0 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full bg-emerald-500 ring-2 ring-background" />
               )}
             </div>
 
@@ -185,7 +185,7 @@ export const ChatItem = memo(
                     "data-[state=open]:opacity-100 bg-background/80 backdrop-blur-sm shadow-xs hover:bg-background",
                   )}
                   onClick={handleMoreClick}
-                  aria-label="Tùy chọn"
+                  aria-label={t("item.moreOptions")}
                 >
                   <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
                 </Button>

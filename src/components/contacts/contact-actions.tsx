@@ -7,6 +7,7 @@ import ItemMenu from "@/components/dropdown-menu/item-menu";
 import { useContactStore } from "@/lib/stores/contact/use-contact-store";
 import type { IContactsDataRes } from "@/types/common";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
+import { useTranslations } from "next-intl";
 import config from "@/config";
 
 interface ContactActionsMenuProps {
@@ -20,6 +21,7 @@ export const ContactActionsMenu = ({
   userId,
   onEditAlias,
 }: ContactActionsMenuProps) => {
+  const t = useTranslations("Chat.Detail.contact.item");
   const { removeContact, acceptFriend } = useContactStore();
   const { currentAccount } = useAuthStore();
 
@@ -37,11 +39,11 @@ export const ContactActionsMenu = ({
   };
 
   const getRemoveLabel = () => {
-    if (contact.status === ContactStatusEnum.FRIEND) return "Hủy kết bạn";
+    if (contact.status === ContactStatusEnum.FRIEND) return t("unfriend");
     if (contact.status === ContactStatusEnum.PENDING_RECEIVED)
-      return "Từ chối lời mời";
-    if (isSender) return "Thu hồi lời mời";
-    return "Xóa liên hệ";
+      return t("rejectRequest");
+    if (isSender) return t("revokeRequest");
+    return t("removeContact");
   };
 
   return (
@@ -50,7 +52,7 @@ export const ContactActionsMenu = ({
         route={config.routes.private.profile(userId)}
         icon={<User className="w-4 h-4 mr-2" />}
       >
-        Xem hồ sơ cá nhân
+        {t("viewProfile")}
       </ItemMenu>
 
       {contact.status === ContactStatusEnum.FRIEND && onEditAlias && (
@@ -58,7 +60,7 @@ export const ContactActionsMenu = ({
           onClick={onEditAlias}
           icon={<Pencil className="w-4 h-4 mr-2" />}
         >
-          Đặt tên gợi nhớ (Biệt danh)
+          {t("setAlias")}
         </ItemMenu>
       )}
 
@@ -68,7 +70,7 @@ export const ContactActionsMenu = ({
           className="text-emerald-600 focus:text-emerald-600"
           icon={<Check className="w-4 h-4 mr-2 text-emerald-600" />}
         >
-          Chấp nhận kết bạn
+          {t("acceptFriend")}
         </ItemMenu>
       )}
 

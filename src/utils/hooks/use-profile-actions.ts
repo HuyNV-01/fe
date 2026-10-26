@@ -7,9 +7,11 @@ import { useUserStore } from "@/lib/stores/user/use-user-store";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import config from "@/config";
 import type { IUserProfile } from "@/types/profile";
+import { useTranslations } from "next-intl";
 
 export const useProfileActions = (profile: IUserProfile) => {
   const router = useRouter();
+  const t = useTranslations("Profile.actions.toast");
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const { requestContact, acceptFriend, removeContact, isRequest } =
@@ -30,7 +32,7 @@ export const useProfileActions = (profile: IUserProfile) => {
         toast.success(successMessage);
       }
     } catch {
-      toast.error("Đã có lỗi xảy ra, vui lòng thử lại.");
+      toast.error(t("genericError"));
     }
   };
 
@@ -38,21 +40,21 @@ export const useProfileActions = (profile: IUserProfile) => {
     performAction(
       () => requestContact({ data: { targetUserId: profile.id! } }),
       ContactStatusEnum.PENDING_SENT,
-      "Đã gửi lời mời kết bạn",
+      t("requestSent"),
     );
 
   const onAcceptFriend = () =>
     performAction(
       () => acceptFriend({ data: { senderId: profile.id! } }),
       ContactStatusEnum.FRIEND,
-      "Đã chấp nhận lời mời kết bạn",
+      t("requestAccepted"),
     );
 
   const onRemoveContact = () =>
     performAction(
       () => removeContact({ data: { targetId: profile.id! } }),
       null,
-      "Đã cập nhật trạng thái liên hệ",
+      t("relationshipUpdated"),
     );
 
   const onSendMessage = useCallback(async () => {
@@ -63,9 +65,9 @@ export const useProfileActions = (profile: IUserProfile) => {
         router.push(config.routes.private.detailChat(conversation));
       }
     } catch {
-      toast.error("Không thể tạo cuộc trò chuyện.");
+      toast.error(t("chatError"));
     }
-  }, [profile.id, createDirectChat, router]);
+  }, [profile.id, createDirectChat, router, t]);
 
   const onUploadAvatar = useCallback(
     async (file: File) => {
@@ -73,29 +75,29 @@ export const useProfileActions = (profile: IUserProfile) => {
       setIsUploadingAvatar(true);
       await updateAvatar(file, {
         onSuccess: () => {
-          toast.success("Đã cập nhật ảnh đại diện mới");
+          toast.success(t("avatarUpdated"));
         },
         onError: (errMsg) => {
-          toast.error(errMsg || "Không thể tải lên ảnh đại diện");
+          toast.error(errMsg || t("avatarUploadError"));
         },
       });
       setIsUploadingAvatar(false);
     },
-    [updateAvatar],
+    [updateAvatar, t],
   );
 
   const onDeleteAvatar = useCallback(async () => {
     setIsUploadingAvatar(true);
     await deleteAvatar({
       onSuccess: () => {
-        toast.success("Đã xóa ảnh đại diện");
+        toast.success(t("avatarDeleted"));
       },
       onError: (errMsg) => {
-        toast.error(errMsg || "Không thể xóa ảnh đại diện");
+        toast.error(errMsg || t("avatarDeleteError"));
       },
     });
     setIsUploadingAvatar(false);
-  }, [deleteAvatar]);
+  }, [deleteAvatar, t]);
 
   return {
     isLoading: isRequest,

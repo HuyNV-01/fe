@@ -52,7 +52,7 @@ export default async function BaseLayout({ children, locale }: Props) {
                   {children}
                 </div>
               </div>
-              <Toaster closeButton />
+              <Toaster closeButton position="top-right" />
             </TooltipProvider>
           </NextIntlClientProvider>
         </ThemeProvider>

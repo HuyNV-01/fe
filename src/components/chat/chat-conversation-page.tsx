@@ -4,6 +4,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowDown,
   Loader2,
@@ -31,6 +32,7 @@ import {
   MessageTypeEnum,
 } from "@/common/enum";
 import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import config from "@/config";
 
 interface ChatConversationPageProps {
@@ -41,6 +43,11 @@ export default function ChatConversationPage({
   params,
 }: ChatConversationPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetMessageId = searchParams.get("messageId");
+  const t = useTranslations("Chat.Detail.conversation");
+  const tHeader = useTranslations("Chat.Detail.header");
+
   const currentUser = useHydratedStore(useAuthStore, (s) => s.currentAccount);
 
   const {
@@ -76,6 +83,7 @@ export default function ChatConversationPage({
     string | null
   >(null);
   const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const scrolledNotificationMsgRef = useRef<string | null>(null);
 
   const currentConversation = useMemo(
     () => conversations.find((c) => c.id === conversationId),
@@ -128,8 +136,25 @@ export default function ChatConversationPage({
     isLoadingMessages,
   );
 
+  const scrollToMessage = useCallback((messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      highlightTimerRef.current = setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 2500);
+      return true;
+    }
+    return false;
+  }, []);
+
   useEffect(() => {
     if (conversationId) {
+      scrolledNotificationMsgRef.current = null;
       setActiveConversation(conversationId);
       setCurrentPage(1);
       fetchMessages(conversationId, 1);
@@ -142,19 +167,26 @@ export default function ChatConversationPage({
     };
   }, [conversationId, fetchMessages, setActiveConversation]);
 
-  const scrollToMessage = useCallback((messageId: string) => {
-    const el = document.getElementById(`msg-${messageId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      setHighlightedMessageId(messageId);
-      if (highlightTimerRef.current) {
-        clearTimeout(highlightTimerRef.current);
-      }
-      highlightTimerRef.current = setTimeout(() => {
-        setHighlightedMessageId(null);
-      }, 2200);
+  // Automatically scroll to and highlight the target message when arriving from NotificationBell
+  useEffect(() => {
+    if (!rawMessages.length) return;
+
+    if (
+      targetMessageId &&
+      scrolledNotificationMsgRef.current !== targetMessageId
+    ) {
+      const timer = setTimeout(() => {
+        const found = scrollToMessage(targetMessageId);
+        if (found) {
+          scrolledNotificationMsgRef.current = targetMessageId;
+        } else {
+          scrollToBottom("smooth");
+          scrolledNotificationMsgRef.current = targetMessageId;
+        }
+      }, 120);
+      return () => clearTimeout(timer);
     }
-  }, []);
+  }, [rawMessages, targetMessageId, scrollToMessage, scrollToBottom]);
 
   const onContainerScroll = async (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
@@ -190,7 +222,7 @@ export default function ChatConversationPage({
 
             map[msg.id].push({
               id: reader.id,
-              name: reader.name || "Unknown",
+              name: reader.name || t("unknownUser"),
               avatar: reader.avatar || null,
             });
 
@@ -201,7 +233,7 @@ export default function ChatConversationPage({
     });
 
     return map;
-  }, [rawMessages, currentUser?.user?.id]);
+  }, [rawMessages, currentUser?.user?.id, t]);
 
   const handleSendMessage = useCallback(
     async (content: string) => {
@@ -278,7 +310,7 @@ export default function ChatConversationPage({
       {/* Header */}
       <div className="flex-none z-20 bg-background/95 backdrop-blur border-b">
         <ChatHeader
-          displayName={currentConversation?.name || "Người dùng"}
+          displayName={currentConversation?.name || tHeader("defaultUser")}
           avatarUrl={currentConversation?.avatar}
           isOnline={currentConversation?.isOnline}
           isTyping={isPartnerTyping}
@@ -300,7 +332,7 @@ export default function ChatConversationPage({
 
         {/* Thanh hiển thị Tin nhắn đã ghim */}
         {pinnedMessage && (
-          <div className="flex items-center justify-between gap-2 px-4 py-1.5 bg-primary/5 border-t text-xs">
+          <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-1.5 bg-primary/5 border-t text-xs">
             <button
               type="button"
               onClick={() => scrollToMessage(pinnedMessage.id)}
@@ -308,7 +340,7 @@ export default function ChatConversationPage({
             >
               <Pin className="w-3.5 h-3.5 text-primary shrink-0 rotate-45" />
               <span className="font-semibold text-primary shrink-0">
-                Tin nhắn đã ghim:
+                {t("pinnedMessage")}
               </span>
               <span className="truncate text-muted-foreground">
                 {pinnedMessage.content}
@@ -318,6 +350,7 @@ export default function ChatConversationPage({
               variant="ghost"
               size="icon"
               className="h-6 w-6 rounded-full shrink-0"
+              aria-label={t("unpin")}
               onClick={() =>
                 pinMessage({
                   conversationId,
@@ -387,7 +420,7 @@ export default function ChatConversationPage({
                               ? currentUser.user.avatar || undefined
                               : msg.sender?.avatar || undefined
                           }
-                          displayName={isMe ? "Tôi" : msg.sender?.name}
+                          displayName={isMe ? t("me") : msg.sender?.name}
                           displayReaders={readReceiptsMap[msg.id]}
                           uploadPercent={
                             msg.tempId ? uploadProgress[msg.tempId] : undefined
@@ -425,7 +458,7 @@ export default function ChatConversationPage({
                           <div className="w-full flex items-center justify-end gap-2 pr-4 mt-0.5">
                             <span className="inline-flex items-center gap-1 text-[11px] text-destructive font-medium">
                               <AlertCircle className="w-3.5 h-3.5" />
-                              Gửi thất bại
+                              {t("sendFailed")}
                             </span>
                             <Button
                               size="sm"
@@ -434,7 +467,7 @@ export default function ChatConversationPage({
                               onClick={() => handleRetry(msg.id, msg.content)}
                             >
                               <RefreshCw className="w-3 h-3 mr-1" />
-                              Thử lại
+                              {t("retry")}
                             </Button>
                             <Button
                               size="sm"
@@ -443,7 +476,7 @@ export default function ChatConversationPage({
                               onClick={() => handleDeleteFailed(msg.id)}
                             >
                               <Trash2 className="w-3 h-3 mr-1" />
-                              Xóa
+                              {t("delete")}
                             </Button>
                           </div>
                         )}
@@ -465,6 +498,7 @@ export default function ChatConversationPage({
             <PatternButton
               variant="glass"
               size="sm"
+              enableGlassPortal={false}
               onClick={() => scrollToBottom("smooth")}
               rounded="full"
               color="primary"
@@ -472,17 +506,19 @@ export default function ChatConversationPage({
             >
               {unreadCount > 0 ? (
                 <span className="font-semibold text-primary text-xs">
-                  {unreadCount} tin mới
+                  {t("newMessagesCount", { count: unreadCount })}
                 </span>
               ) : (
-                <span className="text-xs text-muted-foreground">Mới nhất</span>
+                <span className="text-xs text-muted-foreground">
+                  {t("latest")}
+                </span>
               )}
             </PatternButton>
           </div>
         )}
       </div>
 
-      <div className="flex-none bg-background p-3 md:p-4 border-t">
+      <div className="flex-none bg-background p-2.5 sm:p-3 md:p-4 border-t">
         <ChatInput
           onSendMessage={handleSendMessage}
           onSendAttachments={handleSendAttachments}

@@ -61,6 +61,50 @@
       "label": "Danh bạ"
     }
   },
+  "Header": {
+    "brand": "LiquidChat",
+    "nav": {
+      "home": "Trang chủ",
+      "chat": "Trò chuyện",
+      "directory": "Danh bạ",
+      "addFriend": "Kết bạn",
+      "openMobileMenu": "Mở menu điều hướng",
+      "mobileMenuTitle": "Menu điều hướng"
+    },
+    "action": {
+      "login": "Đăng nhập",
+      "register": "Đăng ký"
+    }
+  },
+  "DropdownMenu": {
+    "account": {
+      "ariaLabel": "Menu tài khoản",
+      "defaultName": "Tài khoản",
+      "profile": "Hồ sơ cá nhân",
+      "chat": "Trò chuyện",
+      "directory": "Danh bạ bạn bè",
+      "addContact": "Thêm liên hệ mới",
+      "logout": "Đăng xuất"
+    }
+  },
+  "Notifications": {
+    "ariaLabel": "Thông báo",
+    "title": "Thông báo",
+    "newBadge": "{count} mới",
+    "markAllRead": "Đọc tất cả",
+    "tabs": {
+      "all": "Tất cả",
+      "unread": "Chưa đọc"
+    },
+    "empty": {
+      "unreadTitle": "Không có thông báo chưa đọc",
+      "allTitle": "Chưa có thông báo nào",
+      "description": "Các cập nhật mới về tin nhắn, lời mời kết bạn và cuộc gọi sẽ xuất hiện tại đây."
+    },
+    "systemActor": "Hệ thống",
+    "deleteTitle": "Xóa thông báo",
+    "loadMore": "Xem thêm thông báo cũ"
+  },
   "Form": {
     "Login": {
       "label": {
@@ -87,6 +131,13 @@
         "login": "Đăng nhập",
         "google": "Đăng nhập với Google",
         "resendActivation": "Gửi lại email kích hoạt"
+      },
+      "activation": {
+        "unactivatedPrefix": "Tài khoản",
+        "unactivatedSuffix": "chưa được kích hoạt."
+      },
+      "toast": {
+        "error": "Đăng nhập thất bại"
       }
     },
     "Register": {
@@ -126,6 +177,16 @@
       "button": "Đăng xuất"
     },
     "ForgotPassword": {
+      "steps": {
+        "emailTitle": "Email",
+        "emailDesc": "Xác thực",
+        "otpTitle": "Xác thực OTP",
+        "otpDesc": "Bảo mật",
+        "resetTitle": "Đặt lại",
+        "resetDesc": "Mật khẩu mới",
+        "doneTitle": "Hoàn tất",
+        "doneDesc": "Thành công"
+      },
       "label": {
         "email": "Email"
       },
@@ -171,6 +232,12 @@
   "Messages": {
     "empty": {
       "information": "Thông tin không có sẵn"
+    },
+    "toast": {
+      "successTitle": "Thành công",
+      "errorTitle": "Lỗi",
+      "warningTitle": "Cảnh báo",
+      "infoTitle": "Thông tin"
     },
     "error": {
       "toast": {
@@ -237,21 +304,42 @@
     "cancel": "Hủy",
     "delete": "Xóa"
   },
-  "Header": {
-    "action": {
-      "login": "Đăng nhập",
-      "register": "Đăng ký"
-    }
-  },
-  "DropdownMenu": {
-    "account": {
-      "logout": "Đăng xuất"
+  "Button": {
+    "back": "Quay lại",
+    "LocaleSwitcher": {
+      "label": "Ngôn ngữ",
+      "locale": "{locale, select, vi {Tiếng Việt} en {English} other {Khác}}"
     }
   },
   "Common": {
     "Success": {
       "title": "Đặt lại mật khẩu thành công!",
       "button": "Quay lại đăng nhập"
+    },
+    "NotFound": {
+      "title": "404 - Không tìm thấy trang",
+      "description": "Trang bạn đang tìm kiếm không tồn tại hoặc đã được di chuyển.",
+      "backHome": "Quay về trang chủ"
+    },
+    "Steps": {
+      "progress": "Tiến độ",
+      "stepOf": "Bước {current} / {total}",
+      "missingComponent": "Chưa cấu hình nội dung cho bước {step}"
+    },
+    "Search": {
+      "placeholder": "Nhập từ khóa tìm kiếm...",
+      "emptyMessage": "Không tìm thấy kết quả phù hợp.",
+      "searching": "Đang tìm kiếm...",
+      "navigate": "Di chuyển",
+      "select": "Chọn",
+      "close": "Đóng",
+      "searchEngine": "Tìm kiếm thông minh",
+      "clear": "Xóa tìm kiếm"
+    },
+    "Date": {
+      "today": "Hôm nay",
+      "yesterday": "Hôm qua",
+      "justNow": "Vừa xong"
     }
   },
   "Chat": {
@@ -261,7 +349,7 @@
           "chat": "Trò chuyện",
           "contacts": "Danh bạ",
           "createNew": "Thêm bạn mới",
-          "createGroup": "Tạo nhóm chat"
+          "createGroup": "Tạo nhóm trò chuyện"
         },
         "search": {
           "placeholder": "Tìm kiếm cuộc trò chuyện...",
@@ -271,25 +359,137 @@
           }
         }
       },
+      "footer": {
+        "conversationCount": "{count} cuộc trò chuyện",
+        "online": "Trực tuyến",
+        "syncing": "Đang đồng bộ..."
+      },
       "item": {
-        "noMessages": "Chưa có tin nhắn"
+        "noMessages": "Chưa có tin nhắn",
+        "moreOptions": "Tùy chọn"
       }
     },
     "Detail": {
       "empty": {
         "title": "Chào mừng bạn tới cuộc trò chuyện",
-        "description": "Hãy kết bạn hoặc tạo nhóm để bắt đầu trò chuyện."
+        "description": "Hãy kết bạn hoặc tạo nhóm để bắt đầu trò chuyện.",
+        "startChatTitle": "Chào mừng tới cuộc trò chuyện",
+        "startChatDescription": "Cùng bắt đầu cuộc trò chuyện của bạn tại đây.",
+        "startContactTitle": "Kết bạn và bắt đầu trò chuyện",
+        "startContactDescription": "Tìm kiếm và kết bạn mới để bắt đầu trò chuyện ngay."
       },
       "header": {
+        "defaultUser": "Người dùng",
         "status": {
           "active": "Đang hoạt động",
-          "noActive": "Ngoại tuyến"
+          "noActive": "Ngoại tuyến",
+          "typing": "Đang soạn tin nhắn...",
+          "groupChat": "Cuộc trò chuyện nhóm"
+        },
+        "actions": {
+          "audioCall": "Gọi thoại",
+          "videoCall": "Gọi video",
+          "mute": "Tắt thông báo",
+          "unmute": "Bật thông báo",
+          "moreOptions": "Tùy chọn hội thoại",
+          "viewProfile": "Xem hồ sơ cá nhân",
+          "addMembers": "Thêm thành viên",
+          "leaveGroup": "Rời khỏi nhóm"
         }
       },
       "conversation": {
+        "pinnedMessage": "Tin nhắn đã ghim:",
+        "unpin": "Bỏ ghim",
+        "me": "Tôi",
+        "unknownUser": "Người dùng",
+        "sendFailed": "Gửi thất bại",
+        "retry": "Thử lại",
+        "delete": "Xóa",
+        "newMessagesCount": "{count} tin mới",
+        "latest": "Mới nhất",
+        "seenBy": "Đã xem: {name}",
+        "bubble": {
+          "pinnedLabel": "Tin nhắn đã ghim",
+          "originalMessage": "Tin nhắn gốc",
+          "recalledMessage": "Tin nhắn đã được thu hồi",
+          "recalledBracket": "[Tin nhắn đã được thu hồi]",
+          "editedLabel": "(Đã sửa)",
+          "callAgain": "Gọi lại ngay",
+          "attachmentAlt": "Tệp đính kèm",
+          "mediaPreview": {
+            "image": "📷 [Hình ảnh]",
+            "video": "🎬 [Video]",
+            "audio": "🎤 [Tin nhắn thoại]",
+            "file": "📎 [Tệp đính kèm]"
+          },
+          "actions": {
+            "react": "Thả cảm xúc",
+            "reply": "Trả lời",
+            "pin": "Ghim tin nhắn",
+            "unpin": "Bỏ ghim tin nhắn",
+            "edit": "Chỉnh sửa",
+            "recall": "Thu hồi"
+          }
+        },
         "input": {
-          "placeholder": "Nhập tin nhắn của bạn..."
+          "placeholder": "Nhập tin nhắn của bạn...",
+          "editingTitle": "Đang chỉnh sửa tin nhắn",
+          "replyingTo": "Đang trả lời {name}",
+          "maxFilesWarning": "Tối đa 10 tệp đính kèm trong một lần gửi",
+          "voiceMessageLabel": "Tin nhắn thoại",
+          "micError": "Không thể truy cập Microphone để ghi âm",
+          "attachFile": "Đính kèm tệp",
+          "attachMedia": "Gửi ảnh hoặc video",
+          "recordVoice": "Ghi âm giọng nói",
+          "recording": "Đang ghi âm...",
+          "cancel": "Hủy",
+          "send": "Gửi",
+          "emoji": "Biểu tượng cảm xúc"
         }
+      },
+      "groupModal": {
+        "createTitle": "Tạo nhóm trò chuyện mới",
+        "addMembersTitle": "Thêm thành viên vào nhóm",
+        "createDesc": "Đặt tên nhóm và chọn bạn bè từ danh bạ để bắt đầu cuộc trò chuyện nhóm.",
+        "addMembersDesc": "Chọn bạn bè để thêm vào nhóm \"{name}\".",
+        "defaultGroupName": "Trò chuyện nhóm",
+        "groupNameLabel": "Tên nhóm",
+        "groupNamePlaceholder": "Nhập tên nhóm (VD: Team Dự Án)...",
+        "selectMembersLabel": "Chọn thành viên ({count} đã chọn)",
+        "searchFriendsPlaceholder": "Tìm bạn bè theo tên hoặc email...",
+        "emptyFriends": "Không tìm thấy bạn bè nào trong danh bạ.",
+        "cancel": "Hủy",
+        "submitCreate": "Tạo nhóm",
+        "submitAdd": "Thêm thành viên",
+        "warningEmptyName": "Vui lòng nhập tên nhóm trò chuyện",
+        "warningEmptyMembers": "Vui lòng chọn ít nhất 1 thành viên",
+        "warningEmptyAddMembers": "Vui lòng chọn ít nhất 1 thành viên cần thêm"
+      },
+      "call": {
+        "defaultTitle": "Cuộc gọi trực tuyến",
+        "memberDefault": "Thành viên",
+        "connectingAudio": "Đang kết nối âm thanh",
+        "ringing": "Đang đổ chuông...",
+        "incomingVideo": "Đang gọi video cho bạn...",
+        "incomingAudio": "Đang gọi thoại cho bạn...",
+        "incomingGroupVideo": "Đang gọi video nhóm cho bạn...",
+        "incomingGroupAudio": "Đang gọi thoại nhóm cho bạn...",
+        "membersCount": "{count} thành viên",
+        "minimizeTitle": "Thu nhỏ cửa sổ cuộc gọi",
+        "cameraOff": "Camera tắt",
+        "you": "Bạn",
+        "screenLabel": "(Màn hình)",
+        "unmuteMic": "Bật Micro",
+        "muteMic": "Tắt Micro",
+        "turnOnCamera": "Bật Camera",
+        "turnOffCamera": "Tắt Camera",
+        "stopScreenShare": "Dừng chia sẻ màn hình",
+        "startScreenShare": "Chia sẻ màn hình",
+        "endCall": "Kết thúc cuộc gọi",
+        "noCameraFallback": "Không tìm thấy Camera, đã chuyển sang chế độ âm thanh",
+        "mediaError": "Không thể truy cập Microphone/Camera trên thiết bị",
+        "acceptError": "Không thể nhận cuộc gọi",
+        "cameraToggleError": "Không thể bật Camera trên thiết bị này"
       },
       "contact": {
         "header": {
@@ -304,6 +504,69 @@
           "friendRequests": "Lời mời kết bạn",
           "groupList": "Danh sách nhóm",
           "groupRequests": "Lời mời đã gửi"
+        },
+        "directory": {
+          "tabs": {
+            "friends": "Bạn bè",
+            "pendingReceived": "Lời mời kết bạn",
+            "pendingSent": "Đã gửi",
+            "groups": "Nhóm chat"
+          },
+          "actions": {
+            "createGroup": "Tạo nhóm",
+            "addFriend": "Thêm bạn"
+          },
+          "search": {
+            "groupsPlaceholder": "Tìm kiếm nhóm...",
+            "contactsPlaceholder": "Tìm kiếm theo tên hoặc email..."
+          },
+          "sort": {
+            "placeholder": "Sắp xếp",
+            "nameAsc": "Tên (A-Z)",
+            "nameDesc": "Tên (Z-A)"
+          },
+          "groupItem": {
+            "defaultName": "Nhóm trò chuyện",
+            "clickToOpen": "Bấm để mở cuộc trò chuyện nhóm"
+          },
+          "empty": {
+            "noResultsTitle": "Không tìm thấy kết quả",
+            "emptyTitle": "Danh bạ trống",
+            "noResultsDesc": "Không tìm thấy liên hệ nào phù hợp với từ khóa \"{keyword}\".",
+            "emptyDesc": "Bạn chưa có liên hệ nào trong danh sách này."
+          }
+        },
+        "item": {
+          "defaultUser": "Người dùng",
+          "accept": "Đồng ý",
+          "reject": "Từ chối",
+          "revoke": "Thu hồi",
+          "sendMessage": "Nhắn tin",
+          "moreOptions": "Tùy chọn",
+          "viewProfile": "Xem hồ sơ cá nhân",
+          "setAlias": "Đặt tên gợi nhớ (Biệt danh)",
+          "acceptFriend": "Chấp nhận kết bạn",
+          "unfriend": "Hủy kết bạn",
+          "rejectRequest": "Từ chối lời mời",
+          "revokeRequest": "Thu hồi lời mời",
+          "removeContact": "Xóa liên hệ",
+          "aliasModal": {
+            "title": "Đặt tên gợi nhớ",
+            "description": "Đặt biệt danh dễ nhớ cho {name} trong danh bạ của bạn.",
+            "placeholder": "Nhập tên gợi nhớ...",
+            "cancel": "Hủy",
+            "save": "Lưu thay đổi",
+            "emptyWarning": "Vui lòng nhập tên gợi nhớ",
+            "updateSuccess": "Đã cập nhật tên gợi nhớ",
+            "updateError": "Không thể cập nhật tên gợi nhớ"
+          },
+          "toast": {
+            "accepted": "Đã chấp nhận lời mời kết bạn",
+            "rejected": "Đã từ chối lời mời kết bạn",
+            "revoked": "Đã thu hồi lời mời kết bạn",
+            "newRequestReceived": "Bạn nhận được một lời mời kết bạn mới!",
+            "requestAccepted": "Lời mời kết bạn đã được chấp nhận!"
+          }
         },
         "form": {
           "placeholder": {
@@ -321,8 +584,51 @@
           "addFriend": "Kết bạn",
           "blocked": "Đã chặn",
           "cancel": "Từ chối"
-        },
-        "action": {}
+        }
+      }
+    }
+  },
+  "Profile": {
+    "youBadge": "Bạn",
+    "joinedAt": "Tham gia: {date}",
+    "accountInfo": {
+      "title": "Thông tin tài khoản",
+      "fullName": "Họ và tên",
+      "email": "Email liên hệ",
+      "relationship": "Mối quan hệ",
+      "relationships": {
+        "me": "Tài khoản cá nhân của bạn",
+        "friend": "Đã là bạn bè",
+        "pendingSent": "Đã gửi lời mời kết bạn",
+        "pendingReceived": "Đang chờ bạn xác nhận kết bạn",
+        "none": "Chưa kết bạn"
+      }
+    },
+    "security": {
+      "title": "Bảo mật & Trạng thái",
+      "statusLabel": "Trạng thái",
+      "statusActive": "Đã kích hoạt",
+      "encryptionLabel": "Mã hóa tin nhắn",
+      "encryptionValue": "AES-256-GCM / ECDH-P256",
+      "verificationLabel": "Xác thực",
+      "verificationValue": "Email đã xác minh"
+    },
+    "actions": {
+      "changeAvatar": "Đổi ảnh đại diện",
+      "deleteAvatar": "Xóa ảnh",
+      "sendMessage": "Nhắn tin",
+      "unfriend": "Hủy kết bạn",
+      "revokeRequest": "Thu hồi lời mời",
+      "toast": {
+        "genericError": "Đã có lỗi xảy ra, vui lòng thử lại.",
+        "requestSent": "Đã gửi lời mời kết bạn",
+        "requestAccepted": "Đã chấp nhận lời mời kết bạn",
+        "relationshipUpdated": "Đã cập nhật trạng thái liên hệ",
+        "chatError": "Không thể tạo cuộc trò chuyện.",
+        "avatarUpdated": "Đã cập nhật ảnh đại diện mới",
+        "avatarUploadError": "Không thể tải lên ảnh đại diện",
+        "avatarDeleted": "Đã xóa ảnh đại diện",
+        "avatarDeleteError": "Không thể xóa ảnh đại diện"
       }
     }
   }

@@ -20,7 +20,6 @@ import {
 } from "@/utils/hooks/use-glass-position";
 import { createPortal } from "react-dom";
 
-// --- Utils ---
 function mergeRefs<T = any>(
   refs: Array<
     React.MutableRefObject<T> | React.LegacyRef<T> | undefined | null
@@ -90,17 +89,20 @@ export const LiquidPopover = ({
 
   const isOpen = controlledOpen ?? uncontrolledOpen;
 
-  const setIsOpen = (value: boolean) => {
-    if (onOpenChange) onOpenChange(value);
-    else setUncontrolledOpen(value);
-  };
+  const setIsOpen = useCallback(
+    (value: boolean) => {
+      if (onOpenChange) onOpenChange(value);
+      else setUncontrolledOpen(value);
+    },
+    [onOpenChange],
+  );
 
   useEffect(() => {
-    if (!isOpen || !closeOnClickOutside) return;
+    if (!isOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const handlePointerOutside = (event: MouseEvent | TouchEvent) => {
+      if (!closeOnClickOutside) return;
       const target = event.target as Node;
-
       const isTrigger = triggerRef.current?.contains(target);
       const isContent = contentRef.current?.contains(target);
 
@@ -109,9 +111,23 @@ export const LiquidPopover = ({
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, closeOnClickOutside]);
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerOutside);
+    document.addEventListener("touchstart", handlePointerOutside, {
+      passive: true,
+    });
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerOutside);
+      document.removeEventListener("touchstart", handlePointerOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen, closeOnClickOutside, setIsOpen]);
 
   return (
     <AnchorContext.Provider
@@ -135,7 +151,7 @@ export const LiquidPopover = ({
 };
 
 // ==========================================
-// 3. TRIGGER COMPONENT (Smart Input Handling)
+// 3. TRIGGER COMPONENT (Smart Input & React 19 Ref Handling)
 // ==========================================
 
 interface LiquidPopoverTriggerProps extends React.HTMLAttributes<HTMLElement> {
@@ -180,27 +196,29 @@ export const LiquidPopoverTrigger = React.forwardRef<
       }
     };
 
-    const mergedRef = mergeRefs([context.triggerRef, ref]);
-
     if (asChild && isValidElement(children)) {
-      return cloneElement(
-        children as React.ReactElement,
-        {
-          ref: mergedRef,
-          onClick: (e: React.MouseEvent) => {
-            (children.props as any).onClick?.(e);
-            onClick?.(e as any);
-            if (!e.defaultPrevented) handleSmartToggle(e);
-          },
-          onKeyDown: (e: React.KeyboardEvent) => {
-            (children.props as any).onKeyDown?.(e);
-            handleKeyDown(e);
-          },
-          className: cn((children.props as any).className, className),
-          ...props,
-        } as any,
-      );
+      const childElement = children as React.ReactElement<any>;
+      const childRef =
+        (childElement.props as any)?.ref ?? (childElement as any).ref;
+      const mergedRef = mergeRefs([context.triggerRef, ref, childRef]);
+
+      return cloneElement(childElement, {
+        ref: mergedRef,
+        onClick: (e: React.MouseEvent) => {
+          childElement.props.onClick?.(e);
+          onClick?.(e as any);
+          if (!e.defaultPrevented) handleSmartToggle(e);
+        },
+        onKeyDown: (e: React.KeyboardEvent) => {
+          childElement.props.onKeyDown?.(e);
+          handleKeyDown(e);
+        },
+        className: cn(childElement.props.className, className),
+        ...props,
+      } as any);
     }
+
+    const mergedRef = mergeRefs([context.triggerRef, ref]);
 
     return (
       <button
@@ -226,7 +244,7 @@ export const LiquidPopoverTrigger = React.forwardRef<
 LiquidPopoverTrigger.displayName = "LiquidPopoverTrigger";
 
 // ==========================================
-// 4. CONTENT COMPONENT (Style Injection)
+// 4. CONTENT COMPONENT (Style Injection & Mobile Viewport Clamping)
 // ==========================================
 
 interface LiquidPopoverContentProps
@@ -287,6 +305,9 @@ export const LiquidPopoverContent = ({
         top: coords.top,
         left: coords.left,
         width: context.matchWidth ? coords.width : undefined,
+        maxWidth: coords.maxWidth,
+        maxHeight: coords.maxHeight,
+        transformOrigin: coords.transformOrigin,
         zIndex: 9999,
         display: "flex",
         flexDirection: "column",
@@ -306,8 +327,8 @@ export const LiquidPopoverContent = ({
   const injectedChildren = React.Children.map(children, (child) => {
     if (React.isValidElement(child)) {
       const element = child as React.ReactElement<any>;
-
-      const mergedRef = mergeRefs([measuredRef, (element as any).ref]);
+      const childRef = (element.props as any)?.ref ?? (element as any).ref;
+      const mergedRef = mergeRefs([measuredRef, childRef]);
 
       return React.cloneElement(element, {
         ref: mergedRef,
@@ -315,7 +336,7 @@ export const LiquidPopoverContent = ({
         style: {
           ...element.props.style,
           width: "100%",
-          height: "100%",
+          maxHeight: coords ? `${coords.maxHeight}px` : undefined,
         },
         className: cn(
           "outline-none",
@@ -325,7 +346,6 @@ export const LiquidPopoverContent = ({
           !isMeasuring && !isOpen
             ? "animate-out fade-out zoom-out-95 duration-150"
             : "",
-          coords ? `origin-${getTransformOrigin(coords.transformOrigin)}` : "",
           element.props.className,
         ),
         ...props,
@@ -343,15 +363,9 @@ export const LiquidPopoverContent = ({
     </div>
   );
 
-  if (portal) {
+  if (portal && typeof document !== "undefined") {
     return createPortal(content, document.body);
   }
 
   return content;
 };
-
-function getTransformOrigin(cssOrigin: string): string {
-  if (cssOrigin.includes("bottom")) return "top";
-  if (cssOrigin.includes("top")) return "bottom";
-  return "center";
-}

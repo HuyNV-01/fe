@@ -8,11 +8,13 @@ import { SocketNamespaceEnum, ContactStatusEnum } from "@/common/enum";
 import { SOCKET_EVENTS } from "@/constant/socket-events";
 import type { IContactSocketPayload } from "@/types/socket";
 import { showInfoToast } from "@/utils/toast";
+import { useTranslations } from "next-intl";
 
 export const useContactSocket = () => {
   const { handleSocketUpdate } = useContactStore();
   const currentUser = useAuthStore((s) => s.currentAccount);
   const isAuthenticated = !!currentUser?.accessToken;
+  const t = useTranslations("Chat.Detail.contact.item.toast");
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -27,7 +29,7 @@ export const useContactSocket = () => {
           ContactStatusEnum.PENDING_RECEIVED,
         );
 
-        showInfoToast("Bạn nhận được một lời mời kết bạn mới!");
+        showInfoToast(t("newRequestReceived"));
       },
     );
 
@@ -39,7 +41,7 @@ export const useContactSocket = () => {
 
         handleSocketUpdate(payload.accepterId, ContactStatusEnum.FRIEND);
 
-        showInfoToast("Lời mời kết bạn đã được chấp nhận!");
+        showInfoToast(t("requestAccepted"));
       },
     );
 
@@ -58,5 +60,5 @@ export const useContactSocket = () => {
       cleanRequestAccepted();
       cleanFriendRemoved();
     };
-  }, [isAuthenticated, handleSocketUpdate]);
+  }, [isAuthenticated, handleSocketUpdate, t]);
 };

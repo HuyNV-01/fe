@@ -55,6 +55,47 @@ import { useNotificationStore } from "../notification/use-notification-store";
 import { parseSafeDate } from "@/utils/date-helper";
 
 const typingTimers = new Map<string, NodeJS.Timeout>();
+/**
+ * Per-conversation loading lock & read-timestamp registry
+ * Fixes Bug 1 (dropped fetchMessages when switching conversations or clicking NotificationBell)
+ * Fixes Bug 2 (unreadCount badge reappearing when leaving chat and re-fetching inbox)
+ */
+const loadingMessagesByConv = new Set<string>();
+const locallyReadConversations = new Map<string, number>();
+
+const mergeAndSortMessages = (
+  existing: IMessage[],
+  incoming: IMessage[],
+): IMessage[] => {
+  const map = new Map<string, IMessage>();
+  const tempIdMap = new Map<string, string>();
+
+  for (const msg of existing) {
+    if (!msg?.id) continue;
+    map.set(msg.id, msg);
+    if (msg.tempId) {
+      tempIdMap.set(msg.tempId, msg.id);
+    }
+  }
+
+  for (const msg of incoming) {
+    if (!msg?.id) continue;
+    if (msg.tempId && tempIdMap.has(msg.tempId)) {
+      const oldId = tempIdMap.get(msg.tempId)!;
+      if (oldId !== msg.id) {
+        map.delete(oldId);
+      }
+    }
+    const prev = map.get(msg.id);
+    map.set(msg.id, prev ? { ...prev, ...msg } : msg);
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    const timeA = parseSafeDate(a.createdAt)?.getTime() ?? 0;
+    const timeB = parseSafeDate(b.createdAt)?.getTime() ?? 0;
+    return timeA - timeB;
+  });
+};
 
 interface ChatState {
   tempConversations: IConversation[];
@@ -77,6 +118,7 @@ interface ChatState {
 
   setSocketConnected: (status: boolean) => void;
   setActiveConversation: (id: string | null) => void;
+  markConversationReadOptimistic: (conversationId: string) => void;
   setTypingUser: (payload: ITypingPayload & { isTyping: boolean }) => void;
 
   setReplyingTo: (conversationId: string, message: IMessage | null) => void;
@@ -201,6 +243,53 @@ export const useChatStore = createPersistedStore<ChatState>(
       }
     },
 
+    markConversationReadOptimistic: (conversationId) => {
+      if (!conversationId) return;
+      const nowMs = Date.now();
+      locallyReadConversations.set(conversationId, nowMs);
+
+      set((state) => {
+        const conv = state.conversations.find((c) => c.id === conversationId);
+        if (conv) {
+          conv.unreadCount = 0;
+        }
+        const tempConv = state.tempConversations.find(
+          (c) => c.id === conversationId,
+        );
+        if (tempConv) {
+          tempConv.unreadCount = 0;
+        }
+      });
+
+      useNotificationStore
+        .getState()
+        .markConversationNotificationsRead(conversationId)
+        .catch(() => {});
+
+      if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
+        socketService.send(
+          SocketNamespaceEnum.CHAT,
+          SOCKET_EVENTS.CHAT.MARK_READ,
+          {
+            conversationId,
+          },
+        );
+      }
+
+      markAsReadApi({ conversationId })
+        .then((res: any) => {
+          const serverReadAt = res?.data?.lastReadAt || res?.lastReadAt;
+          const parsed = parseSafeDate(serverReadAt)?.getTime();
+          if (parsed) {
+            locallyReadConversations.set(
+              conversationId,
+              Math.max(nowMs, parsed),
+            );
+          }
+        })
+        .catch(() => {});
+    },
+
     setActiveConversation: (id) => {
       const { activeConversationId, isSocketConnected } = get();
 
@@ -221,15 +310,14 @@ export const useChatStore = createPersistedStore<ChatState>(
         if (id) {
           const conv = state.conversations.find((c) => c.id === id);
           if (conv) conv.unreadCount = 0;
+          const tempConv = state.tempConversations.find((c) => c.id === id);
+          if (tempConv) tempConv.unreadCount = 0;
         }
       });
 
       if (!id) return;
 
-      useNotificationStore
-        .getState()
-        .markConversationNotificationsRead(id)
-        .catch(() => {});
+      get().markConversationReadOptimistic(id);
 
       if (isSocketConnected) {
         socketService
@@ -237,17 +325,7 @@ export const useChatStore = createPersistedStore<ChatState>(
             conversationId: id,
           })
           .catch((err) => console.error("Join room failed:", err));
-
-        socketService.send(
-          SocketNamespaceEnum.CHAT,
-          SOCKET_EVENTS.CHAT.MARK_READ,
-          {
-            conversationId: id,
-          },
-        );
       }
-
-      markAsReadApi({ conversationId: id }).catch(console.error);
     },
 
     setReplyingTo: (conversationId, message) => {
@@ -377,6 +455,18 @@ export const useChatStore = createPersistedStore<ChatState>(
       const isMe = message.senderId === currentUser?.id;
       const isViewing = activeConversationId === message.conversationId;
 
+      if (isViewing || isMe) {
+        const msgTime =
+          parseSafeDate(message.createdAt)?.getTime() || Date.now();
+        locallyReadConversations.set(
+          message.conversationId,
+          Math.max(Date.now(), msgTime),
+        );
+      } else {
+        // New unread message arrived while not viewing: clear stale local read override
+        locallyReadConversations.delete(message.conversationId);
+      }
+
       let isNewMessageAdded = false;
 
       set((state) => {
@@ -436,6 +526,9 @@ export const useChatStore = createPersistedStore<ChatState>(
           {
             conversationId: message.conversationId,
           },
+        );
+        markAsReadApi({ conversationId: message.conversationId }).catch(
+          () => {},
         );
       }
     },
@@ -587,10 +680,21 @@ export const useChatStore = createPersistedStore<ChatState>(
       const currentUser = useAuthStore.getState().currentAccount?.user;
       const readAtDate = parseSafeDate(lastReadAt);
 
+      if (userId === currentUser?.id) {
+        locallyReadConversations.set(
+          conversationId,
+          Math.max(Date.now(), readAtDate?.getTime() || 0),
+        );
+      }
+
       set((state) => {
         if (userId === currentUser?.id) {
           const conv = state.conversations.find((c) => c.id === conversationId);
           if (conv) conv.unreadCount = 0;
+          const tempConv = state.tempConversations.find(
+            (c) => c.id === conversationId,
+          );
+          if (tempConv) tempConv.unreadCount = 0;
         }
 
         const msgs = state.messages[conversationId];
@@ -671,14 +775,30 @@ export const useChatStore = createPersistedStore<ChatState>(
           params: { page, limit: limit || DEFAULT_LIMIT_INBOX, search },
         });
 
+        const activeId = get().activeConversationId;
+
         const normalizedList = (res.data.data || []).map(
-          (item: IConversation) => ({
-            ...item,
-            unreadCount:
-              item.id === get().activeConversationId
+          (item: IConversation) => {
+            const localReadTimestamp = locallyReadConversations.get(item.id);
+            const lastMsgTimestamp =
+              parseSafeDate(item.lastMessageAt)?.getTime() || 0;
+
+            // If user is currently in this conversation OR already read it locally and no newer message has arrived since
+            const wasAlreadyReadLocally =
+              Boolean(localReadTimestamp) &&
+              (lastMsgTimestamp === 0 ||
+                lastMsgTimestamp <= localReadTimestamp! + 2000);
+
+            const effectiveUnread =
+              item.id === activeId || wasAlreadyReadLocally
                 ? 0
-                : Math.max(0, Number(item.unreadCount || 0)),
-          }),
+                : Math.max(0, Number(item.unreadCount || 0));
+
+            return {
+              ...item,
+              unreadCount: effectiveUnread,
+            };
+          },
         );
 
         if (search) {
@@ -732,12 +852,15 @@ export const useChatStore = createPersistedStore<ChatState>(
     },
 
     fetchMessages: async (conversationId, page = 1, cb) => {
-      const state = get();
-      if (state.isLoadingMessages) return;
+      if (!conversationId) return;
+      const lockKey = `${conversationId}:${page}`;
+      if (loadingMessagesByConv.has(lockKey)) return;
 
+      const state = get();
       const currentMeta = state.messagesMeta[conversationId];
       if (page > 1 && currentMeta && page > currentMeta.totalPages) return;
 
+      loadingMessagesByConv.add(lockKey);
       set({ isLoadingMessages: true });
 
       try {
@@ -746,25 +869,26 @@ export const useChatStore = createPersistedStore<ChatState>(
           params: { page, limit: DEFAULT_LIMIT_MESSAGE },
         });
 
-        const orderedMessages = [...res.data.data].reverse();
+        const orderedMessages = [...(res?.data?.data || [])].reverse();
 
         set((state) => {
+          const currentMessages = state.messages[conversationId] || [];
+
           if (page === 1) {
-            state.messages[conversationId] = orderedMessages;
-          } else {
-            const currentMessages = state.messages[conversationId] || [];
-
-            const uniqueNewMessages = orderedMessages.filter(
-              (nm: { id: string }) =>
-                !currentMessages.some((cm) => cm.id === nm.id),
+            // Merge instead of overwriting so real-time socket messages that arrived during navigation are never lost!
+            state.messages[conversationId] = mergeAndSortMessages(
+              currentMessages,
+              orderedMessages,
             );
-
-            state.messages[conversationId] = [
-              ...uniqueNewMessages,
-              ...currentMessages,
-            ];
+          } else {
+            state.messages[conversationId] = mergeAndSortMessages(
+              orderedMessages,
+              currentMessages,
+            );
           }
-          state.messagesMeta[conversationId] = res.data.meta;
+          if (res?.data?.meta) {
+            state.messagesMeta[conversationId] = res.data.meta;
+          }
         });
 
         const currentUser = useAuthStore.getState().currentAccount?.user;
@@ -790,7 +914,10 @@ export const useChatStore = createPersistedStore<ChatState>(
         const message = error.response?.data?.message || "Lỗi tải tin nhắn";
         cb?.onError?.(message);
       } finally {
-        set({ isLoadingMessages: false });
+        loadingMessagesByConv.delete(lockKey);
+        if (loadingMessagesByConv.size === 0) {
+          set({ isLoadingMessages: false });
+        }
       }
     },
 
@@ -966,14 +1093,19 @@ export const useChatStore = createPersistedStore<ChatState>(
       };
 
       try {
+        let serverMsg: IMessage | undefined;
         if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
-          await socketService.emit(
+          const ack = await socketService.emit<IMessage>(
             SocketNamespaceEnum.CHAT,
             SOCKET_EVENTS.CHAT.SEND_MESSAGE,
             requestPayload,
           );
+          if (ack && typeof ack === "object" && "id" in ack) {
+            serverMsg = ack;
+          }
         } else {
-          await sendMessageHttpFallbackApi(requestPayload);
+          const res: any = await sendMessageHttpFallbackApi(requestPayload);
+          serverMsg = res?.data ?? res;
         }
 
         set((state) => {
@@ -982,21 +1114,42 @@ export const useChatStore = createPersistedStore<ChatState>(
             (m) => m.id === tempId || m.tempId === tempId,
           );
           if (msgs && msgIndex !== undefined && msgIndex !== -1) {
-            if (msgs[msgIndex].status === "sending") {
+            if (serverMsg?.id) {
+              msgs[msgIndex] = {
+                ...msgs[msgIndex],
+                ...serverMsg,
+                tempId,
+                status:
+                  msgs[msgIndex].status === "read" ||
+                  msgs[msgIndex].status === "delivered"
+                    ? msgs[msgIndex].status
+                    : "sent",
+              };
+            } else if (msgs[msgIndex].status === "sending") {
               msgs[msgIndex].status = "sent";
             }
           }
         });
       } catch {
         try {
-          await sendMessageHttpFallbackApi(requestPayload);
+          const res: any = await sendMessageHttpFallbackApi(requestPayload);
+          const serverMsg: IMessage | undefined = res?.data ?? res;
           set((state) => {
             const msgs = state.messages[payload.conversationId];
             const msgIndex = msgs?.findIndex(
               (m) => m.id === tempId || m.tempId === tempId,
             );
             if (msgs && msgIndex !== undefined && msgIndex !== -1) {
-              msgs[msgIndex].status = "sent";
+              if (serverMsg?.id) {
+                msgs[msgIndex] = {
+                  ...msgs[msgIndex],
+                  ...serverMsg,
+                  tempId,
+                  status: "sent",
+                };
+              } else {
+                msgs[msgIndex].status = "sent";
+              }
             }
           });
         } catch {
@@ -1088,7 +1241,7 @@ export const useChatStore = createPersistedStore<ChatState>(
       });
 
       try {
-        await uploadChatAttachmentsApi({
+        const res: any = await uploadChatAttachmentsApi({
           conversationId,
           files,
           content,
@@ -1101,6 +1254,8 @@ export const useChatStore = createPersistedStore<ChatState>(
           },
         });
 
+        const serverMsg: IMessage | undefined = res?.data ?? res;
+
         set((state) => {
           delete state.uploadProgress[tempId];
           const msgs = state.messages[conversationId];
@@ -1108,7 +1263,14 @@ export const useChatStore = createPersistedStore<ChatState>(
             (m) => m.id === tempId || m.tempId === tempId,
           );
           if (msgs && msgIndex !== undefined && msgIndex !== -1) {
-            if (msgs[msgIndex].status === "sending") {
+            if (serverMsg?.id) {
+              msgs[msgIndex] = {
+                ...msgs[msgIndex],
+                ...serverMsg,
+                tempId,
+                status: "sent",
+              };
+            } else if (msgs[msgIndex].status === "sending") {
               msgs[msgIndex].status = "sent";
             }
           }

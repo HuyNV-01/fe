@@ -20,6 +20,7 @@ import { PatternButton } from "../button/button-patterns";
 import DropdownMenuContentCus from "../dropdown-menu/dropdown-menu-content-cus";
 import ItemMenu from "../dropdown-menu/item-menu";
 import { ContactActionButton } from "../chat/add-new-contact";
+import { useTranslations } from "next-intl";
 
 interface ProfileActionsProps {
   profile: IUserProfile;
@@ -27,6 +28,7 @@ interface ProfileActionsProps {
 }
 
 export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
+  const t = useTranslations("Profile.actions");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     isLoading,
@@ -50,7 +52,12 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
 
   if (profile.isMe) {
     return (
-      <div className={cn("flex flex-wrap items-center gap-2.5", className)}>
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-center md:justify-end gap-2.5",
+          className,
+        )}
+      >
         <input
           ref={fileInputRef}
           type="file"
@@ -68,7 +75,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
           icon={<Camera className="w-4 h-4" />}
           onClick={() => fileInputRef.current?.click()}
         >
-          Đổi ảnh đại diện
+          {t("changeAvatar")}
         </PatternButton>
 
         {profile.avatar && (
@@ -81,7 +88,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
             icon={<Trash2 className="w-4 h-4" />}
             onClick={onDeleteAvatar}
           >
-            Xóa ảnh
+            {t("deleteAvatar")}
           </PatternButton>
         )}
       </div>
@@ -113,7 +120,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
         variant="solid"
         color="primary"
       >
-        Nhắn tin
+        {t("sendMessage")}
       </PatternButton>
 
       {(relationship === ContactStatusEnum.FRIEND ||
@@ -136,7 +143,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
                 className="text-red-600 focus:text-red-600"
                 icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
               >
-                Hủy kết bạn
+                {t("unfriend")}
               </ItemMenu>
             )}
             {relationship === ContactStatusEnum.PENDING_SENT && (
@@ -145,7 +152,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
                 className="text-red-600 focus:text-red-600"
                 icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
               >
-                Thu hồi lời mời
+                {t("revokeRequest")}
               </ItemMenu>
             )}
           </DropdownMenuContentCus>

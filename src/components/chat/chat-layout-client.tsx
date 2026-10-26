@@ -55,14 +55,18 @@ export default function ChatLayoutClient({
   }, [viewMode, router]);
 
   return (
-    <div className="h-full w-full p-1 pt-0 overflow-hidden">
-      <LiquidGlassCard texture="grid" className="h-full w-full overflow-hidden">
-        <div className="h-full flex flex-row items-stretch">
+    <div className="h-full w-full p-0 sm:p-1 sm:pt-0 overflow-hidden">
+      <LiquidGlassCard
+        texture="grid"
+        rounded="2xl"
+        className="h-full w-full overflow-hidden rounded-none sm:rounded-2xl border-0 sm:border"
+      >
+        <div className="h-full w-full flex flex-row items-stretch overflow-hidden">
           <aside
             className={`
-              h-full flex-none border-r border-white/10 dark:border-white/5
-              w-full md:w-1/3 xl:w-1/4  
-              ${isDetailPage ? "hidden md:flex" : "flex"} 
+              h-full flex-none border-r border-white/15 dark:border-white/5
+              w-full md:w-[320px] lg:w-[350px] xl:w-[380px]
+              ${isDetailPage ? "hidden md:flex" : "flex"}
             `}
           >
             <ChatSidebar

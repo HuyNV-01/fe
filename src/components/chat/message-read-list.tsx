@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 interface IReader {
   id: string;
@@ -22,6 +23,7 @@ interface MessageReadListProps {
 }
 
 export const MessageReadList = ({ readers, isMe }: MessageReadListProps) => {
+  const t = useTranslations("Chat.Detail.conversation");
   if (!readers || readers.length === 0) return null;
 
   return (
@@ -45,7 +47,7 @@ export const MessageReadList = ({ readers, isMe }: MessageReadListProps) => {
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-[10px] px-2 py-1">
-              <p>Đã xem: {reader.name}</p>
+              <p>{t("seenBy", { name: reader.name })}</p>
             </TooltipContent>
           </Tooltip>
         ))}

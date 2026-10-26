@@ -7,14 +7,23 @@ import { SelectContent } from "../ui/select";
 export default function ContentSelect({
   className,
   children,
+  position = "popper",
+  collisionPadding = 12,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
     <SelectContent
-      className={cn("rounded-xl bg-transparent", className)}
+      position={position}
+      collisionPadding={collisionPadding}
+      className={cn(
+        "rounded-2xl bg-transparent border-0 shadow-none p-0 max-w-[calc(100vw-1rem)]",
+        className,
+      )}
       {...props}
     >
-      <LiquidGlassDropdown className="p-1">{children}</LiquidGlassDropdown>
+      <LiquidGlassDropdown rounded="2xl" className="p-1 shadow-xl">
+        {children}
+      </LiquidGlassDropdown>
     </SelectContent>
   );
 }

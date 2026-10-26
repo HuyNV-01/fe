@@ -201,9 +201,9 @@ export default function AddNewContact() {
     };
 
     return (
-      <div className="flex items-center justify-between w-full p-1 group/row">
+      <div className="flex items-center justify-between w-full p-1 group/row gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <Avatar className="h-10 w-10 border border-white/10 shadow-sm transition-transform group-hover/row:scale-105">
+          <Avatar className="h-10 w-10 border border-white/10 shadow-sm transition-transform group-hover/row:scale-105 shrink-0">
             <AvatarImage src={user.avatar} alt={user.name} />
             <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
               {user.name.substring(0, 2).toUpperCase()}
@@ -240,21 +240,21 @@ export default function AddNewContact() {
   };
 
   return (
-    <div className="w-full px-8 pt-5 space-y-5">
+    <div className="w-full px-4 sm:px-8 pt-4 sm:pt-5 space-y-5">
       <div className="flex flex-col gap-1 px-1 w-full">
-        <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
-          <div className="md:hidden z-50">
+        <h2 className="text-base sm:text-lg font-semibold tracking-tight flex items-center gap-2">
+          <div className="md:hidden z-30">
             <ButtonBack />
           </div>
-          <UserPlus className="w-5 h-5 text-primary" />
-          {t("header.title.newContact")}
+          <UserPlus className="w-5 h-5 text-primary shrink-0" />
+          <span className="truncate">{t("header.title.newContact")}</span>
         </h2>
 
         <Separator className="mt-1" />
       </div>
 
       <div className="w-full">
-        <div className=" group max-w-xl mx-auto">
+        <div className="group max-w-xl mx-auto">
           <LiquidSearch
             mode="inline"
             value={query}

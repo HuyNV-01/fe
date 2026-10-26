@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "../ui/sheet";
 import { PatternButton } from "../button/button-patterns";
 import { LiquidGlassModal } from "../liquid-glass/liquid-glass";
 import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import config from "@/config";
 
 interface MobileMenuTriggerProps {
@@ -22,6 +23,8 @@ interface MobileMenuTriggerProps {
 export function MobileMenuTrigger({ links, actions }: MobileMenuTriggerProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const tNav = useTranslations("Header.nav");
+  const tAction = useTranslations("Header.action");
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -29,15 +32,15 @@ export function MobileMenuTrigger({ links, actions }: MobileMenuTriggerProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="text-slate-900 dark:text-white"
-          aria-label="Mở menu điều hướng"
+          className="text-slate-900 dark:text-white h-9 w-9 rounded-full"
+          aria-label={tNav("openMobileMenu")}
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="w-5 h-5" />
         </Button>
       </SheetTrigger>
 
       <SheetContent className="p-2! bg-transparent! border-none" side="left">
-        <SheetTitle className="sr-only">Menu điều hướng</SheetTitle>
+        <SheetTitle className="sr-only">{tNav("mobileMenuTitle")}</SheetTitle>
         <LiquidGlassModal className="h-full p-4">
           <div
             className={cn(
@@ -81,7 +84,7 @@ export function MobileMenuTrigger({ links, actions }: MobileMenuTriggerProps) {
                       router.push(config.routes.public.login);
                     }}
                   >
-                    Đăng nhập
+                    {tAction("login")}
                   </PatternButton>
                 )}
 
@@ -96,7 +99,7 @@ export function MobileMenuTrigger({ links, actions }: MobileMenuTriggerProps) {
                       router.push(config.routes.public.register);
                     }}
                   >
-                    Đăng ký
+                    {tAction("register")}
                   </PatternButton>
                 )}
               </div>

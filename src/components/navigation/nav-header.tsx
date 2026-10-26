@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { NavLogo } from "./nav-logo";
 import { NavLinks } from "./nav-links";
@@ -12,6 +13,7 @@ import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import config from "@/config";
 import { LiquidGlassNavigation } from "../liquid-glass/liquid-glass";
 import { NotificationBell } from "../notifications/notification-bell";
+import { useTranslations } from "next-intl";
 
 interface NavHeaderProps {
   logo?: {
@@ -30,17 +32,23 @@ interface NavHeaderProps {
   className?: string;
 }
 
-export function NavHeader({
-  logo = { text: "LiquidChat", href: "/" },
-  links = [
-    { label: "Trang chủ", href: "/" },
-    { label: "Trò chuyện", href: config.routes.private.chat },
-    { label: "Danh bạ", href: config.routes.private.directory },
-    { label: "Kết bạn", href: config.routes.private.addNew },
-  ],
-  className,
-}: NavHeaderProps) {
+export function NavHeader({ logo, links, className }: NavHeaderProps) {
+  const t = useTranslations("Header");
   const isAuthenticated = useAuthStore((s) => s.authenticated);
+
+  const resolvedLogo = logo || { text: t("brand"), href: "/" };
+
+  const resolvedLinks = useMemo(
+    () =>
+      links || [
+        { label: t("nav.home"), href: "/" },
+        { label: t("nav.chat"), href: config.routes.private.chat },
+        { label: t("nav.directory"), href: config.routes.private.directory },
+        { label: t("nav.addFriend"), href: config.routes.private.addNew },
+      ],
+    [links, t],
+  );
+
   const resolvedActions = {
     showSignIn: !isAuthenticated,
     showSignUp: !isAuthenticated,
@@ -48,19 +56,25 @@ export function NavHeader({
   };
   return (
     <header
-      className={cn("sticky z-40 top-0 w-full bg-transparent p-1", className)}
+      className={cn(
+        "sticky z-40 top-0 w-full bg-transparent p-0 sm:p-1",
+        className,
+      )}
     >
-      <LiquidGlassNavigation>
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between bg-transparent">
-          <div className="md:hidden h-full relative flex items-center justify-between space-x-1.5">
-            <MobileMenuTrigger links={links} actions={resolvedActions} />
+      <LiquidGlassNavigation className="rounded-none sm:rounded-2xl">
+        <nav className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-13 sm:h-15 flex items-center justify-between bg-transparent">
+          <div className="md:hidden h-full relative flex items-center justify-between space-x-1">
+            <MobileMenuTrigger
+              links={resolvedLinks}
+              actions={resolvedActions}
+            />
           </div>
           {/* Logo Section */}
-          <NavLogo logo={logo} />
+          <NavLogo logo={resolvedLogo} />
 
           {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center">
-            <NavLinks links={links} />
+            <NavLinks links={resolvedLinks} />
           </div>
 
           {/* Desktop Actions */}
@@ -72,15 +86,15 @@ export function NavHeader({
             <ModeToggle />
           </div>
 
-          {/* Mobile Menu Trigger */}
-          <div className="md:hidden h-full relative flex items-center justify-between space-x-2">
+          {/* Mobile Menu Actions */}
+          <div className="md:hidden h-full relative flex items-center justify-between space-x-1.5 sm:space-x-2">
             {resolvedActions.showAccount && (
               <>
                 <NotificationBell />
                 <AccountMenu />
               </>
             )}
-            <div className="h-5">
+            <div className="h-4 sm:h-5">
               <Separator orientation="vertical" />
             </div>
             <ModeToggle />

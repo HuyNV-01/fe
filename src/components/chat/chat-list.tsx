@@ -17,6 +17,7 @@ export default function ChatList() {
     conversations,
     activeConversationId,
     fetchInbox,
+    markConversationReadOptimistic,
     isLoadingInbox,
     inboxMeta,
     typingUsers,
@@ -25,6 +26,7 @@ export default function ChatList() {
       conversations: state.conversations,
       activeConversationId: state.activeConversationId,
       fetchInbox: state.fetchInbox,
+      markConversationReadOptimistic: state.markConversationReadOptimistic,
       isLoadingInbox: state.isLoadingInbox,
       inboxMeta: state.inboxMeta,
       typingUsers: state.typingUsers,
@@ -53,21 +55,30 @@ export default function ChatList() {
 
   const handleSelectChat = useCallback(
     (id: string) => {
+      markConversationReadOptimistic(id);
       router.push(config.routes.private.detailChat(id));
     },
-    [router],
+    [markConversationReadOptimistic, router],
   );
+
+  const showInitialSkeleton = isLoadingInbox && conversations.length === 0;
+
   return (
     <ScrollArea className="h-full w-full flex-1" onScrollCapture={handleScroll}>
-      <div className="flex flex-col gap-1.5 px-3 pb-4 pt-1">
+      <div className="flex flex-col gap-1.5 px-2.5 sm:px-3 pb-4 pt-1">
         {!isLoadingInbox && conversations.length === 0 && (
           <div className="mt-10 animate-in fade-in zoom-in-95 duration-500">
             <ChatSidebarEmpty />
           </div>
         )}
 
-        {!isLoadingInbox &&
-          conversations.map((chat) => (
+        {conversations.map((chat) => {
+          const isSelected = activeConversationId === chat.id;
+          const unreadBadge = isSelected
+            ? 0
+            : Math.max(0, Number(chat.unreadCount || 0));
+
+          return (
             <ChatItem
               key={chat.id}
               id={chat.id}
@@ -77,17 +88,18 @@ export default function ChatList() {
               }
               avatarUrl={chat.avatar}
               timestamp={chat.lastMessageAt}
-              badge={Number(chat.unreadCount)}
+              badge={unreadBadge}
               subtitle={chat.lastMessage}
-              isSelected={activeConversationId === chat.id}
+              isSelected={isSelected}
               isOnline={chat.isOnline}
               isMuted={chat.isMuted}
               onSelect={() => handleSelectChat(chat.id)}
               isTyping={(typingUsers[chat.id]?.length || 0) > 0}
             />
-          ))}
+          );
+        })}
 
-        {isLoadingInbox && (
+        {showInitialSkeleton && (
           <div className="py-2 flex flex-col items-center w-full gap-2">
             {MAP_ARRAY.map((i) => (
               <ChatItemSkeleton key={i} />

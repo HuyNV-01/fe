@@ -21,6 +21,7 @@ import { KeyContactsEnum } from "@/common/enum";
 import { getInitials } from "@/utils/helper";
 import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import config from "@/config";
 import { toast } from "sonner";
 
@@ -40,6 +41,8 @@ export function CreateGroupModal({
   groupName: existingGroupName,
 }: CreateGroupModalProps) {
   const router = useRouter();
+  const t = useTranslations("Chat.Detail.groupModal");
+  const tHeader = useTranslations("Chat.Detail.header");
   const { listContacts, getContacts } = useContactStore();
   const { createGroupChat, addGroupMembers } = useChatStore();
 
@@ -91,11 +94,11 @@ export function CreateGroupModal({
 
     if (mode === "create") {
       if (!name.trim()) {
-        toast.warning("Vui lòng nhập tên nhóm trò chuyện");
+        toast.warning(t("warningEmptyName"));
         return;
       }
       if (selectedIds.length === 0) {
-        toast.warning("Vui lòng chọn ít nhất 1 thành viên");
+        toast.warning(t("warningEmptyMembers"));
         return;
       }
 
@@ -112,7 +115,7 @@ export function CreateGroupModal({
       }
     } else if (mode === "add-members" && conversationId) {
       if (selectedIds.length === 0) {
-        toast.warning("Vui lòng chọn ít nhất 1 thành viên cần thêm");
+        toast.warning(t("warningEmptyAddMembers"));
         return;
       }
 
@@ -131,27 +134,29 @@ export function CreateGroupModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 bg-transparent border-none shadow-none sm:max-w-md">
-        <LiquidGlassModal className="p-6">
+      <DialogContent className="p-0 bg-transparent border-none shadow-none max-w-[calc(100vw-1.5rem)] sm:max-w-md">
+        <LiquidGlassModal className="p-5 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold">
                 {mode === "create" ? (
                   <>
-                    <UsersRound className="w-5 h-5 text-primary" />
-                    <span>Tạo nhóm trò chuyện mới</span>
+                    <UsersRound className="w-5 h-5 text-primary shrink-0" />
+                    <span>{t("createTitle")}</span>
                   </>
                 ) : (
                   <>
-                    <UserPlus className="w-5 h-5 text-primary" />
-                    <span>Thêm thành viên vào nhóm</span>
+                    <UserPlus className="w-5 h-5 text-primary shrink-0" />
+                    <span>{t("addMembersTitle")}</span>
                   </>
                 )}
               </DialogTitle>
               <DialogDescription className="text-xs">
                 {mode === "create"
-                  ? "Đặt tên nhóm và chọn bạn bè từ danh bạ để bắt đầu cuộc trò chuyện nhóm."
-                  : `Chọn bạn bè để thêm vào nhóm "${existingGroupName || "Trò chuyện nhóm"}".`}
+                  ? t("createDesc")
+                  : t("addMembersDesc", {
+                      name: existingGroupName || t("defaultGroupName"),
+                    })}
               </DialogDescription>
             </DialogHeader>
 
@@ -161,13 +166,14 @@ export function CreateGroupModal({
                   htmlFor="group-name-input"
                   className="text-xs font-semibold text-foreground/90"
                 >
-                  Tên nhóm <span className="text-destructive">*</span>
+                  {t("groupNameLabel")}{" "}
+                  <span className="text-destructive">*</span>
                 </label>
                 <Input
                   id="group-name-input"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Nhập tên nhóm (VD: Team Dự Án)..."
+                  placeholder={t("groupNamePlaceholder")}
                   maxLength={120}
                   className="rounded-xl bg-background/60"
                 />
@@ -177,7 +183,7 @@ export function CreateGroupModal({
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-foreground/90">
-                  Chọn thành viên ({selectedIds.length} đã chọn)
+                  {t("selectMembersLabel", { count: selectedIds.length })}
                 </span>
               </div>
 
@@ -186,15 +192,15 @@ export function CreateGroupModal({
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Tìm bạn bè theo tên hoặc email..."
+                  placeholder={t("searchFriendsPlaceholder")}
                   className="pl-9 rounded-xl bg-background/60 h-9 text-xs"
                 />
               </div>
 
-              <ScrollArea className="h-56 rounded-xl border border-border/50 bg-background/40 p-2">
+              <ScrollArea className="h-52 sm:h-56 rounded-xl border border-border/50 bg-background/40 p-2">
                 {friends.length === 0 ? (
-                  <div className="h-48 flex flex-col items-center justify-center text-center p-4 text-xs text-muted-foreground">
-                    Không tìm thấy bạn bè nào trong danh bạ.
+                  <div className="h-44 flex flex-col items-center justify-center text-center p-4 text-xs text-muted-foreground">
+                    {t("emptyFriends")}
                   </div>
                 ) : (
                   <div className="space-y-1">
@@ -202,7 +208,7 @@ export function CreateGroupModal({
                       const user = contact.contactUser;
                       const userId = user.id || contact.contactId;
                       const displayName =
-                        contact.alias || user.name || "Người dùng";
+                        contact.alias || user.name || tHeader("defaultUser");
                       const isSelected = selectedIds.includes(userId);
 
                       return (
@@ -263,7 +269,7 @@ export function CreateGroupModal({
                 rounded="full"
                 onClick={() => onOpenChange(false)}
               >
-                Hủy
+                {t("cancel")}
               </PatternButton>
               <PatternButton
                 type="submit"
@@ -277,7 +283,7 @@ export function CreateGroupModal({
                   (mode === "create" && !name.trim())
                 }
               >
-                {mode === "create" ? "Tạo nhóm" : "Thêm thành viên"}
+                {mode === "create" ? t("submitCreate") : t("submitAdd")}
               </PatternButton>
             </DialogFooter>
           </form>
