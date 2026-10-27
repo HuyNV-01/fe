@@ -24,6 +24,7 @@ import ButtonBack from "../button/button-back";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 import { useTranslations } from "next-intl";
+import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 
 export const ContactActionButton = ({
   contactStatus,
@@ -121,6 +122,10 @@ export default function AddNewContact() {
     status,
   } = useContactStore();
   const isWait = useStoreWait(status);
+  const [confirmRemoveUser, setConfirmRemoveUser] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const handleSelectItem = (id: string) => {
     router.push(`${config.routes.private.profile(id)}`);
@@ -232,7 +237,9 @@ export default function AddNewContact() {
               handleAddFriend(user.id);
             }}
             handleAccept={() => handleAccept(user.id)}
-            handleRemove={() => handleRemove(user.id)}
+            handleRemove={() =>
+              setConfirmRemoveUser({ id: user.id, name: user.name })
+            }
           />
         </div>
       </div>
@@ -272,6 +279,22 @@ export default function AddNewContact() {
           />
         </div>
       </div>
+      <ConfirmDeleteModal
+        open={Boolean(confirmRemoveUser)}
+        onOpenChange={(open) => !open && setConfirmRemoveUser(null)}
+        itemName={confirmRemoveUser?.name}
+        isLoading={Boolean(loadingId)}
+        onConfirm={async () => {
+          if (!confirmRemoveUser) return;
+          setLoadingId(confirmRemoveUser.id);
+          try {
+            await removeContact({ data: { targetId: confirmRemoveUser.id } });
+          } finally {
+            setLoadingId(null);
+            setConfirmRemoveUser(null);
+          }
+        }}
+      />
     </div>
   );
 }

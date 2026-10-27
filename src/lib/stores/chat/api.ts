@@ -153,3 +153,62 @@ export const sendMessageHttpFallbackApi = async (payload: {
 }) => {
   return apiClient.post("/chat/messages", payload);
 };
+
+export const getConversationDetailsApi = async (conversationId: string) => {
+  return apiClient.get(`/chat/conversations/${conversationId}/details`);
+};
+
+export const getPinnedMessagesApi = async (conversationId: string) => {
+  return apiClient.get(`/chat/conversations/${conversationId}/pinned`);
+};
+
+export const getSharedAssetsApi = async (
+  conversationId: string,
+  tab: "MEDIA" | "FILES" | "LINKS" = "MEDIA",
+) => {
+  return apiClient.get(`/chat/conversations/${conversationId}/shared-assets`, {
+    params: { tab },
+  });
+};
+
+export const updateParticipantNicknameApi = async (payload: {
+  conversationId: string;
+  targetUserId: string;
+  nickname: string | null;
+}) => {
+  return apiClient.put(
+    `/chat/conversations/${payload.conversationId}/nickname`,
+    {
+      targetUserId: payload.targetUserId,
+      nickname: payload.nickname,
+    },
+  );
+};
+
+export const updateConversationSettingsApi = async (payload: {
+  conversationId: string;
+  isMuted?: boolean;
+  soundEnabled?: boolean;
+  readReceiptsEnabled?: boolean;
+  isRestricted?: boolean;
+}) => {
+  const { conversationId, ...body } = payload;
+  return apiClient.patch(
+    `/chat/conversations/${conversationId}/settings`,
+    body,
+  );
+};
+
+export const updateDisappearingMessagesApi = async (payload: {
+  conversationId: string;
+  disappearingTtl: number | null;
+}) => {
+  return apiClient.patch(
+    `/chat/conversations/${payload.conversationId}/disappearing`,
+    { disappearingTtl: payload.disappearingTtl },
+  );
+};
+
+export const deleteConversationApi = async (conversationId: string) => {
+  return apiClient.delete(`/chat/conversations/${conversationId}`);
+};

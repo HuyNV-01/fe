@@ -40,6 +40,7 @@ import { useContactStore } from "@/lib/stores/contact/use-contact-store";
 import { ContactStatusEnum } from "@/common/enum";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
+import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 
 interface ContactItemProps {
   contact: IContactsDataRes;
@@ -58,6 +59,10 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
 
   const [isAliasOpen, setIsAliasOpen] = useState(false);
   const [aliasValue, setAliasValue] = useState(contact.alias || "");
+
+  const [confirmRemoveAction, setConfirmRemoveAction] = useState<
+    "REJECT" | "REVOKE" | "REMOVE" | null
+  >(null);
 
   const handleNavigate = () => {
     if (targetUserId) {
@@ -177,14 +182,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                   className="h-8 w-8"
                   disabled={isRequest}
                   title={t("reject")}
-                  onClick={() =>
-                    removeContact(
-                      { data: { targetId: targetUserId } },
-                      {
-                        onSuccess: () => toast.info(t("toast.rejected")),
-                      },
-                    )
-                  }
+                  onClick={() => setConfirmRemoveAction("REJECT")}
                 >
                   <X className="w-4 h-4" />
                 </PatternButton>
@@ -198,14 +196,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                 color="warning"
                 rounded="full"
                 disabled={isRequest}
-                onClick={() =>
-                  removeContact(
-                    { data: { targetId: targetUserId } },
-                    {
-                      onSuccess: () => toast.info(t("toast.revoked")),
-                    },
-                  )
-                }
+                onClick={() => setConfirmRemoveAction("REVOKE")}
               >
                 {t("revoke")}
               </PatternButton>
@@ -242,6 +233,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                     setAliasValue(contact.alias || user?.name || "");
                     setIsAliasOpen(true);
                   }}
+                  onRequestRemove={() => setConfirmRemoveAction("REMOVE")}
                 />
               )}
             </DropdownMenu>
@@ -300,6 +292,29 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
           </LiquidGlassModal>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteModal
+        open={Boolean(confirmRemoveAction)}
+        onOpenChange={(open) => !open && setConfirmRemoveAction(null)}
+        itemName={displayName}
+        isLoading={isRequest}
+        onConfirm={async () => {
+          if (!targetUserId || !confirmRemoveAction) return;
+          await removeContact(
+            { data: { targetId: targetUserId } },
+            {
+              onSuccess: () => {
+                if (confirmRemoveAction === "REJECT") {
+                  toast.info(t("toast.rejected"));
+                } else if (confirmRemoveAction === "REVOKE") {
+                  toast.info(t("toast.revoked"));
+                }
+              },
+            },
+          );
+          setConfirmRemoveAction(null);
+        }}
+      />
     </>
   );
 };

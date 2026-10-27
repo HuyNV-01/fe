@@ -35,7 +35,16 @@ import {
   pinMessageApi,
   muteConversationApi,
   sendMessageHttpFallbackApi,
+  getConversationDetailsApi,
+  getPinnedMessagesApi,
+  getSharedAssetsApi,
+  updateParticipantNicknameApi,
+  updateConversationSettingsApi,
+  updateDisappearingMessagesApi,
+  deleteConversationApi,
 } from "./api";
+import { blockUserApi, unblockUserApi } from "../contact/api";
+import type { IConversationDetails, ISharedAssetsResponse } from "@/types/chat";
 
 import { socketService } from "@/services/socket/socket-client";
 import {
@@ -55,11 +64,7 @@ import { useNotificationStore } from "../notification/use-notification-store";
 import { parseSafeDate } from "@/utils/date-helper";
 
 const typingTimers = new Map<string, NodeJS.Timeout>();
-/**
- * Per-conversation loading lock & read-timestamp registry
- * Fixes Bug 1 (dropped fetchMessages when switching conversations or clicking NotificationBell)
- * Fixes Bug 2 (unreadCount badge reappearing when leaving chat and re-fetching inbox)
- */
+
 const loadingMessagesByConv = new Set<string>();
 const locallyReadConversations = new Map<string, number>();
 
@@ -115,6 +120,44 @@ interface ChatState {
   isLoadingInbox: boolean;
   isLoadingMessages: boolean;
   isLoadingSearch: boolean;
+
+  pinnedMessagesByConv: Record<string, IMessage[]>;
+  conversationDetails: Record<string, IConversationDetails>;
+  sharedAssets: Record<string, ISharedAssetsResponse>;
+  fetchConversationDetails: (conversationId: string) => Promise<void>;
+  fetchPinnedMessages: (conversationId: string) => Promise<void>;
+  fetchSharedAssets: (conversationId: string) => Promise<void>;
+  updateNickname: (payload: {
+    conversationId: string;
+    targetUserId: string;
+    nickname: string | null;
+  }) => Promise<boolean>;
+  updateConversationSettings: (payload: {
+    conversationId: string;
+    isMuted?: boolean;
+    soundEnabled?: boolean;
+    readReceiptsEnabled?: boolean;
+    isRestricted?: boolean;
+  }) => Promise<void>;
+  updateDisappearingMessages: (
+    conversationId: string,
+    disappearingTtl: number | null,
+  ) => Promise<void>;
+  deleteConversation: (conversationId: string) => Promise<boolean>;
+  toggleBlockUser: (
+    conversationId: string,
+    targetUserId: string,
+    shouldBlock: boolean,
+  ) => Promise<boolean>;
+  handleNicknameUpdated: (payload: {
+    conversationId: string;
+    targetUserId: string;
+    nickname: string | null;
+  }) => void;
+  handleConversationSettingsUpdated: (payload: {
+    conversationId: string;
+    disappearingTtl?: number | null;
+  }) => void;
 
   setSocketConnected: (status: boolean) => void;
   setActiveConversation: (id: string | null) => void;
@@ -227,6 +270,9 @@ export const useChatStore = createPersistedStore<ChatState>(
     isLoadingInbox: false,
     isLoadingMessages: false,
     isLoadingSearch: false,
+    pinnedMessagesByConv: {},
+    conversationDetails: {},
+    sharedAssets: {},
 
     setSocketConnected: (status) => {
       set({ isSocketConnected: status });
@@ -606,17 +652,19 @@ export const useChatStore = createPersistedStore<ChatState>(
     }) => {
       set((state) => {
         const msgs = state.messages[conversationId];
-        if (!msgs) return;
-        const msg = msgs.find((m) => m.id === messageId);
-        if (msg) {
-          msg.isPinned = isPinned;
-          msg.metadata = {
-            ...(msg.metadata || {}),
-            isPinned,
-            pinnedBy: isPinned ? pinnedBy : undefined,
-          };
+        if (msgs) {
+          const msg = msgs.find((m) => m.id === messageId);
+          if (msg) {
+            msg.isPinned = isPinned;
+            msg.metadata = {
+              ...(msg.metadata || {}),
+              isPinned,
+              pinnedBy: isPinned ? pinnedBy : undefined,
+            };
+          }
         }
       });
+      get().fetchPinnedMessages(conversationId);
     },
 
     handleGroupUpdated: (payload) => {
@@ -1424,6 +1472,208 @@ export const useChatStore = createPersistedStore<ChatState>(
           return conv;
         });
       });
+    },
+
+    fetchConversationDetails: async (conversationId) => {
+      if (!conversationId) return;
+      try {
+        const res: any = await getConversationDetailsApi(conversationId);
+        const data = res?.data ?? res;
+        if (data?.conversationId) {
+          set((state) => {
+            state.conversationDetails[conversationId] = data;
+            const conv = state.conversations.find(
+              (c) => c.id === conversationId,
+            );
+            if (conv && data.mySettings) {
+              conv.isMuted = data.mySettings.isMuted;
+              conv.soundEnabled = data.mySettings.soundEnabled;
+              conv.readReceiptsEnabled = data.mySettings.readReceiptsEnabled;
+              conv.isRestricted = data.mySettings.isRestricted;
+              conv.disappearingTtl = data.disappearingTtl;
+            }
+          });
+        }
+      } catch {
+        // Ignore
+      }
+    },
+
+    fetchPinnedMessages: async (conversationId) => {
+      if (!conversationId) return;
+      try {
+        const res: any = await getPinnedMessagesApi(conversationId);
+        const list = res?.data ?? res;
+        if (Array.isArray(list)) {
+          set((state) => {
+            state.pinnedMessagesByConv[conversationId] = list;
+          });
+        }
+      } catch {
+        // Ignore
+      }
+    },
+
+    fetchSharedAssets: async (conversationId) => {
+      if (!conversationId) return;
+      try {
+        const res: any = await getSharedAssetsApi(conversationId, "MEDIA");
+        const data = res?.data ?? res;
+        if (data) {
+          set((state) => {
+            state.sharedAssets[conversationId] = {
+              media: data.media || [],
+              files: data.files || [],
+              links: data.links || [],
+            };
+          });
+        }
+      } catch {
+        // Ignore
+      }
+    },
+
+    updateNickname: async ({ conversationId, targetUserId, nickname }) => {
+      try {
+        await updateParticipantNicknameApi({
+          conversationId,
+          targetUserId,
+          nickname,
+        });
+        get().handleNicknameUpdated({ conversationId, targetUserId, nickname });
+        toast.success("Đã cập nhật biệt danh");
+        return true;
+      } catch {
+        toast.error("Không thể cập nhật biệt danh");
+        return false;
+      }
+    },
+
+    handleNicknameUpdated: ({ conversationId, targetUserId, nickname }) => {
+      set((state) => {
+        const details = state.conversationDetails[conversationId];
+        if (details?.members) {
+          const member = details.members.find((m) => m.userId === targetUserId);
+          if (member) {
+            member.nickname = nickname;
+          }
+        }
+        const conv = state.conversations.find((c) => c.id === conversationId);
+        if (
+          conv &&
+          conv.type === ConversationTypeEnum.DIRECT &&
+          conv.partnerId === targetUserId &&
+          nickname
+        ) {
+          conv.name = nickname;
+        }
+        const msgs = state.messages[conversationId];
+        if (msgs) {
+          msgs.forEach((m) => {
+            if (m.senderId === targetUserId && m.sender) {
+              m.sender.name = nickname || m.sender.name;
+            }
+          });
+        }
+      });
+    },
+
+    updateConversationSettings: async (payload) => {
+      const { conversationId, ...patch } = payload;
+      try {
+        const res: any = await updateConversationSettingsApi(payload);
+        const updated = res?.data ?? patch;
+        set((state) => {
+          const conv = state.conversations.find((c) => c.id === conversationId);
+          if (conv) {
+            Object.assign(conv, updated);
+          }
+          const details = state.conversationDetails[conversationId];
+          if (details?.mySettings) {
+            Object.assign(details.mySettings, updated);
+          }
+        });
+        toast.success("Đã cập nhật cài đặt cuộc trò chuyện");
+      } catch {
+        toast.error("Không thể cập nhật cài đặt");
+      }
+    },
+
+    updateDisappearingMessages: async (conversationId, disappearingTtl) => {
+      try {
+        await updateDisappearingMessagesApi({
+          conversationId,
+          disappearingTtl,
+        });
+        get().handleConversationSettingsUpdated({
+          conversationId,
+          disappearingTtl,
+        });
+        toast.success(
+          disappearingTtl
+            ? "Đã bật chế độ tin nhắn tự huỷ"
+            : "Đã tắt chế độ tin nhắn tự huỷ",
+        );
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message ||
+            "Không thể thay đổi cài đặt tin nhắn tự huỷ",
+        );
+      }
+    },
+
+    handleConversationSettingsUpdated: ({
+      conversationId,
+      disappearingTtl,
+    }) => {
+      set((state) => {
+        const conv = state.conversations.find((c) => c.id === conversationId);
+        if (conv && disappearingTtl !== undefined) {
+          conv.disappearingTtl = disappearingTtl;
+        }
+        const details = state.conversationDetails[conversationId];
+        if (details && disappearingTtl !== undefined) {
+          details.disappearingTtl = disappearingTtl;
+        }
+      });
+    },
+
+    deleteConversation: async (conversationId) => {
+      try {
+        await deleteConversationApi(conversationId);
+        set((state) => {
+          state.conversations = state.conversations.filter(
+            (c) => c.id !== conversationId,
+          );
+          delete state.messages[conversationId];
+          delete state.pinnedMessagesByConv[conversationId];
+          if (state.activeConversationId === conversationId) {
+            state.activeConversationId = null;
+          }
+        });
+        toast.success("Đã xoá đoạn chat");
+        return true;
+      } catch {
+        toast.error("Không thể xoá đoạn chat");
+        return false;
+      }
+    },
+
+    toggleBlockUser: async (conversationId, targetUserId, shouldBlock) => {
+      try {
+        if (shouldBlock) {
+          await blockUserApi(targetUserId);
+          toast.success("Đã chặn người dùng này");
+        } else {
+          await unblockUserApi(targetUserId);
+          toast.success("Đã bỏ chặn người dùng này");
+        }
+        await get().fetchConversationDetails(conversationId);
+        return true;
+      } catch {
+        toast.error("Không thể thực hiện thao tác chặn");
+        return false;
+      }
     },
 
     resetTempConversations: () => {

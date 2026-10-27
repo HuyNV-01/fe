@@ -29,6 +29,9 @@ export const SOCKET_EVENTS = {
     TYPING: "user_typing",
     TYPING_EMIT: "typing",
     USER_STATUS: "user_status",
+
+    CONVERSATION_SETTINGS_UPDATED: "conversation_settings_updated",
+    NICKNAME_UPDATED: "nickname_updated",
   },
   CALL: {
     INITIATE: "call:initiate",

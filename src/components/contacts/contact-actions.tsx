@@ -14,12 +14,14 @@ interface ContactActionsMenuProps {
   contact: IContactsDataRes;
   userId: string;
   onEditAlias?: () => void;
+  onRequestRemove?: () => void;
 }
 
 export const ContactActionsMenu = ({
   contact,
   userId,
   onEditAlias,
+  onRequestRemove,
 }: ContactActionsMenuProps) => {
   const t = useTranslations("Chat.Detail.contact.item");
   const { removeContact, acceptFriend } = useContactStore();
@@ -31,6 +33,10 @@ export const ContactActionsMenu = ({
       contact.status !== ContactStatusEnum.PENDING_RECEIVED);
 
   const handleRemove = () => {
+    if (onRequestRemove) {
+      onRequestRemove();
+      return;
+    }
     removeContact({ data: { targetId: userId } });
   };
 

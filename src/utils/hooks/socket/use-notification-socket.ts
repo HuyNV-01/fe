@@ -13,6 +13,9 @@ import {
   NotificationTypeEnum,
 } from "@/types/notification";
 import { showInfoToast } from "@/utils/toast";
+import { useTranslations } from "next-intl";
+import { resolveNotificationI18n } from "@/utils/notification-i18n";
+import { playNotificationSound } from "@/utils/sound";
 
 export const useNotificationSocket = () => {
   const {
@@ -27,6 +30,8 @@ export const useNotificationSocket = () => {
 
   const currentUser = useAuthStore((s) => s.currentAccount);
   const isAuthenticated = !!currentUser?.accessToken;
+
+  const tNotif = useTranslations("Notifications");
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser?.user?.id) return;
@@ -60,12 +65,22 @@ export const useNotificationSocket = () => {
         handleSocketNewNotification(payload);
       }
 
-      // Tránh bắn trùng toast với useContactSocket cho lời mời kết bạn
+      const conv = useChatStore
+        .getState()
+        .conversations.find((c) => c.id === notifConvId);
+      const isSoundAllowed = conv
+        ? conv.soundEnabled !== false && !conv.isMuted
+        : true;
+      if (isSoundAllowed) {
+        playNotificationSound();
+      }
+
       if (
         notification.type !== NotificationTypeEnum.FRIEND_REQUEST &&
         notification.type !== NotificationTypeEnum.FRIEND_ACCEPTED
       ) {
-        showInfoToast(`${notification.title}: ${notification.content}`);
+        const localized = resolveNotificationI18n(notification, tNotif);
+        showInfoToast(`${localized.title}: ${localized.content}`);
       }
     };
 

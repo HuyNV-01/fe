@@ -13,6 +13,10 @@ import {
   AlertCircle,
   Pin,
   X,
+  Search,
+  ChevronUp,
+  ChevronDown,
+  Ban,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
@@ -34,6 +38,12 @@ import {
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import config from "@/config";
+
+import { Input } from "@/components/ui/input";
+import { PinnedMessagesBar } from "@/components/chat/pinned-messages-bar";
+import { ConversationInfoDrawer } from "@/components/chat/conversation-info-drawer";
+import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
+import type { IMessage } from "@/types/chat";
 
 interface ChatConversationPageProps {
   params: { id: string };
@@ -72,8 +82,24 @@ export default function ChatConversationPage({
     setActiveConversation,
     resendMessage,
     removeFailedMessage,
+    pinnedMessagesByConv,
+    conversationDetails,
+    fetchPinnedMessages,
+    fetchConversationDetails,
+    deleteConversation,
+    toggleBlockUser,
   } = useChatStore();
 
+  const [isInfoDrawerOpen, setIsInfoDrawerOpen] = useState(false);
+  const [isSearchBarOpen, setIsSearchBarOpen] = useState(false);
+  const [inChatSearchQuery, setInChatSearchQuery] = useState("");
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+  const [recallTarget, setRecallTarget] = useState<IMessage | null>(null);
+  const [deleteFailedTargetId, setDeleteFailedTargetId] = useState<
+    string | null
+  >(null);
+  const [isLeaveGroupConfirmOpen, setIsLeaveGroupConfirmOpen] = useState(false);
+  const [isDeleteConvConfirmOpen, setIsDeleteConvConfirmOpen] = useState(false);
   const { groupMessagesTime } = useDateFormat();
   const conversationId = params?.id || "";
 
@@ -97,15 +123,28 @@ export default function ChatConversationPage({
     [messages, conversationId],
   );
 
-  const pinnedMessage = useMemo(
-    () =>
-      [...rawMessages]
-        .reverse()
-        .find(
-          (m) => (m.isPinned || m.metadata?.isPinned) && m.status !== "removed",
-        ),
-    [rawMessages],
-  );
+  const pinnedMessages = useMemo(() => {
+    const fromMessages = rawMessages.filter(
+      (m) => (m.isPinned || m.metadata?.isPinned) && m.status !== "removed",
+    );
+    const fromStore = pinnedMessagesByConv[conversationId] || [];
+    const map = new Map<string, IMessage>();
+    [...fromStore, ...fromMessages].forEach((m) => {
+      if (m.isPinned || m.metadata?.isPinned) map.set(m.id, m);
+    });
+    return Array.from(map.values());
+  }, [rawMessages, pinnedMessagesByConv, conversationId]);
+
+  const matchedMessageIds = useMemo(() => {
+    const q = inChatSearchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return rawMessages
+      .filter(
+        (m) =>
+          m.status !== "removed" && (m.content || "").toLowerCase().includes(q),
+      )
+      .map((m) => m.id);
+  }, [rawMessages, inChatSearchQuery]);
 
   const groupedMessages = useMemo(
     () => groupMessagesTime(rawMessages),
@@ -158,6 +197,8 @@ export default function ChatConversationPage({
       setActiveConversation(conversationId);
       setCurrentPage(1);
       fetchMessages(conversationId, 1);
+      fetchPinnedMessages(conversationId);
+      fetchConversationDetails(conversationId);
     }
     return () => {
       setActiveConversation(null);
@@ -326,43 +367,87 @@ export default function ChatConversationPage({
               !currentConversation?.isMuted,
             )
           }
+          onToggleSearch={() => setIsSearchBarOpen((v) => !v)}
+          onOpenInfoDrawer={() => setIsInfoDrawerOpen(true)}
           onAddGroupMembers={() => setIsAddMemberOpen(true)}
-          onLeaveGroup={handleLeaveGroup}
+          onLeaveGroup={() => setIsLeaveGroupConfirmOpen(true)}
+          onDeleteConversation={() => setIsDeleteConvConfirmOpen(true)}
         />
 
-        {/* Thanh hiển thị Tin nhắn đã ghim */}
-        {pinnedMessage && (
-          <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-1.5 bg-primary/5 border-t text-xs">
-            <button
-              type="button"
-              onClick={() => scrollToMessage(pinnedMessage.id)}
-              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer hover:opacity-85"
-            >
-              <Pin className="w-3.5 h-3.5 text-primary shrink-0 rotate-45" />
-              <span className="font-semibold text-primary shrink-0">
-                {t("pinnedMessage")}
+        {isSearchBarOpen && (
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-muted/40 border-t">
+            <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+            <Input
+              value={inChatSearchQuery}
+              onChange={(e) => {
+                setInChatSearchQuery(e.target.value);
+                setSearchMatchIndex(0);
+              }}
+              placeholder={t("searchInChatPlaceholder")}
+              className="h-8 text-xs bg-background"
+              autoFocus
+            />
+            {inChatSearchQuery && (
+              <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                {matchedMessageIds.length > 0
+                  ? `${searchMatchIndex + 1}/${matchedMessageIds.length}`
+                  : "0/0"}
               </span>
-              <span className="truncate text-muted-foreground">
-                {pinnedMessage.content}
-              </span>
-            </button>
+            )}
             <Button
-              variant="ghost"
               size="icon"
-              className="h-6 w-6 rounded-full shrink-0"
-              aria-label={t("unpin")}
-              onClick={() =>
-                pinMessage({
-                  conversationId,
-                  messageId: pinnedMessage.id,
-                  isPinned: false,
-                })
-              }
+              variant="ghost"
+              className="h-7 w-7"
+              disabled={!matchedMessageIds.length}
+              onClick={() => {
+                const nextIdx =
+                  (searchMatchIndex - 1 + matchedMessageIds.length) %
+                  matchedMessageIds.length;
+                setSearchMatchIndex(nextIdx);
+                scrollToMessage(matchedMessageIds[nextIdx]);
+              }}
             >
-              <X className="w-3.5 h-3.5" />
+              <ChevronUp className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              disabled={!matchedMessageIds.length}
+              onClick={() => {
+                const nextIdx =
+                  (searchMatchIndex + 1) % matchedMessageIds.length;
+                setSearchMatchIndex(nextIdx);
+                scrollToMessage(matchedMessageIds[nextIdx]);
+              }}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => {
+                setIsSearchBarOpen(false);
+                setInChatSearchQuery("");
+              }}
+            >
+              <X className="w-4 h-4" />
             </Button>
           </div>
         )}
+
+        <PinnedMessagesBar
+          pinnedMessages={pinnedMessages}
+          onScrollToMessage={scrollToMessage}
+          onUnpinMessage={(messageId) =>
+            pinMessage({
+              conversationId,
+              messageId,
+              isPinned: false,
+            })
+          }
+        />
       </div>
 
       {/* Message Area */}
@@ -427,12 +512,7 @@ export default function ChatConversationPage({
                           }
                           onReply={(m) => setReplyingTo(conversationId, m)}
                           onEdit={(m) => setEditingMessage(conversationId, m)}
-                          onRecall={(m) =>
-                            recallMessage({
-                              conversationId,
-                              messageId: m.id,
-                            })
-                          }
+                          onRecall={(m) => setRecallTarget(m)}
                           onReact={(m, emoji) =>
                             reactMessage({
                               conversationId,
@@ -453,7 +533,6 @@ export default function ChatConversationPage({
                           onScrollToMessage={scrollToMessage}
                         />
 
-                        {/* Thanh hành động Gửi lại / Xóa khi gửi lỗi */}
                         {isMe && msg.status === "failed" && (
                           <div className="w-full flex items-center justify-end gap-2 pr-4 mt-0.5">
                             <span className="inline-flex items-center gap-1 text-[11px] text-destructive font-medium">
@@ -473,7 +552,7 @@ export default function ChatConversationPage({
                               size="sm"
                               variant="ghost"
                               className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10 rounded-full"
-                              onClick={() => handleDeleteFailed(msg.id)}
+                              onClick={() => setDeleteFailedTargetId(msg.id)}
                             >
                               <Trash2 className="w-3 h-3 mr-1" />
                               {t("delete")}
@@ -536,6 +615,62 @@ export default function ChatConversationPage({
           groupName={currentConversation?.name}
         />
       )}
+
+      <ConversationInfoDrawer
+        open={isInfoDrawerOpen}
+        onOpenChange={setIsInfoDrawerOpen}
+        conversationId={conversationId}
+        onDeletedConversation={() => router.push(config.routes.private.chat)}
+        onLeaveGroup={handleLeaveGroup}
+      />
+
+      <ConfirmDeleteModal
+        open={Boolean(recallTarget)}
+        onOpenChange={(open) => !open && setRecallTarget(null)}
+        title={t("recallConfirmTitle")}
+        description={t("recallConfirmDesc")}
+        onConfirm={async () => {
+          if (recallTarget) {
+            await recallMessage({
+              conversationId,
+              messageId: recallTarget.id,
+            });
+            setRecallTarget(null);
+          }
+        }}
+      />
+
+      <ConfirmDeleteModal
+        open={Boolean(deleteFailedTargetId)}
+        onOpenChange={(open) => !open && setDeleteFailedTargetId(null)}
+        onConfirm={() => {
+          if (deleteFailedTargetId) {
+            handleDeleteFailed(deleteFailedTargetId);
+            setDeleteFailedTargetId(null);
+          }
+        }}
+      />
+
+      <ConfirmDeleteModal
+        open={isLeaveGroupConfirmOpen}
+        onOpenChange={setIsLeaveGroupConfirmOpen}
+        title={t("leaveGroupConfirmTitle")}
+        description={t("leaveGroupConfirmDesc")}
+        onConfirm={handleLeaveGroup}
+      />
+
+      <ConfirmDeleteModal
+        open={isDeleteConvConfirmOpen}
+        onOpenChange={setIsDeleteConvConfirmOpen}
+        title={t("deleteConversationConfirmTitle")}
+        description={t("deleteConversationConfirmDesc")}
+        onConfirm={async () => {
+          const ok = await deleteConversation(conversationId);
+          if (ok) {
+            router.push(config.routes.private.chat);
+          }
+        }}
+      />
     </div>
   );
 }

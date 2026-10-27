@@ -20,6 +20,9 @@ import {
   LogOut,
   User,
   UsersRound,
+  Search,
+  FolderOpen,
+  Trash2,
 } from "lucide-react";
 import { EMPTY_STRING } from "@/constant";
 import { useTranslations } from "next-intl";
@@ -43,6 +46,9 @@ interface IChatHeaderProps {
   onToggleMute?: () => void;
   onAddGroupMembers?: () => void;
   onLeaveGroup?: () => void;
+  onToggleSearch?: () => void;
+  onOpenInfoDrawer?: () => void;
+  onDeleteConversation?: () => void;
 }
 
 export const ChatHeader = memo(
@@ -61,6 +67,9 @@ export const ChatHeader = memo(
     onToggleMute,
     onAddGroupMembers,
     onLeaveGroup,
+    onToggleSearch,
+    onOpenInfoDrawer,
+    onDeleteConversation,
   }: IChatHeaderProps) => {
     const t = useTranslations("Chat.Detail.header");
     const router = useRouter();
@@ -148,6 +157,28 @@ export const ChatHeader = memo(
             </Button>
           </BaseTooltip>
 
+          <BaseTooltip content={t("actions.searchInChat")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleSearch}
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+            >
+              <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+            </Button>
+          </BaseTooltip>
+
+          <BaseTooltip content={t("actions.openVaultAndSettings")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenInfoDrawer}
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+            >
+              <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+            </Button>
+          </BaseTooltip>
+
           <BaseTooltip
             content={isMuted ? t("actions.unmute") : t("actions.mute")}
           >
@@ -197,6 +228,21 @@ export const ChatHeader = memo(
                 }
               >
                 {isMuted ? t("actions.unmute") : t("actions.mute")}
+              </ItemMenu>
+
+              <ItemMenu
+                onClick={onOpenInfoDrawer}
+                icon={<FolderOpen className="w-4 h-4 mr-2" />}
+              >
+                {t("actions.openVaultAndSettings")}
+              </ItemMenu>
+
+              <ItemMenu
+                onClick={onDeleteConversation}
+                className="text-red-600 focus:text-red-600"
+                icon={<Trash2 className="w-4 h-4 mr-2 text-red-600" />}
+              >
+                {t("actions.deleteConversation")}
               </ItemMenu>
 
               {isGroupChat && isAdmin && (

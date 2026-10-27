@@ -10,6 +10,18 @@ import { useShallow } from "zustand/react/shallow";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import config from "@/config";
 import { useRouter } from "@/i18n/navigation";
+import { useState } from "react";
+import { Bell, BellOff, Trash2, EllipsisVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
+import ItemMenu from "@/components/dropdown-menu/item-menu";
+import { Button } from "@/components/ui/button";
+import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
+import type { IConversation } from "@/types/chat";
+import { useTranslations } from "next-intl";
 
 export default function ChatList() {
   const router = useRouter();
@@ -32,6 +44,9 @@ export default function ChatList() {
       typingUsers: state.typingUsers,
     })),
   );
+  const tHeader = useTranslations("Chat.Detail.header.actions");
+  const [deleteTarget, setDeleteTarget] = useState<IConversation | null>(null);
+  const { toggleMuteConversation, deleteConversation } = useChatStore();
 
   useEffect(() => {
     fetchInbox({ page: 1 });
@@ -95,6 +110,47 @@ export default function ChatList() {
               isMuted={chat.isMuted}
               onSelect={() => handleSelectChat(chat.id)}
               isTyping={(typingUsers[chat.id]?.length || 0) > 0}
+              actions={
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContentCus
+                    align="end"
+                    className="w-48"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ItemMenu
+                      onClick={() =>
+                        toggleMuteConversation(chat.id, !chat.isMuted)
+                      }
+                      icon={
+                        chat.isMuted ? (
+                          <Bell className="w-4 h-4 mr-2" />
+                        ) : (
+                          <BellOff className="w-4 h-4 mr-2" />
+                        )
+                      }
+                    >
+                      {chat.isMuted ? tHeader("unmute") : tHeader("mute")}
+                    </ItemMenu>
+                    <ItemMenu
+                      onClick={() => setDeleteTarget(chat)}
+                      className="text-red-600 focus:text-red-600"
+                      icon={<Trash2 className="w-4 h-4 mr-2 text-red-600" />}
+                    >
+                      {tHeader("deleteConversation")}
+                    </ItemMenu>
+                  </DropdownMenuContentCus>
+                </DropdownMenu>
+              }
             />
           );
         })}
@@ -107,6 +163,21 @@ export default function ChatList() {
           </div>
         )}
       </div>
+
+      <ConfirmDeleteModal
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        itemName={deleteTarget?.name}
+        onConfirm={async () => {
+          if (deleteTarget) {
+            const ok = await deleteConversation(deleteTarget.id);
+            if (ok && activeConversationId === deleteTarget.id) {
+              router.push(config.routes.private.chat);
+            }
+            setDeleteTarget(null);
+          }
+        }}
+      />
     </ScrollArea>
   );
 }

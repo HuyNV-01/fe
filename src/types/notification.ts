@@ -39,6 +39,9 @@ export interface INotificationMetadata {
   emoji?: string;
   unreadMessageCount?: number;
   actionUrl?: string;
+  titleKey?: string;
+  contentKey?: string;
+  i18nParams?: Record<string, string | number | boolean | null | undefined>;
 }
 
 export interface INotification {

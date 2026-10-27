@@ -36,6 +36,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 import { Badge } from "../ui/badge";
+import { resolveNotificationI18n } from "@/utils/notification-i18n";
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -271,6 +272,7 @@ export function NotificationBell() {
             {notifications.map((item) => {
               const actorName = item.actor?.name || t("systemActor");
               const unreadMsgCount = item.metadata?.unreadMessageCount || 0;
+              const localized = resolveNotificationI18n(item, t);
 
               return (
                 <div
@@ -309,7 +311,7 @@ export function NotificationBell() {
                             : "font-bold text-foreground",
                         )}
                       >
-                        {item.title}
+                        {localized.title}
                       </p>
                       {unreadMsgCount > 1 && !item.isRead && (
                         <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.2 text-[10px] font-bold text-primary">
@@ -319,7 +321,7 @@ export function NotificationBell() {
                     </div>
 
                     <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
-                      {item.content}
+                      {localized.content}
                     </p>
 
                     <span className="text-[10px] text-muted-foreground/80 mt-1 block">

@@ -21,6 +21,10 @@ export interface IConversation {
   partnerId?: string;
   isAdmin?: boolean;
   isMuted?: boolean;
+  soundEnabled?: boolean;
+  readReceiptsEnabled?: boolean;
+  isRestricted?: boolean;
+  disappearingTtl?: number | null;
 }
 
 export interface ICreateGroupPayload {
@@ -94,6 +98,8 @@ export interface IMessageMetadata {
   reactions?: Record<string, string[]>;
   attachments?: IMessageAttachment[];
   callInfo?: IMessageCallInfo;
+  expiresAt?: string;
+  disappearingTtl?: number;
 }
 
 export interface ISendMessagePayload {
@@ -182,6 +188,7 @@ export interface IMessage {
   deliveredTo?: string[];
   readBy?: string[];
   readByUsers?: IUserRes[];
+  expiresAt?: string | null;
 }
 
 export interface IUserStatusPayload {
@@ -235,4 +242,65 @@ export interface IMenuItem {
 export interface IOptionCounts {
   friendRequests?: number;
   groupRequests?: number;
+}
+
+export interface IConversationMemberDetail {
+  userId: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+  nickname: string | null;
+  isAdmin: boolean;
+  joinedAt: string;
+}
+
+export interface IConversationDetails {
+  conversationId: string;
+  type: ConversationTypeEnum;
+  name?: string;
+  disappearingTtl: number | null;
+  mySettings: {
+    isMuted: boolean;
+    soundEnabled: boolean;
+    readReceiptsEnabled: boolean;
+    isRestricted: boolean;
+    nickname: string | null;
+  };
+  blockState: {
+    isBlocked: boolean;
+    blockedByMe: boolean;
+    blockedByPartner: boolean;
+    partnerId: string | null;
+  };
+  members: IConversationMemberDetail[];
+}
+
+export interface ISharedMediaItem {
+  messageId: string;
+  fileId: string;
+  url: string;
+  thumbnailUrl?: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  type: MessageTypeEnum;
+  senderId: string;
+  senderName: string;
+  createdAt: string;
+}
+
+export interface ISharedLinkItem {
+  messageId: string;
+  url: string;
+  hostname: string;
+  previewText: string;
+  senderId: string;
+  senderName: string;
+  createdAt: string;
+}
+
+export interface ISharedAssetsResponse {
+  media: ISharedMediaItem[];
+  files: ISharedMediaItem[];
+  links: ISharedLinkItem[];
 }

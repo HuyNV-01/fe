@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   MessageCircle,
   UserX,
@@ -21,6 +21,7 @@ import DropdownMenuContentCus from "../dropdown-menu/dropdown-menu-content-cus";
 import ItemMenu from "../dropdown-menu/item-menu";
 import { ContactActionButton } from "../chat/add-new-contact";
 import { useTranslations } from "next-intl";
+import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 
 interface ProfileActionsProps {
   profile: IUserProfile;
@@ -41,6 +42,10 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
     onUploadAvatar,
     onDeleteAvatar,
   } = useProfileActions(profile);
+
+  const [confirmMode, setConfirmMode] = useState<"AVATAR" | "CONTACT" | null>(
+    null,
+  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -86,7 +91,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
             rounded="full"
             disabled={isUploadingAvatar}
             icon={<Trash2 className="w-4 h-4" />}
-            onClick={onDeleteAvatar}
+            onClick={() => setConfirmMode("AVATAR")}
           >
             {t("deleteAvatar")}
           </PatternButton>
@@ -110,7 +115,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
           onAddFriend();
         }}
         handleAccept={onAcceptFriend}
-        handleRemove={onRemoveContact}
+        handleRemove={() => setConfirmMode("CONTACT")}
       />
       <PatternButton
         size="sm"
@@ -139,7 +144,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
           <DropdownMenuContentCus align="end" className="w-48">
             {relationship === ContactStatusEnum.FRIEND && (
               <ItemMenu
-                onClick={onRemoveContact}
+                onClick={() => setConfirmMode("CONTACT")}
                 className="text-red-600 focus:text-red-600"
                 icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
               >
@@ -148,7 +153,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
             )}
             {relationship === ContactStatusEnum.PENDING_SENT && (
               <ItemMenu
-                onClick={onRemoveContact}
+                onClick={() => setConfirmMode("CONTACT")}
                 className="text-red-600 focus:text-red-600"
                 icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
               >
@@ -158,6 +163,21 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
           </DropdownMenuContentCus>
         </DropdownMenu>
       )}
+
+      <ConfirmDeleteModal
+        open={Boolean(confirmMode)}
+        onOpenChange={(open) => !open && setConfirmMode(null)}
+        itemName={confirmMode === "AVATAR" ? t("deleteAvatar") : profile.name}
+        isLoading={isLoading || isUploadingAvatar}
+        onConfirm={async () => {
+          if (confirmMode === "AVATAR") {
+            await onDeleteAvatar();
+          } else if (confirmMode === "CONTACT") {
+            await onRemoveContact();
+          }
+          setConfirmMode(null);
+        }}
+      />
     </div>
   );
 };

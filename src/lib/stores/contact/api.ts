@@ -55,3 +55,11 @@ export const getContactsApi = async (payload: {
     params,
   });
 };
+
+export const blockUserApi = async (targetId: string) => {
+  return apiClient.post(`/contacts/block/${targetId}`);
+};
+
+export const unblockUserApi = async (targetId: string) => {
+  return apiClient.delete(`/contacts/block/${targetId}`);
+};

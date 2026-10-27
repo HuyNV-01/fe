@@ -103,7 +103,54 @@
     },
     "systemActor": "Hệ thống",
     "deleteTitle": "Xóa thông báo",
-    "loadMore": "Xem thêm thông báo cũ"
+    "loadMore": "Xem thêm thông báo cũ",
+    "i18n": {
+      "defaultGroup": "nhóm",
+      "callType": {
+        "video": "video",
+        "audio": "thoại"
+      },
+      "preview": {
+        "image": "đã gửi một hình ảnh",
+        "video": "đã gửi một video",
+        "audio": "đã gửi một tin nhắn thoại",
+        "file": "đã gửi một tệp đính kèm"
+      },
+      "messageReply": {
+        "groupTitle": "{senderName} đã trả lời bạn trong {conversationName}",
+        "directTitle": "{senderName} đã trả lời tin nhắn của bạn"
+      },
+      "newMessage": {
+        "groupTitle": "Tin nhắn mới trong {conversationName}",
+        "directTitle": "Tin nhắn mới từ {senderName}",
+        "groupContent": "{senderName}: {preview}",
+        "directContent": "{preview}"
+      },
+      "messageReaction": {
+        "title": "{actorName} đã bày tỏ cảm xúc {emoji}",
+        "content": "Về tin nhắn của bạn: \"{preview}\""
+      },
+      "missedCall": {
+        "title": "Cuộc gọi {callTypeLabel} nhỡ",
+        "content": "Bạn có cuộc gọi {callTypeLabel} nhỡ từ {callerName}."
+      },
+      "groupMemberAdded": {
+        "title": "Được thêm vào nhóm trò chuyện",
+        "content": "{requesterName} đã thêm bạn vào nhóm \"{conversationName}\"."
+      },
+      "groupInvite": {
+        "title": "Nhóm trò chuyện mới",
+        "content": "{creatorName} đã thêm bạn vào nhóm \"{conversationName}\"."
+      },
+      "friendRequest": {
+        "title": "Lời mời kết bạn mới",
+        "content": "{senderName} đã gửi cho bạn một lời mời kết bạn."
+      },
+      "friendAccepted": {
+        "title": "Đã kết bạn",
+        "content": "{accepterName} đã chấp nhận lời mời kết bạn của bạn."
+      }
+    }
   },
   "Form": {
     "Login": {
@@ -394,7 +441,10 @@
           "moreOptions": "Tùy chọn hội thoại",
           "viewProfile": "Xem hồ sơ cá nhân",
           "addMembers": "Thêm thành viên",
-          "leaveGroup": "Rời khỏi nhóm"
+          "leaveGroup": "Rời khỏi nhóm",
+          "searchInChat": "Tìm kiếm trong tin nhắn",
+          "openVaultAndSettings": "Kho lưu trữ & Cài đặt",
+          "deleteConversation": "Xóa đoạn chat"
         }
       },
       "conversation": {
@@ -445,7 +495,20 @@
           "cancel": "Hủy",
           "send": "Gửi",
           "emoji": "Biểu tượng cảm xúc"
-        }
+        },
+        "viewAllPinned": "Tất cả ({count})",
+        "pinnedListTitle": "Danh sách tin nhắn đã ghim",
+        "pinnedListDesc": "Bấm vào tin nhắn để di chuyển tới vị trí trong cuộc trò chuyện.",
+        "jumpToMessage": "Đi tới",
+        "unpinConfirmTitle": "Bỏ ghim tin nhắn",
+        "unpinConfirmDesc": "Bạn chắc chắn muốn bỏ ghim tin nhắn này khỏi cuộc trò chuyện?",
+        "searchInChatPlaceholder": "Tìm kiếm nội dung trong cuộc trò chuyện...",
+        "recallConfirmTitle": "Thu hồi tin nhắn",
+        "recallConfirmDesc": "Bạn chắc chắn muốn xóa/thu hồi tin nhắn này với mọi người trong cuộc trò chuyện?",
+        "leaveGroupConfirmTitle": "Rời khỏi nhóm",
+        "leaveGroupConfirmDesc": "Bạn chắc chắn muốn rời khỏi nhóm trò chuyện này?",
+        "deleteConversationConfirmTitle": "Xóa đoạn chat",
+        "deleteConversationConfirmDesc": "Bạn chắc chắn muốn xóa toàn bộ lịch sử đoạn chat này ở phía bạn? Thao tác này không thể hoàn tác."
       },
       "groupModal": {
         "createTitle": "Tạo nhóm trò chuyện mới",
@@ -585,6 +648,50 @@
           "blocked": "Đã chặn",
           "cancel": "Từ chối"
         }
+      },
+      "infoDrawer": {
+        "title": "Thông tin & Tùy chỉnh hội thoại",
+        "description": "Quản lý biệt danh, quyền riêng tư và kho lưu trữ phương tiện.",
+        "nicknamesTitle": "Biệt danh thành viên",
+        "originalName": "Tên gốc",
+        "noNickname": "Chưa đặt biệt danh",
+        "editBtn": "Đặt tên",
+        "privacyAndNotifTitle": "Thông báo & Quyền riêng tư",
+        "muteNotifications": "Tắt thông báo",
+        "muteNotificationsDesc": "Không nhận thông báo đẩy từ cuộc trò chuyện này",
+        "soundNotification": "Âm thanh thông báo",
+        "soundNotificationDesc": "Phát âm báo khi có tin nhắn mới đến",
+        "readReceipts": "Thông báo đã đọc",
+        "readReceiptsDesc": "Cho phép người khác biết khi bạn đã xem tin nhắn của họ",
+        "disappearingTitle": "Tin nhắn tự hủy",
+        "disappearingDesc": "Tự động xóa tin nhắn mới sau khoảng thời gian đã chọn",
+        "disappearingOptions": {
+          "off": "Tắt",
+          "1m": "1 phút",
+          "1h": "1 giờ",
+          "24h": "24 giờ",
+          "7d": "7 ngày"
+        },
+        "sharedVaultTitle": "Kho phương tiện, Tệp & Liên kết",
+        "tabs": {
+          "media": "Ảnh/Video",
+          "files": "Tệp",
+          "links": "Liên kết"
+        },
+        "emptyMedia": "Chưa có ảnh hoặc video nào được chia sẻ.",
+        "emptyFiles": "Chưa có tệp tài liệu nào được chia sẻ.",
+        "emptyLinks": "Chưa có liên kết nào được chia sẻ.",
+        "securityActionsTitle": "Kiểm soát & Bảo mật",
+        "restrictUser": "Hạn chế người dùng",
+        "restrictUserDesc": "Ẩn thông báo, trạng thái online và đã xem đối với người này",
+        "blockUser": "Chặn người dùng này",
+        "unblockUser": "Bỏ chặn người dùng này",
+        "leaveGroup": "Rời khỏi nhóm trò chuyện",
+        "deleteConversation": "Xóa đoạn chat",
+        "deleteConversationConfirmTitle": "Xác nhận xóa đoạn chat",
+        "deleteConversationConfirmDesc": "Bạn chắc chắn muốn xóa toàn bộ lịch sử trò chuyện này ở phía bạn?",
+        "leaveGroupConfirmTitle": "Xác nhận rời nhóm",
+        "leaveGroupConfirmDesc": "Bạn chắc chắn muốn rời khỏi nhóm trò chuyện này?"
       }
     }
   },
