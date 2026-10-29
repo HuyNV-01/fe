@@ -155,21 +155,21 @@ export function PinnedMessagesBar({
       <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
         <SheetContent
           side="right"
-          className="w-full sm:max-w-md p-0 flex flex-col"
+          className="w-full sm:max-w-md h-dvh max-h-dvh overflow-hidden p-0 flex flex-col gap-0"
         >
-          <SheetHeader className="px-5 py-4 border-b">
+          <SheetHeader className="px-5 py-4 border-b shrink-0">
             <SheetTitle className="flex items-center gap-2 text-base">
-              <Pin className="w-4 h-4 text-primary rotate-45" />
-              <span>
+              <Pin className="w-4 h-4 text-primary rotate-45 shrink-0" />
+              <span className="truncate">
                 {t("pinnedListTitle")} ({totalPinned})
               </span>
             </SheetTitle>
-            <SheetDescription className="text-xs">
+            <SheetDescription className="text-xs break-words">
               {t("pinnedListDesc")}
             </SheetDescription>
           </SheetHeader>
 
-          <ScrollArea className="flex-1 p-4">
+          <ScrollArea className="flex-1 min-h-0 w-full p-4">
             <div className="space-y-3">
               {pinnedMessages.map((msg) => (
                 <div
@@ -221,7 +221,7 @@ export function PinnedMessagesBar({
                     </div>
                   </div>
 
-                  <p className="text-xs text-foreground/90 whitespace-pre-wrap break-words pl-9">
+                  <p className="text-xs text-foreground/90 whitespace-pre-wrap break-words [overflow-wrap:anywhere] pl-9">
                     {formatPinnedPreview(msg)}
                   </p>
                 </div>

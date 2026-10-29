@@ -35,8 +35,14 @@ export enum CallStatusEnum {
 }
 
 export enum ConversationTypeEnum {
-  DIRECT = "DIRECT",
-  GROUP = "GROUP",
+  DIRECT = 'DIRECT',
+  GROUP = 'GROUP',
+}
+
+export enum GroupRoleEnum {
+  OWNER = 'OWNER',
+  ADMIN = 'ADMIN',
+  MEMBER = 'MEMBER',
 }
 
 export enum SocketNamespaceEnum {

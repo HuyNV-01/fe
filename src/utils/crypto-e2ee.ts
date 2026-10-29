@@ -31,6 +31,41 @@ export function formatFileSize(bytes?: number): string {
   return `${(bytes / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+export async function downloadMediaFile(
+  rawUrl: string,
+  fileName = `download-${Date.now()}`,
+): Promise<boolean> {
+  const safeUrl = sanitizeMediaUrl(rawUrl);
+  if (!safeUrl) return false;
+
+  try {
+    const response = await fetch(safeUrl, { mode: "cors", credentials: "omit" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    const anchor = document.createElement("a");
+    anchor.href = blobUrl;
+    anchor.download = fileName;
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+    return true;
+  } catch {
+    const anchor = document.createElement("a");
+    anchor.href = safeUrl;
+    anchor.download = fileName;
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    return true;
+  }
+}
+
 export async function getOrCreateDeviceE2EEKey(): Promise<StoredKeyPairInfo | null> {
   if (typeof window === "undefined" || !window.crypto?.subtle) {
     return null;

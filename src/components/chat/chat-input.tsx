@@ -6,6 +6,16 @@ import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  LiquidGlass,
+  LiquidGlassCard,
+} from "@/components/liquid-glass/liquid-glass";
+import {
+  ImageLightboxModal,
+  type LightboxImageItem,
+} from "@/components/chat/image-lightbox-modal";
 import {
   SendHorizontal,
   Paperclip,
@@ -20,6 +30,9 @@ import {
   FileText,
   Film,
   Volume2,
+  Eye,
+  Plus,
+  Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
@@ -63,6 +76,13 @@ export interface IChatInputProps {
   ) => Promise<void> | void;
   onScrollToMessage?: (messageId: string) => void;
   disabled?: boolean;
+  blockState?: {
+    isBlocked: boolean;
+    blockedByMe: boolean;
+    blockedByPartner: boolean;
+    partnerId: string | null;
+  };
+  onUnblockPartner?: () => void;
 }
 
 export const ChatInput = ({
@@ -71,12 +91,20 @@ export const ChatInput = ({
   onConfirmEdit,
   onScrollToMessage,
   disabled,
+  blockState,
+  onUnblockPartner,
 }: IChatInputProps) => {
   const [message, setMessage] = useState("");
   const [selectedItems, setSelectedItems] = useState<SelectedFilePreview[]>([]);
+  const [previewLightboxIndex, setPreviewLightboxIndex] = useState<
+    number | null
+  >(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
+
+  const selectedItemsRef = useRef<SelectedFilePreview[]>([]);
+  selectedItemsRef.current = selectedItems;
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -164,7 +192,7 @@ export const ChatInput = ({
 
   useEffect(() => {
     return () => {
-      selectedItems.forEach((item) => {
+      selectedItemsRef.current.forEach((item) => {
         if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
       });
     };
@@ -419,6 +447,62 @@ export const ChatInput = ({
     return activeReply.content;
   };
 
+  const clearAllSelectedFiles = useCallback(() => {
+    setSelectedItems((prev) => {
+      prev.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      return [];
+    });
+  }, []);
+
+  const previewableImages: LightboxImageItem[] = selectedItems
+    .filter((i) => i.previewUrl && i.file.type.startsWith("image/"))
+    .map((i) => ({
+      url: i.previewUrl!,
+      fileName: i.file.name,
+      size: i.file.size,
+    }));
+
+  const totalSelectedSize = selectedItems.reduce(
+    (sum, item) => sum + item.file.size,
+    0,
+  );
+
+  if (blockState?.isBlocked) {
+    return (
+      <LiquidGlass
+        variant="danger"
+        opacity="10"
+        blur="md"
+        rounded="2xl"
+        isolate={false}
+        className="p-3"
+        contentClassName="flex items-center justify-between gap-3 flex-wrap"
+      >
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <Ban className="w-4 h-4 text-destructive shrink-0" />
+          <p className="text-xs font-medium text-foreground break-words">
+            {blockState.blockedByMe
+              ? t("blockedByMeBanner")
+              : t("blockedByPartnerBanner")}
+          </p>
+        </div>
+        {blockState.blockedByMe && onUnblockPartner && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onUnblockPartner}
+            className="h-7 px-3 text-xs rounded-full shrink-0"
+          >
+            {t("unblockBtn")}
+          </Button>
+        )}
+      </LiquidGlass>
+    );
+  }
+
   return (
     <div className="bg-background relative">
       {/* Thanh hiển thị Trả lời / Chỉnh sửa tin nhắn */}
@@ -473,50 +557,176 @@ export const ChatInput = ({
 
       {/* Thanh xem trước tệp đính kèm đã chọn */}
       {selectedItems.length > 0 && (
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-2.5 mb-2 scrollbar-thin">
-          {selectedItems.map((item, idx) => (
-            <div
-              key={`${item.file.name}-${idx}`}
-              className="relative group flex items-center gap-2.5 p-2 rounded-xl bg-muted/80 border border-border/60 text-xs shrink-0 shadow-2xs"
-            >
-              {item.previewUrl && item.file.type.startsWith("image/") ? (
-                <img
-                  src={item.previewUrl}
-                  alt={item.file.name}
-                  className="w-11 h-11 rounded-lg object-cover border"
-                />
-              ) : item.file.type.startsWith("video/") ? (
-                <div className="w-11 h-11 rounded-lg bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
-                  <Film className="w-5 h-5" />
-                </div>
-              ) : item.file.type.startsWith("audio/") ? (
-                <div className="w-11 h-11 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
-                  <Volume2 className="w-5 h-5" />
-                </div>
-              ) : (
-                <div className="w-11 h-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                  <FileText className="w-5 h-5" />
-                </div>
-              )}
-
-              <div className="flex flex-col min-w-0 max-w-[130px] pr-4">
-                <span className="font-medium truncate">{item.file.name}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {formatFileSize(item.file.size)}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => removeSelectedFile(idx)}
-                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+        <LiquidGlassCard
+          isolate={false}
+          rounded="2xl"
+          className="mb-2.5 p-2.5 sm:p-3 border border-border/60"
+          contentClassName="space-y-2.5"
+        >
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <Badge
+                variant="secondary"
+                className="text-[11px] font-semibold rounded-full px-2.5 py-0.5"
               >
-                <X className="w-3 h-3" />
-              </button>
+                {t("previewCount", { count: selectedItems.length })}
+              </Badge>
+              <span className="text-[11px] text-muted-foreground truncate">
+                {formatFileSize(totalSelectedSize)}
+              </span>
             </div>
-          ))}
-        </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-7 px-2 text-xs text-primary hover:bg-primary/10 rounded-full"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                {t("addMoreFiles")}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearAllSelectedFiles}
+                className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 rounded-full"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                {t("clearAllFiles")}
+              </Button>
+            </div>
+          </div>
+
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex items-center gap-2.5 pb-2 pt-1 px-0.5">
+              {selectedItems.map((item, idx) => {
+                const isImage =
+                  Boolean(item.previewUrl) &&
+                  item.file.type.startsWith("image/");
+                const isVideo =
+                  Boolean(item.previewUrl) &&
+                  item.file.type.startsWith("video/");
+                const ext =
+                  item.file.name.split(".").pop()?.toUpperCase() || "FILE";
+
+                if (isImage || isVideo) {
+                  return (
+                    <div
+                      key={`${item.file.name}-${idx}`}
+                      className="relative group/preview w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-border/60 bg-muted shrink-0 shadow-xs"
+                    >
+                      {isImage ? (
+                        <img
+                          src={item.previewUrl!}
+                          alt={item.file.name}
+                          className="w-full h-full object-cover transition-transform duration-200 group-hover/preview:scale-105"
+                        />
+                      ) : (
+                        <video
+                          src={item.previewUrl!}
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                      )}
+
+                      {/* Lớp phủ xem ảnh ngay trong web */}
+                      {isImage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const imgIdx = previewableImages.findIndex(
+                              (img) => img.url === item.previewUrl,
+                            );
+                            if (imgIdx !== -1) setPreviewLightboxIndex(imgIdx);
+                          }}
+                          className="absolute inset-0 bg-black/35 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
+                          title={t("clickToPreview")}
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                      )}
+
+                      <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-1 pointer-events-none">
+                        <span className="px-1.5 py-0.2 rounded bg-black/65 text-[9px] font-semibold text-white truncate">
+                          {formatFileSize(item.file.size)}
+                        </span>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => removeSelectedFile(idx)}
+                        className="absolute top-1 right-1 h-5 w-5 rounded-full shadow-md opacity-95 hover:scale-110 transition-transform"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <LiquidGlass
+                    key={`${item.file.name}-${idx}`}
+                    variant="secondary"
+                    blur="md"
+                    opacity="70"
+                    rounded="xl"
+                    fluid={false}
+                    isolate={false}
+                    className="p-2.5 pr-8 border border-border/60 shrink-0 w-52"
+                    contentClassName="flex items-center gap-2.5"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex flex-col items-center justify-center shrink-0">
+                      {item.file.type.startsWith("audio/") ? (
+                        <Volume2 className="w-4 h-4" />
+                      ) : (
+                        <FileText className="w-4 h-4" />
+                      )}
+                      <span className="text-[8px] font-bold mt-0.5 truncate max-w-[34px]">
+                        {ext}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span
+                        title={item.file.name}
+                        className="text-xs font-semibold truncate text-foreground"
+                      >
+                        {item.file.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {formatFileSize(item.file.size)}
+                      </span>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSelectedFile(idx)}
+                      className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </LiquidGlass>
+                );
+              })}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </LiquidGlassCard>
       )}
+
+      <ImageLightboxModal
+        open={previewLightboxIndex !== null}
+        onOpenChange={(open) => !open && setPreviewLightboxIndex(null)}
+        images={previewableImages}
+        initialIndex={previewLightboxIndex ?? 0}
+      />
 
       {/* Bộ chọn Emoji nổi */}
       {showEmojiPicker && (

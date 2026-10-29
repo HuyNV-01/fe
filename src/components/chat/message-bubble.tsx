@@ -21,13 +21,25 @@ import {
   Video,
   SmilePlus,
   CornerUpLeft,
+  Forward,
+  Copy,
+  ZoomIn,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 import type { IMessage } from "@/types/chat";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
-import { formatFileSize, sanitizeMediaUrl } from "@/utils/crypto-e2ee";
+import {
+  downloadMediaFile,
+  formatFileSize,
+  sanitizeMediaUrl,
+} from "@/utils/crypto-e2ee";
+import {
+  ImageLightboxModal,
+  type LightboxImageItem,
+} from "./image-lightbox-modal";
 import { MessageReadList } from "./message-read-list";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "😡"];
 
@@ -48,6 +60,7 @@ interface MessageBubbleProps {
   onRecall?: (message: IMessage) => void;
   onReact?: (message: IMessage, emoji: string) => void;
   onTogglePin?: (message: IMessage) => void;
+  onForward?: (message: IMessage) => void;
   onCallbackCall?: (callType: CallTypeEnum) => void;
   onScrollToMessage?: (messageId: string) => void;
 }
@@ -70,18 +83,40 @@ export const MessageBubble = memo(
     onRecall,
     onReact,
     onTogglePin,
+    onForward,
     onCallbackCall,
     onScrollToMessage,
   }: MessageBubbleProps) => {
     const t = useTranslations("Chat.Detail.conversation.bubble");
     const { toMessageTime, toFullDateTime } = useDateFormat();
     const [showReactionPicker, setShowReactionPicker] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
     const isRecalled = message.status === "removed";
     const attachments = message.metadata?.attachments || [];
     const replyPreview = message.metadata?.replyPreview;
+    const forwardedFrom = message.metadata?.forwardedFrom;
     const reactions = message.metadata?.reactions || {};
     const callInfo = message.metadata?.callInfo;
+
+    const imageGallery: LightboxImageItem[] = useMemo(() => {
+      if (message.type !== MessageTypeEnum.IMAGE) return [];
+      if (attachments.length > 0) {
+        return attachments.map((att) => ({
+          url: att.url,
+          thumbnailUrl: att.thumbnailUrl || att.url,
+          fileName: att.fileName,
+          size: att.size,
+        }));
+      }
+      return [{ url: message.content, fileName: t("attachmentAlt") }];
+    }, [message.type, message.content, attachments, t]);
+
+    const handleCopyText = async () => {
+      if (!message.content) return;
+      await navigator.clipboard.writeText(message.content);
+      toast.success(t("copiedToast"));
+    };
 
     const timeString = useMemo(
       () => toMessageTime(message.createdAt),
@@ -237,46 +272,65 @@ export const MessageBubble = memo(
               </button>
             )}
 
-            {/* Nội dung khi đã thu hồi */}
             {isRecalled ? (
               <p className="text-xs py-0.5 select-none">
                 {t("recalledMessage")}
               </p>
             ) : (
               <>
-                {/* 1. Hiển thị Hình ảnh */}
+                {/* 1. Hiển thị Hình ảnh ngay trong Web + Nút Tải xuống nhanh */}
                 {message.type === MessageTypeEnum.IMAGE && (
                   <div
                     className={cn(
                       "mb-1.5 grid gap-1.5 overflow-hidden rounded-xl",
-                      attachments.length > 1 ? "grid-cols-2" : "grid-cols-1",
+                      imageGallery.length > 1 ? "grid-cols-2" : "grid-cols-1",
                     )}
                   >
-                    {attachments.length > 0 ? (
-                      attachments.map((att) => (
-                        <a
-                          key={att.fileId}
-                          href={sanitizeMediaUrl(att.url)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block overflow-hidden rounded-lg bg-black/5"
+                    {imageGallery.map((img, idx) => (
+                      <div
+                        key={`${img.url}-${idx}`}
+                        className="group/img relative overflow-hidden rounded-lg bg-black/5"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setLightboxIndex(idx)}
+                          className="block w-full text-left cursor-zoom-in"
                         >
                           <img
-                            src={sanitizeMediaUrl(att.thumbnailUrl || att.url)}
-                            alt={att.fileName}
-                            className="max-h-72 w-full object-cover hover:scale-105 transition-transform"
+                            src={sanitizeMediaUrl(img.thumbnailUrl || img.url)}
+                            alt={img.fileName || t("attachmentAlt")}
+                            className="max-h-72 w-full object-cover group-hover/img:scale-105 transition-transform duration-200"
                             loading="lazy"
                           />
-                        </a>
-                      ))
-                    ) : (
-                      <img
-                        src={sanitizeMediaUrl(message.content)}
-                        alt={t("attachmentAlt")}
-                        className="max-h-72 w-full object-cover rounded-lg"
-                        loading="lazy"
-                      />
-                    )}
+                        </button>
+
+                        {/* Nút Xem lớn & Tải xuống trực tiếp không nhảy trang */}
+                        <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => setLightboxIndex(idx)}
+                            className="p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 cursor-pointer"
+                            title={t("actions.viewImage")}
+                          >
+                            <ZoomIn className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadMediaFile(
+                                img.url,
+                                img.fileName || `image-${idx + 1}.webp`,
+                              );
+                            }}
+                            className="p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 cursor-pointer"
+                            title={t("actions.download")}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -314,14 +368,12 @@ export const MessageBubble = memo(
                 {/* 4. Hiển thị Tệp tài liệu (FILE) */}
                 {message.type === MessageTypeEnum.FILE &&
                   attachments.map((att) => (
-                    <a
+                    <button
                       key={att.fileId}
-                      href={sanitizeMediaUrl(att.url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      download={att.fileName}
+                      type="button"
+                      onClick={() => downloadMediaFile(att.url, att.fileName)}
                       className={cn(
-                        "flex items-center gap-3 p-2.5 my-1 rounded-xl border transition-colors",
+                        "w-full text-left flex items-center gap-3 p-2.5 my-1 rounded-xl border transition-colors cursor-pointer",
                         isMe
                           ? "bg-white/10 border-white/20 hover:bg-white/20"
                           : "bg-muted/60 border-border hover:bg-muted",
@@ -339,7 +391,7 @@ export const MessageBubble = memo(
                         </p>
                       </div>
                       <Download className="w-4 h-4 shrink-0 opacity-80" />
-                    </a>
+                    </button>
                   ))}
 
                 {/* 5. Hiển thị Thẻ Lịch sử Cuộc gọi (CALL) */}
@@ -387,7 +439,7 @@ export const MessageBubble = memo(
                   (message.content &&
                     message.type !== MessageTypeEnum.CALL &&
                     message.type !== MessageTypeEnum.IMAGE)) && (
-                  <p className="whitespace-pre-wrap leading-relaxed break-words">
+                  <p className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere] max-w-full">
                     {message.content}
                   </p>
                 )}
@@ -419,6 +471,16 @@ export const MessageBubble = memo(
               <span title={fullTimeTitle}>{timeString}</span>
               {StatusIcon}
             </div>
+
+            {/* Nhãn Tin nhắn được chuyển tiếp */}
+            {!isRecalled && forwardedFrom && (
+              <div className="flex items-center gap-1 text-[10px] opacity-80 mb-1 italic">
+                <Forward className="w-3 h-3 shrink-0" />
+                <span className="truncate">
+                  {t("forwardedFrom", { name: forwardedFrom.senderName })}
+                </span>
+              </div>
+            )}
 
             {/* Huy hiệu Cảm xúc (Reactions) dưới chân bong bóng */}
             {!isRecalled && reactionEntries.length > 0 && (
@@ -540,6 +602,28 @@ export const MessageBubble = memo(
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                 )}
+
+                {message.type === MessageTypeEnum.TEXT && (
+                  <button
+                    type="button"
+                    onClick={handleCopyText}
+                    className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                    title={t("actions.copy")}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {onForward && (
+                  <button
+                    type="button"
+                    onClick={() => onForward(message)}
+                    className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                    title={t("actions.forward")}
+                  >
+                    <Forward className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
         </div>
@@ -549,6 +633,13 @@ export const MessageBubble = memo(
             <MessageReadList readers={displayReaders} isMe={isMe} />
           </div>
         )}
+
+        <ImageLightboxModal
+          open={lightboxIndex !== null}
+          onOpenChange={(open) => !open && setLightboxIndex(null)}
+          images={imageGallery}
+          initialIndex={lightboxIndex ?? 0}
+        />
       </div>
     );
   },

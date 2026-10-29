@@ -90,7 +90,7 @@ export const ChatHeader = memo(
           <button
             type="button"
             onClick={handleViewProfile}
-            className="flex items-center gap-2.5 sm:gap-3 min-w-0 text-left group/header cursor-pointer"
+            className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 overflow-hidden text-left group/header cursor-pointer"
           >
             <div className="relative shrink-0">
               <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border transition-transform group-hover/header:scale-105">
@@ -104,9 +104,12 @@ export const ChatHeader = memo(
               )}
             </div>
 
-            <div className="flex flex-col leading-tight min-w-0">
-              <div className="flex items-center gap-1.5">
-                <h2 className="font-semibold text-sm truncate group-hover/header:text-primary transition-colors">
+            <div className="flex flex-col leading-tight min-w-0 flex-1 overflow-hidden">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h2
+                  title={displayName}
+                  className="font-semibold text-sm truncate min-w-0 max-w-full group-hover/header:text-primary transition-colors"
+                >
                   {displayName}
                 </h2>
                 {isGroupChat ? (
@@ -115,7 +118,7 @@ export const ChatHeader = memo(
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 )}
               </div>
-              <span className="text-[11px] sm:text-xs text-muted-foreground truncate">
+              <span className="text-[11px] sm:text-xs text-muted-foreground truncate block">
                 {isTyping ? (
                   <span className="text-primary font-medium animate-pulse">
                     {t("status.typing")}

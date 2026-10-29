@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+  DropdownMenu,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
+import ItemMenu from "@/components/dropdown-menu/item-menu";
+import {
+  ImageLightboxModal,
+  type LightboxImageItem,
+} from "@/components/chat/image-lightbox-modal";
 import {
   Bell,
   Volume2,
@@ -31,14 +28,32 @@ import {
   Download,
   ExternalLink,
   LogOut,
+  Crown,
+  ShieldCheck,
+  MoreVertical,
+  UserMinus,
+  UserCheck,
 } from "lucide-react";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
+import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
-import { formatFileSize, sanitizeMediaUrl } from "@/utils/crypto-e2ee";
+import {
+  downloadMediaFile,
+  formatFileSize,
+  sanitizeMediaUrl,
+} from "@/utils/crypto-e2ee";
 import { getInitials } from "@/utils/helper";
-import { ConversationTypeEnum } from "@/common/enum";
+import { ConversationTypeEnum, GroupRoleEnum } from "@/common/enum";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
+import { ScrollArea } from "@radix-ui/react-scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Separator } from "../ui/separator";
+import { Switch } from "../ui/switch";
 
 interface ConversationInfoDrawerProps {
   open: boolean;
@@ -66,6 +81,7 @@ export function ConversationInfoDrawer({
   onLeaveGroup,
 }: ConversationInfoDrawerProps) {
   const t = useTranslations("Chat.Detail.infoDrawer");
+  const currentUserId = useAuthStore((s) => s.currentAccount?.user?.id);
 
   const {
     conversationDetails,
@@ -77,6 +93,8 @@ export function ConversationInfoDrawer({
     updateDisappearingMessages,
     deleteConversation,
     toggleBlockUser,
+    updateGroupMemberRole,
+    removeGroupMember,
   } = useChatStore();
 
   const details = conversationDetails[conversationId];
@@ -93,6 +111,41 @@ export function ConversationInfoDrawer({
   const [nicknameDraft, setNicknameDraft] = useState("");
   const [isDeleteConvModalOpen, setIsDeleteConvModalOpen] = useState(false);
   const [isLeaveGroupModalOpen, setIsLeaveGroupModalOpen] = useState(false);
+
+  const [vaultLightboxIndex, setVaultLightboxIndex] = useState<number | null>(
+    null,
+  );
+  const [memberToRemove, setMemberToRemove] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
+  const [memberToTransferOwner, setMemberToTransferOwner] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
+
+  const isGroup = details?.type === ConversationTypeEnum.GROUP;
+  const mySettings = details?.mySettings;
+  const blockState = details?.blockState;
+
+  const myMemberRecord = (details?.members || []).find(
+    (m) => m.userId === currentUserId,
+  );
+  const myRole =
+    myMemberRecord?.role ||
+    (myMemberRecord?.isAdmin ? GroupRoleEnum.ADMIN : GroupRoleEnum.MEMBER);
+  const isMeOwner = myRole === GroupRoleEnum.OWNER;
+  const isMeAdminOrOwner =
+    myRole === GroupRoleEnum.OWNER || myRole === GroupRoleEnum.ADMIN;
+
+  const vaultImageItems: LightboxImageItem[] = (assets.media || [])
+    .filter((m) => m.type === "IMAGE" || m.mimeType?.startsWith("image/"))
+    .map((m) => ({
+      url: m.url,
+      thumbnailUrl: m.thumbnailUrl || m.url,
+      fileName: m.fileName,
+      size: m.size,
+    }));
 
   useEffect(() => {
     if (open && conversationId) {
