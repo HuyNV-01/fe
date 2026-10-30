@@ -192,19 +192,6 @@ export default function AddNewContact() {
       }
     };
 
-    const handleRemove = async (targetId: string) => {
-      if (loadingId) return;
-
-      setLoadingId(targetId);
-      try {
-        await removeContact({ data: { targetId } });
-      } catch (error) {
-        console.error("Failed to add friend", error);
-      } finally {
-        setLoadingId(null);
-      }
-    };
-
     return (
       <div className="flex items-center justify-between w-full p-1 group/row gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">

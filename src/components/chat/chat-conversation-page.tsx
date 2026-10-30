@@ -45,6 +45,7 @@ import { ConversationInfoDrawer } from "@/components/chat/conversation-info-draw
 import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 import type { IMessage } from "@/types/chat";
 import { ForwardMessageModal } from "./forward-message-modal";
+import { OngoingCallBanner } from "./ongoing-call-banner";
 
 interface ChatConversationPageProps {
   params: { id: string };
@@ -67,6 +68,7 @@ export default function ChatConversationPage({
     messagesMeta,
     typingUsers,
     uploadProgress,
+    activeCall,
     fetchMessages,
     isLoadingMessages,
     sendMessage,
@@ -75,6 +77,8 @@ export default function ChatConversationPage({
     recallMessage,
     reactMessage,
     pinMessage,
+    votePoll,
+    closePoll,
     setReplyingTo,
     setEditingMessage,
     initiateCall,
@@ -214,7 +218,6 @@ export default function ChatConversationPage({
     };
   }, [conversationId, fetchMessages, setActiveConversation]);
 
-  // Automatically scroll to and highlight the target message when arriving from NotificationBell
   useEffect(() => {
     if (!rawMessages.length) return;
 
@@ -283,12 +286,17 @@ export default function ChatConversationPage({
   }, [rawMessages, currentUser?.user?.id, t]);
 
   const handleSendMessage = useCallback(
-    async (content: string) => {
+    async (
+      content: string,
+      options?: { mentionedUserIds?: string[]; mentionAll?: boolean },
+    ) => {
       if (!conversationId) return;
       await sendMessage({
         conversationId,
         content,
         type: MessageTypeEnum.TEXT,
+        mentionedUserIds: options?.mentionedUserIds,
+        mentionAll: options?.mentionAll,
       });
       scrollToBottom("smooth");
     },
@@ -454,6 +462,16 @@ export default function ChatConversationPage({
             })
           }
         />
+
+        {isGroupChat && (
+          <OngoingCallBanner
+            ongoingCall={
+              activeCall?.conversationId === conversationId ? activeCall : null
+            }
+            currentActiveCallId={activeCall?.callId}
+            onJoinCall={(callType) => initiateCall(conversationId, callType)}
+          />
+        )}
       </div>
 
       {/* Message Area */}
@@ -532,6 +550,19 @@ export default function ChatConversationPage({
                               conversationId,
                               messageId: m.id,
                               isPinned: !(m.isPinned || m.metadata?.isPinned),
+                            })
+                          }
+                          onVotePoll={(messageId, optionIds) =>
+                            votePoll({
+                              conversationId,
+                              messageId,
+                              optionIds,
+                            })
+                          }
+                          onClosePoll={(messageId) =>
+                            closePoll({
+                              conversationId,
+                              messageId,
                             })
                           }
                           onCallbackCall={(callType) =>

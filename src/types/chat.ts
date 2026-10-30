@@ -83,13 +83,6 @@ export interface IRemoveGroupMemberPayload {
   memberId: string;
 }
 
-export interface IGroupUpdatedPayload {
-  action: "members_added" | "member_removed";
-  conversationId: string;
-  addedMemberIds?: string[];
-  removedUserId?: string;
-}
-
 export interface IMessageAttachment {
   fileId: string;
   url: string;

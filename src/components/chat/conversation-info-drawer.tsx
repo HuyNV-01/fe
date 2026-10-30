@@ -46,7 +46,7 @@ import { getInitials } from "@/utils/helper";
 import { ConversationTypeEnum, GroupRoleEnum } from "@/common/enum";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -123,6 +123,29 @@ export function ConversationInfoDrawer({
     userId: string;
     name: string;
   } | null>(null);
+
+  const vaultSectionRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (open && conversationId) {
+      fetchConversationDetails(conversationId);
+      fetchSharedAssets(conversationId);
+      if (initialSection === "MEDIA") {
+        setTimeout(() => {
+          vaultSectionRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }, 150);
+      }
+    }
+  }, [
+    open,
+    conversationId,
+    initialSection,
+    fetchConversationDetails,
+    fetchSharedAssets,
+  ]);
 
   const myMemberRecord = (details?.members || []).find(
     (m) => m.userId === currentUserId,
@@ -506,7 +529,7 @@ export function ConversationInfoDrawer({
 
               <Separator />
 
-              <div className="space-y-3">
+              <div ref={vaultSectionRef} className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   {t("sharedVaultTitle")}
                 </h4>

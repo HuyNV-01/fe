@@ -12,6 +12,7 @@ import { useRelativeTime } from "@/utils/hooks/use-relative-time";
 import { getInitials } from "@/utils/helper";
 import { useTranslations } from "next-intl";
 import { NOTIFICATION_MESSAGES } from "@/constant";
+import { GroupAvatar } from "./group-avatar";
 
 export interface IChatItemProps {
   id: string;
@@ -49,6 +50,7 @@ export const ChatItem = memo(
     actions,
     onSelect,
     onMoreOptions,
+    groupAvatars,
   }: IChatItemProps) => {
     const handleSelect = () => onSelect?.(id);
     const t = useTranslations("Chat.Sidebar");
@@ -106,16 +108,24 @@ export const ChatItem = memo(
             className="flex-1 min-w-0 h-auto flex items-center justify-start gap-3 p-2.5 sm:p-3 rounded-xl text-left font-normal whitespace-normal hover:bg-transparent cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <div className="relative shrink-0">
-              <Avatar className="h-11 w-11 sm:h-12 sm:w-12 border border-border/40 shadow-xs transition-transform group-hover:scale-105">
-                <AvatarImage
-                  src={avatarUrl || undefined}
-                  alt={displayName}
-                  className="object-cover"
+              {groupAvatars && groupAvatars.length >= 2 ? (
+                <GroupAvatar
+                  url={avatarUrl || undefined}
+                  members={groupAvatars}
+                  fallback={initials}
                 />
-                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              ) : (
+                <Avatar className="h-11 w-11 sm:h-12 sm:w-12 border border-border/40 shadow-xs transition-transform group-hover:scale-105">
+                  <AvatarImage
+                    src={avatarUrl || undefined}
+                    alt={displayName}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+              )}
 
               {isOnline && (
                 <span className="absolute bottom-0 right-0 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full bg-emerald-500 ring-2 ring-background" />

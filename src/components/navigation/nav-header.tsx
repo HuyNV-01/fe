@@ -32,7 +32,7 @@ interface NavHeaderProps {
   className?: string;
 }
 
-export function NavHeader({ logo, links, className }: NavHeaderProps) {
+export function NavHeader({ logo, links, actions, className }: NavHeaderProps) {
   const t = useTranslations("Header");
   const isAuthenticated = useAuthStore((s) => s.authenticated);
 
@@ -50,9 +50,9 @@ export function NavHeader({ logo, links, className }: NavHeaderProps) {
   );
 
   const resolvedActions = {
-    showSignIn: !isAuthenticated,
-    showSignUp: !isAuthenticated,
-    showAccount: isAuthenticated,
+    showSignIn: actions?.showSignIn ?? !isAuthenticated,
+    showSignUp: actions?.showSignUp ?? !isAuthenticated,
+    showAccount: actions?.showAccount ?? isAuthenticated,
   };
   return (
     <header
