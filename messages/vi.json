@@ -149,6 +149,10 @@
       "friendAccepted": {
         "title": "Đã kết bạn",
         "content": "{accepterName} đã chấp nhận lời mời kết bạn của bạn."
+      },
+      "messageMention": {
+        "title": "{senderName} đã nhắc đến bạn trong {conversationName}",
+        "content": "{preview}"
       }
     }
   },
@@ -363,6 +367,10 @@
       "title": "Đặt lại mật khẩu thành công!",
       "button": "Quay lại đăng nhập"
     },
+    "ConfirmDialog": {
+      "confirm": "Xác nhận",
+      "cancel": "Hủy"
+    },
     "NotFound": {
       "title": "404 - Không tìm thấy trang",
       "description": "Trang bạn đang tìm kiếm không tồn tại hoặc đã được di chuyển.",
@@ -395,6 +403,7 @@
         "title": {
           "chat": "Trò chuyện",
           "contacts": "Danh bạ",
+          "savedMessages": "Cloud của tôi (Lưu trữ cá nhân)",
           "createNew": "Thêm bạn mới",
           "createGroup": "Tạo nhóm trò chuyện"
         },
@@ -450,6 +459,25 @@
       "conversation": {
         "pinnedMessage": "Tin nhắn đã ghim:",
         "unpin": "Bỏ ghim",
+        "pollVotesCount": "lượt bầu",
+        "pinnedFilterAll": "Tất cả",
+        "pinnedFilterPolls": "Bình chọn",
+        "poll": {
+          "createTitle": "Tạo cuộc bình chọn mới",
+          "createDesc": "Lập biểu quyết lấy ý kiến các thành viên trong nhóm trò chuyện.",
+          "questionLabel": "Câu hỏi bình chọn",
+          "questionPlaceholder": "Nhập nội dung câu hỏi...",
+          "optionsLabel": "Các phương án lựa chọn",
+          "optionPlaceholder": "Phương án {index}...",
+          "addOption": "Thêm phương án",
+          "allowMultipleLabel": "Cho phép chọn nhiều phương án",
+          "anonymousLabel": "Bình chọn ẩn danh",
+          "pinPollLabel": "Ghim cuộc bình chọn lên đầu hội thoại",
+          "emptyQuestionWarning": "Vui lòng nhập câu hỏi bình chọn",
+          "minOptionsWarning": "Vui lòng nhập ít nhất 2 phương án trả lời",
+          "cancel": "Hủy",
+          "submitCreate": "Tạo bình chọn"
+        },
         "me": "Tôi",
         "unknownUser": "Người dùng",
         "sendFailed": "Gửi thất bại",
@@ -458,8 +486,30 @@
         "newMessagesCount": "{count} tin mới",
         "latest": "Mới nhất",
         "seenBy": "Đã xem: {name}",
+        "lightbox": {
+          "title": "Xem hình ảnh",
+          "description": "Xem chi tiết và tải xuống hình ảnh trong cuộc trò chuyện",
+          "zoomIn": "Phóng to",
+          "zoomOut": "Thu nhỏ",
+          "rotate": "Xoay 90°",
+          "reset": "Kích thước gốc",
+          "download": "Tải xuống",
+          "close": "Đóng",
+          "downloadSuccess": "Đã tải hình ảnh xuống thiết bị",
+          "downloadError": "Không thể tải hình ảnh xuống"
+        },
+        "forwardModal": {
+          "title": "Chuyển tiếp tin nhắn",
+          "description": "Chọn một hoặc nhiều cuộc trò chuyện để chuyển tiếp tin nhắn này.",
+          "searchPlaceholder": "Tìm cuộc trò chuyện...",
+          "empty": "Không tìm thấy cuộc trò chuyện nào.",
+          "cancel": "Hủy",
+          "submit": "Chuyển tiếp ({count})"
+        },
         "bubble": {
           "pinnedLabel": "Tin nhắn đã ghim",
+          "forwardedFrom": "Được chuyển tiếp từ {name}",
+          "copiedToast": "Đã sao chép nội dung tin nhắn",
           "originalMessage": "Tin nhắn gốc",
           "recalledMessage": "Tin nhắn đã được thu hồi",
           "recalledBracket": "[Tin nhắn đã được thu hồi]",
@@ -478,7 +528,17 @@
             "pin": "Ghim tin nhắn",
             "unpin": "Bỏ ghim tin nhắn",
             "edit": "Chỉnh sửa",
-            "recall": "Thu hồi"
+            "recall": "Thu hồi",
+            "copy": "Sao chép",
+            "forward": "Chuyển tiếp",
+            "viewImage": "Xem ảnh lớn",
+            "download": "Tải xuống"
+          },
+          "poll": {
+            "closed": "Đã kết thúc",
+            "multipleChoice": "Chọn nhiều phương án",
+            "singleChoice": "Chọn 1 phương án",
+            "closeBtn": "Khóa bình chọn"
           }
         },
         "input": {
@@ -494,7 +554,16 @@
           "recording": "Đang ghi âm...",
           "cancel": "Hủy",
           "send": "Gửi",
-          "emoji": "Biểu tượng cảm xúc"
+          "emoji": "Biểu tượng cảm xúc",
+          "previewCount": "Đã chọn {count}/10 tệp",
+          "addMoreFiles": "Thêm tệp",
+          "clearAllFiles": "Xóa tất cả",
+          "clickToPreview": "Bấm để xem ảnh lớn",
+          "blockedByMeBanner": "Bạn đã chặn người dùng này. Hãy bỏ chặn để tiếp tục nhắn tin hoặc gọi điện.",
+          "blockedByPartnerBanner": "Bạn hiện không thể gửi tin nhắn hoặc thực hiện cuộc gọi tới người dùng này.",
+          "unblockBtn": "Bỏ chặn ngay",
+          "createPoll": "Tạo bình chọn nhóm",
+          "mentionAllDesc": "Thông báo cho toàn bộ thành viên trong nhóm"
         },
         "viewAllPinned": "Tất cả ({count})",
         "pinnedListTitle": "Danh sách tin nhắn đã ghim",
@@ -537,6 +606,10 @@
         "incomingAudio": "Đang gọi thoại cho bạn...",
         "incomingGroupVideo": "Đang gọi video nhóm cho bạn...",
         "incomingGroupAudio": "Đang gọi thoại nhóm cho bạn...",
+        "ongoingVideoBannerTitle": "Cuộc gọi video nhóm đang diễn ra",
+        "ongoingAudioBannerTitle": "Cuộc gọi thoại nhóm đang diễn ra",
+        "ongoingBannerDesc": "Bấm Tham gia ngay để kết nối trực tiếp vào phòng trò chuyện.",
+        "joinNowBtn": "Tham gia ngay",
         "membersCount": "{count} thành viên",
         "minimizeTitle": "Thu nhỏ cửa sổ cuộc gọi",
         "cameraOff": "Camera tắt",
@@ -548,7 +621,13 @@
         "turnOffCamera": "Tắt Camera",
         "stopScreenShare": "Dừng chia sẻ màn hình",
         "startScreenShare": "Chia sẻ màn hình",
-        "endCall": "Kết thúc cuộc gọi",
+        "raiseHand": "Giơ tay phát biểu",
+        "lowerHand": "Hạ tay xuống",
+        "pinTile": "Ghim lên màn hình chính",
+        "unpinTile": "Bỏ ghim màn hình",
+        "hostMuteMember": "Tắt micro thành viên này",
+        "endCall": "Rời cuộc gọi",
+        "endCallForAll": "Kết thúc cuộc gọi cho tất cả",
         "noCameraFallback": "Không tìm thấy Camera, đã chuyển sang chế độ âm thanh",
         "mediaError": "Không thể truy cập Microphone/Camera trên thiết bị",
         "acceptError": "Không thể nhận cuộc gọi",
@@ -651,11 +730,25 @@
       },
       "infoDrawer": {
         "title": "Thông tin & Tùy chỉnh hội thoại",
-        "description": "Quản lý biệt danh, quyền riêng tư và kho lưu trữ phương tiện.",
-        "nicknamesTitle": "Biệt danh thành viên",
+        "description": "Quản lý biệt danh, phân quyền thành viên, quyền riêng tư và kho lưu trữ phương tiện.",
+        "nicknamesTitle": "Thành viên & Biệt danh",
         "originalName": "Tên gốc",
         "noNickname": "Chưa đặt biệt danh",
         "editBtn": "Đặt tên",
+        "downloadFile": "Tải xuống tệp này",
+        "roles": {
+          "owner": "Trưởng nhóm",
+          "admin": "Quản trị viên",
+          "member": "Thành viên",
+          "promoteAdmin": "Bổ nhiệm Quản trị viên",
+          "demoteAdmin": "Bãi nhiệm Quản trị viên",
+          "transferOwnership": "Chuyển quyền Trưởng nhóm",
+          "removeMember": "Mời ra khỏi nhóm",
+          "removeMemberConfirmTitle": "Mời thành viên ra khỏi nhóm",
+          "removeMemberConfirmDesc": "Bạn chắc chắn muốn xóa {name} khỏi nhóm trò chuyện này?",
+          "transferConfirmTitle": "Chuyển quyền Trưởng nhóm",
+          "transferConfirmDesc": "Bạn chắc chắn muốn nhượng quyền Trưởng nhóm cho {name}? Bạn sẽ chuyển sang vai trò Quản trị viên."
+        },
         "privacyAndNotifTitle": "Thông báo & Quyền riêng tư",
         "muteNotifications": "Tắt thông báo",
         "muteNotificationsDesc": "Không nhận thông báo đẩy từ cuộc trò chuyện này",
@@ -692,6 +785,64 @@
         "deleteConversationConfirmDesc": "Bạn chắc chắn muốn xóa toàn bộ lịch sử trò chuyện này ở phía bạn?",
         "leaveGroupConfirmTitle": "Xác nhận rời nhóm",
         "leaveGroupConfirmDesc": "Bạn chắc chắn muốn rời khỏi nhóm trò chuyện này?"
+      },
+      "socketToast": {
+        "connectionError": "Lỗi kết nối Socket",
+        "recipientBusy": "Người nhận đang bận ở cuộc gọi khác",
+        "callRejected": "Cuộc gọi đã bị từ chối",
+        "callNoAnswer": "Người nhận không phản hồi cuộc gọi",
+        "hostMutedYourMic": "Người chủ trì đã tắt micro của bạn"
+      },
+      "storeToast": {
+        "alreadyInAnotherCall": "Bạn đang trong một cuộc gọi khác",
+        "recipientBusyInAnotherCall": "Người nhận hiện đang bận ở một cuộc gọi khác",
+        "initiateCallError": "Không thể khởi tạo cuộc gọi",
+        "recalledPlaceholder": "[Tin nhắn đã được thu hồi]",
+        "removedFromGroupInfo": "Bạn đã rời khỏi hoặc bị xóa khỏi nhóm trò chuyện",
+        "fetchInboxError": "Lỗi tải danh sách chat",
+        "fetchMessagesError": "Lỗi tải tin nhắn",
+        "createDirectChatError": "Lỗi tạo chat",
+        "newGroupInitialMessage": "Nhóm mới được tạo",
+        "createGroupSuccess": "Đã tạo nhóm \"{name}\"",
+        "createGroupError": "Không thể tạo nhóm trò chuyện",
+        "addGroupMembersSuccess": "Đã thêm thành viên vào nhóm",
+        "addGroupMembersError": "Không thể thêm thành viên vào nhóm",
+        "leaveGroupSuccess": "Đã rời khỏi nhóm trò chuyện",
+        "removeGroupMemberSuccess": "Đã xóa thành viên khỏi nhóm",
+        "groupMemberActionError": "Không thể thực hiện thao tác với thành viên nhóm",
+        "defaultSenderName": "Người dùng",
+        "uploadAttachmentError": "Tải tệp đính kèm thất bại",
+        "editMessageError": "Không thể chỉnh sửa tin nhắn",
+        "recallMessageError": "Không thể thu hồi tin nhắn",
+        "reactMessageError": "Không thể thả biểu tượng cảm xúc",
+        "pinMessageSuccess": "Đã ghim tin nhắn",
+        "unpinMessageSuccess": "Đã bỏ ghim tin nhắn",
+        "pinMessageError": "Thao tác ghim tin nhắn thất bại",
+        "muteConversationSuccess": "Đã tắt thông báo cuộc trò chuyện",
+        "unmuteConversationSuccess": "Đã bật thông báo cuộc trò chuyện",
+        "muteConversationError": "Không thể cập nhật cài đặt thông báo",
+        "updateNicknameSuccess": "Đã cập nhật biệt danh",
+        "updateNicknameError": "Không thể cập nhật biệt danh",
+        "updateSettingsSuccess": "Đã cập nhật cài đặt cuộc trò chuyện",
+        "updateSettingsError": "Không thể cập nhật cài đặt",
+        "enableDisappearingSuccess": "Đã bật chế độ tin nhắn tự hủy",
+        "disableDisappearingSuccess": "Đã tắt chế độ tin nhắn tự hủy",
+        "updateDisappearingError": "Không thể thay đổi cài đặt tin nhắn tự hủy",
+        "deleteConversationSuccess": "Đã xóa đoạn chat",
+        "deleteConversationError": "Không thể xóa đoạn chat",
+        "blockUserSuccess": "Đã chặn người dùng này",
+        "unblockUserSuccess": "Đã bỏ chặn người dùng này",
+        "blockActionError": "Không thể thực hiện thao tác chặn",
+        "updateRoleSuccess": "Đã cập nhật phân quyền thành viên",
+        "updateRoleError": "Không thể cập nhật phân quyền thành viên",
+        "forwardMessageSuccess": "Đã chuyển tiếp tin nhắn",
+        "forwardMessageError": "Không thể chuyển tiếp tin nhắn",
+        "openSavedMessagesError": "Không thể mở Cloud của tôi",
+        "createPollSuccess": "Đã tạo cuộc bình chọn",
+        "createPollError": "Không thể tạo cuộc bình chọn",
+        "votePollError": "Không thể gửi bình chọn",
+        "closePollSuccess": "Đã khóa cuộc bình chọn",
+        "closePollError": "Không thể khóa cuộc bình chọn"
       }
     }
   },

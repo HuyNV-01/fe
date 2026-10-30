@@ -2,6 +2,7 @@ import type {
   CallStatusEnum,
   CallTypeEnum,
   ConversationTypeEnum,
+  GroupRoleEnum,
   KeyContactsEnum,
   MessageTypeEnum,
 } from "@/common/enum";
@@ -19,12 +20,52 @@ export interface IConversation {
   type: ConversationTypeEnum;
   isOnline?: boolean;
   partnerId?: string;
+  isSavedMessages?: boolean;
   isAdmin?: boolean;
   isMuted?: boolean;
   soundEnabled?: boolean;
   readReceiptsEnabled?: boolean;
   isRestricted?: boolean;
   disappearingTtl?: number | null;
+}
+
+export interface IPollOption {
+  id: string;
+  text: string;
+  voterIds: string[];
+}
+
+export interface IPollMetadata {
+  question: string;
+  options: IPollOption[];
+  allowMultipleAnswers: boolean;
+  isAnonymous?: boolean;
+  isClosed: boolean;
+  closedAt?: string;
+  closedBy?: string;
+}
+
+export interface ILinkPreviewMetadata {
+  url: string;
+  hostname: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+}
+
+export interface IPollUpdatedPayload {
+  conversationId: string;
+  messageId: string;
+  poll: IPollMetadata;
+  votedBy?: string;
+  closedBy?: string;
+}
+
+export interface ILinkPreviewReadyPayload {
+  conversationId: string;
+  messageId: string;
+  linkPreview: ILinkPreviewMetadata;
 }
 
 export interface ICreateGroupPayload {
@@ -95,9 +136,18 @@ export interface IMessageMetadata {
   pinnedAt?: string;
   replyToMessageId?: string;
   replyPreview?: IMessageReplyPreview;
+  forwardedFrom?: {
+    messageId: string;
+    senderId: string;
+    senderName: string;
+  };
   reactions?: Record<string, string[]>;
   attachments?: IMessageAttachment[];
   callInfo?: IMessageCallInfo;
+  poll?: IPollMetadata;
+  linkPreview?: ILinkPreviewMetadata;
+  mentionedUserIds?: string[];
+  mentionAll?: boolean;
   expiresAt?: string;
   disappearingTtl?: number;
 }
@@ -110,6 +160,8 @@ export interface ISendMessagePayload {
   fileIds?: string[];
   isE2EE?: boolean;
   e2eeKeyId?: string;
+  mentionedUserIds?: string[];
+  mentionAll?: boolean;
   metadata?: Partial<IMessageMetadata>;
 }
 
@@ -251,6 +303,7 @@ export interface IConversationMemberDetail {
   avatar: string | null;
   nickname: string | null;
   isAdmin: boolean;
+  role?: GroupRoleEnum;
   joinedAt: string;
 }
 
@@ -303,4 +356,42 @@ export interface ISharedAssetsResponse {
   media: ISharedMediaItem[];
   files: ISharedMediaItem[];
   links: ISharedLinkItem[];
+}
+
+export interface IGroupUpdatedPayload {
+  action: "members_added" | "member_removed" | "role_updated";
+  conversationId: string;
+  addedMemberIds?: string[];
+  removedUserId?: string;
+  newOwnerUserId?: string | null;
+  targetUserId?: string;
+  role?: GroupRoleEnum;
+  isAdmin?: boolean;
+}
+
+export interface AttachmentE2EEWrappedKey {
+  ivB64: string;
+  wrappedKeyB64: string;
+}
+
+export interface AttachmentE2EEMeta {
+  algorithm: 'AES-256-GCM';
+  fileIvB64: string;
+  originalMimeType: string;
+  senderUserId: string;
+  senderPublicKeyB64: string;
+  senderKeyId: string;
+  wrappedKeys: Record<string, AttachmentE2EEWrappedKey>;
+}
+
+export interface MessageAttachmentMeta {
+  fileId: string;
+  url: string;
+  thumbnailUrl?: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  width?: number;
+  height?: number;
+  e2ee?: AttachmentE2EEMeta;
 }

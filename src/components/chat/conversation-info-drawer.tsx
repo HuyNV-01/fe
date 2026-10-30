@@ -124,10 +124,6 @@ export function ConversationInfoDrawer({
     name: string;
   } | null>(null);
 
-  const isGroup = details?.type === ConversationTypeEnum.GROUP;
-  const mySettings = details?.mySettings;
-  const blockState = details?.blockState;
-
   const myMemberRecord = (details?.members || []).find(
     (m) => m.userId === currentUserId,
   );
@@ -172,32 +168,52 @@ export function ConversationInfoDrawer({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          className="w-full sm:max-w-md p-0 flex flex-col"
+          className="w-full sm:max-w-md h-dvh max-h-dvh overflow-hidden p-0 flex flex-col gap-0"
         >
-          <SheetHeader className="px-5 py-4 border-b">
-            <SheetTitle className="text-base font-bold">
+          <SheetHeader className="px-5 py-4 border-b shrink-0">
+            <SheetTitle className="text-base font-bold truncate">
               {t("title")}
             </SheetTitle>
-            <SheetDescription className="text-xs">
+            <SheetDescription className="text-xs break-words">
               {t("description")}
             </SheetDescription>
           </SheetHeader>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0 w-full">
             <div className="p-5 space-y-6">
+              {/* Danh sách Thành viên, Biệt danh & Phân quyền Nhóm */}
               <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Pencil className="w-3.5 h-3.5 text-primary" />
-                  <span>{t("nicknamesTitle")}</span>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between gap-1.5">
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Pencil className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="truncate">{t("nicknamesTitle")}</span>
+                  </span>
+                  {isGroup && (
+                    <Badge variant="secondary" className="text-[10px] shrink-0">
+                      {(details?.members || []).length}
+                    </Badge>
+                  )}
                 </h4>
 
                 <div className="space-y-2">
                   {(details?.members || []).map((member) => {
                     const isEditing = editingMemberId === member.userId;
+                    const memberRole =
+                      member.role ||
+                      (member.isAdmin
+                        ? GroupRoleEnum.ADMIN
+                        : GroupRoleEnum.MEMBER);
+                    const canManageMember =
+                      isGroup &&
+                      member.userId !== currentUserId &&
+                      (isMeOwner ||
+                        (isMeAdminOrOwner &&
+                          memberRole === GroupRoleEnum.MEMBER));
+
                     return (
                       <div
                         key={member.userId}
-                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-muted/40 border border-border/50"
+                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-muted/40 border border-border/50 min-w-0"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <Avatar className="h-8 w-8 border shrink-0">
@@ -212,14 +228,30 @@ export function ConversationInfoDrawer({
                               value={nicknameDraft}
                               onChange={(e) => setNicknameDraft(e.target.value)}
                               placeholder={member.name}
-                              className="h-8 text-xs"
+                              className="h-8 text-xs min-w-0 flex-1"
                               autoFocus
                             />
                           ) : (
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold truncate">
-                                {member.nickname || member.name}
-                              </p>
+                            <div className="min-w-0 flex-1 overflow-hidden">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <p className="text-xs font-semibold truncate">
+                                  {member.nickname || member.name}
+                                </p>
+                                {isGroup &&
+                                  memberRole === GroupRoleEnum.OWNER && (
+                                    <Badge className="h-4 px-1.5 text-[9px] bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 shrink-0 gap-0.5">
+                                      <Crown className="w-2.5 h-2.5" />
+                                      {t("roles.owner")}
+                                    </Badge>
+                                  )}
+                                {isGroup &&
+                                  memberRole === GroupRoleEnum.ADMIN && (
+                                    <Badge className="h-4 px-1.5 text-[9px] bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 shrink-0 gap-0.5">
+                                      <ShieldCheck className="w-2.5 h-2.5" />
+                                      {t("roles.admin")}
+                                    </Badge>
+                                  )}
+                              </div>
                               <p className="text-[10px] text-muted-foreground truncate">
                                 {member.nickname
                                   ? `${t("originalName")}: ${member.name}`
@@ -249,18 +281,105 @@ export function ConversationInfoDrawer({
                             </Button>
                           </div>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs text-primary shrink-0"
-                            onClick={() => {
-                              setEditingMemberId(member.userId);
-                              setNicknameDraft(member.nickname || "");
-                            }}
-                          >
-                            <Pencil className="w-3.5 h-3.5 mr-1" />
-                            {t("editBtn")}
-                          </Button>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs text-primary shrink-0"
+                              onClick={() => {
+                                setEditingMemberId(member.userId);
+                                setNicknameDraft(member.nickname || "");
+                              }}
+                            >
+                              <Pencil className="w-3.5 h-3.5 mr-1" />
+                              {t("editBtn")}
+                            </Button>
+
+                            {canManageMember && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 rounded-full"
+                                  >
+                                    <MoreVertical className="w-3.5 h-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContentCus
+                                  align="end"
+                                  className="w-52"
+                                >
+                                  {isMeOwner &&
+                                    memberRole === GroupRoleEnum.MEMBER && (
+                                      <ItemMenu
+                                        onClick={() =>
+                                          updateGroupMemberRole({
+                                            conversationId,
+                                            memberId: member.userId,
+                                            role: GroupRoleEnum.ADMIN,
+                                          })
+                                        }
+                                        icon={
+                                          <ShieldCheck className="w-4 h-4 mr-2 text-indigo-500" />
+                                        }
+                                      >
+                                        {t("roles.promoteAdmin")}
+                                      </ItemMenu>
+                                    )}
+
+                                  {isMeOwner &&
+                                    memberRole === GroupRoleEnum.ADMIN && (
+                                      <ItemMenu
+                                        onClick={() =>
+                                          updateGroupMemberRole({
+                                            conversationId,
+                                            memberId: member.userId,
+                                            role: GroupRoleEnum.MEMBER,
+                                          })
+                                        }
+                                        icon={
+                                          <UserCheck className="w-4 h-4 mr-2" />
+                                        }
+                                      >
+                                        {t("roles.demoteAdmin")}
+                                      </ItemMenu>
+                                    )}
+
+                                  {isMeOwner && (
+                                    <ItemMenu
+                                      onClick={() =>
+                                        setMemberToTransferOwner({
+                                          userId: member.userId,
+                                          name: member.nickname || member.name,
+                                        })
+                                      }
+                                      icon={
+                                        <Crown className="w-4 h-4 mr-2 text-amber-500" />
+                                      }
+                                    >
+                                      {t("roles.transferOwnership")}
+                                    </ItemMenu>
+                                  )}
+
+                                  <ItemMenu
+                                    onClick={() =>
+                                      setMemberToRemove({
+                                        userId: member.userId,
+                                        name: member.nickname || member.name,
+                                      })
+                                    }
+                                    className="text-red-600 focus:text-red-600"
+                                    icon={
+                                      <UserMinus className="w-4 h-4 mr-2 text-red-600" />
+                                    }
+                                  >
+                                    {t("roles.removeMember")}
+                                  </ItemMenu>
+                                </DropdownMenuContentCus>
+                              </DropdownMenu>
+                            )}
+                          </div>
                         )}
                       </div>
                     );
@@ -448,24 +567,47 @@ export function ConversationInfoDrawer({
                       </p>
                     ) : (
                       <div className="grid grid-cols-3 gap-2">
-                        {assets.media.map((item) => (
-                          <a
-                            key={`${item.messageId}-${item.fileId}`}
-                            href={sanitizeMediaUrl(item.url)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="group relative aspect-square rounded-xl overflow-hidden border bg-muted"
-                          >
-                            <img
-                              src={sanitizeMediaUrl(
-                                item.thumbnailUrl || item.url,
-                              )}
-                              alt={item.fileName}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              loading="lazy"
-                            />
-                          </a>
-                        ))}
+                        {assets.media.map((item) => {
+                          const galleryIdx = vaultImageItems.findIndex(
+                            (img) => img.url === item.url,
+                          );
+                          return (
+                            <div
+                              key={`${item.messageId}-${item.fileId}`}
+                              className="group relative aspect-square rounded-xl overflow-hidden border bg-muted"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (galleryIdx !== -1) {
+                                    setVaultLightboxIndex(galleryIdx);
+                                  }
+                                }}
+                                className="w-full h-full block cursor-zoom-in"
+                              >
+                                <img
+                                  src={sanitizeMediaUrl(
+                                    item.thumbnailUrl || item.url,
+                                  )}
+                                  alt={item.fileName}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  loading="lazy"
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  downloadMediaFile(item.url, item.fileName);
+                                }}
+                                className="absolute bottom-1.5 right-1.5 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                title={t("downloadFile")}
+                              >
+                                <Download className="w-3 h-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -479,29 +621,29 @@ export function ConversationInfoDrawer({
                       </p>
                     ) : (
                       assets.files.map((file) => (
-                        <a
+                        <button
                           key={`${file.messageId}-${file.fileId}`}
-                          href={sanitizeMediaUrl(file.url)}
-                          target="_blank"
-                          rel="noreferrer"
-                          download={file.fileName}
-                          className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl border bg-muted/30 hover:bg-muted/60 transition-colors"
+                          type="button"
+                          onClick={() =>
+                            downloadMediaFile(file.url, file.fileName)
+                          }
+                          className="w-full text-left flex items-center justify-between gap-2.5 p-2.5 rounded-xl border bg-muted/30 hover:bg-muted/60 transition-colors cursor-pointer min-w-0"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
                               <FileText className="w-4 h-4" />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1 overflow-hidden">
                               <p className="text-xs font-semibold truncate">
                                 {file.fileName}
                               </p>
-                              <p className="text-[10px] text-muted-foreground">
+                              <p className="text-[10px] text-muted-foreground truncate">
                                 {formatFileSize(file.size)} • {file.senderName}
                               </p>
                             </div>
                           </div>
                           <Download className="w-4 h-4 text-muted-foreground shrink-0" />
-                        </a>
+                        </button>
                       ))
                     )}
                   </div>
@@ -647,6 +789,52 @@ export function ConversationInfoDrawer({
         onConfirm={async () => {
           onOpenChange(false);
           onLeaveGroup?.();
+        }}
+      />
+    <ImageLightboxModal
+        open={vaultLightboxIndex !== null}
+        onOpenChange={(open) => !open && setVaultLightboxIndex(null)}
+        images={vaultImageItems}
+        initialIndex={vaultLightboxIndex ?? 0}
+      />
+
+      <ConfirmDeleteModal
+        open={Boolean(memberToRemove)}
+        onOpenChange={(open) => !open && setMemberToRemove(null)}
+        title={t("roles.removeMemberConfirmTitle")}
+        description={t("roles.removeMemberConfirmDesc", {
+          name: memberToRemove?.name || "",
+        })}
+        confirmText={t("roles.removeMember")}
+        onConfirm={async () => {
+          if (memberToRemove) {
+            await removeGroupMember({
+              conversationId,
+              memberId: memberToRemove.userId,
+            });
+            await fetchConversationDetails(conversationId);
+            setMemberToRemove(null);
+          }
+        }}
+      />
+
+      <ConfirmDeleteModal
+        open={Boolean(memberToTransferOwner)}
+        onOpenChange={(open) => !open && setMemberToTransferOwner(null)}
+        title={t("roles.transferConfirmTitle")}
+        description={t("roles.transferConfirmDesc", {
+          name: memberToTransferOwner?.name || "",
+        })}
+        confirmText={t("roles.transferOwnership")}
+        onConfirm={async () => {
+          if (memberToTransferOwner) {
+            await updateGroupMemberRole({
+              conversationId,
+              memberId: memberToTransferOwner.userId,
+              role: GroupRoleEnum.OWNER,
+            });
+            setMemberToTransferOwner(null);
+          }
         }}
       />
     </>

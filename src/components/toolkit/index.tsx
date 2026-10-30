@@ -59,6 +59,7 @@ import ContentSelect from "@/components/select/select-content";
 import TriggerSelect from "@/components/select/select-trigger";
 import ItemSelect from "@/components/select/select-item";
 import { getInitials } from "@/utils/helper";
+import { useTranslations } from "next-intl";
 
 // ============================================================================
 // 1. RE-EXPORT EXISTING STANDARDIZED COMPONENTS INTO THE TOOLKIT
@@ -188,12 +189,16 @@ export const GlassConfirmDialog = ({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Xác nhận",
-  cancelLabel = "Hủy",
+  confirmLabel,
+  cancelLabel,
   variant = "danger",
   isLoading = false,
   onConfirm,
 }: GlassConfirmDialogProps) => {
+  const tConfirm = useTranslations("Common.ConfirmDialog");
+  const resolvedConfirmLabel = confirmLabel ?? tConfirm("confirm");
+  const resolvedCancelLabel = cancelLabel ?? tConfirm("cancel");
+
   return (
     <GlassModal
       open={open}
@@ -211,7 +216,7 @@ export const GlassConfirmDialog = ({
             disabled={isLoading}
             onClick={() => onOpenChange(false)}
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </PatternButton>
           <PatternButton
             type="button"
@@ -222,12 +227,12 @@ export const GlassConfirmDialog = ({
             isLoading={isLoading}
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </PatternButton>
         </>
       }
     >
-      <div className="sr-only">{title}</div>
+      {null}
     </GlassModal>
   );
 };

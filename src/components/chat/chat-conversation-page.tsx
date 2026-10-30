@@ -44,6 +44,7 @@ import { PinnedMessagesBar } from "@/components/chat/pinned-messages-bar";
 import { ConversationInfoDrawer } from "@/components/chat/conversation-info-drawer";
 import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 import type { IMessage } from "@/types/chat";
+import { ForwardMessageModal } from "./forward-message-modal";
 
 interface ChatConversationPageProps {
   params: { id: string };
@@ -95,6 +96,7 @@ export default function ChatConversationPage({
   const [inChatSearchQuery, setInChatSearchQuery] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [recallTarget, setRecallTarget] = useState<IMessage | null>(null);
+  const [forwardTarget, setForwardTarget] = useState<IMessage | null>(null);
   const [deleteFailedTargetId, setDeleteFailedTargetId] = useState<
     string | null
   >(null);
@@ -110,6 +112,10 @@ export default function ChatConversationPage({
   >(null);
   const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrolledNotificationMsgRef = useRef<string | null>(null);
+
+  const currentDetails = conversationId
+    ? conversationDetails[conversationId]
+    : undefined;
 
   const currentConversation = useMemo(
     () => conversations.find((c) => c.id === conversationId),
@@ -513,6 +519,7 @@ export default function ChatConversationPage({
                           onReply={(m) => setReplyingTo(conversationId, m)}
                           onEdit={(m) => setEditingMessage(conversationId, m)}
                           onRecall={(m) => setRecallTarget(m)}
+                          onForward={(m) => setForwardTarget(m)}
                           onReact={(m, emoji) =>
                             reactMessage({
                               conversationId,
@@ -603,8 +610,24 @@ export default function ChatConversationPage({
           onSendAttachments={handleSendAttachments}
           onConfirmEdit={handleConfirmEdit}
           onScrollToMessage={scrollToMessage}
+          blockState={currentDetails?.blockState}
+          onUnblockPartner={() => {
+            if (currentDetails?.blockState?.partnerId) {
+              toggleBlockUser(
+                conversationId,
+                currentDetails.blockState.partnerId,
+                false,
+              );
+            }
+          }}
         />
       </div>
+
+      <ForwardMessageModal
+        open={Boolean(forwardTarget)}
+        onOpenChange={(open) => !open && setForwardTarget(null)}
+        message={forwardTarget}
+      />
 
       {isGroupChat && (
         <CreateGroupModal

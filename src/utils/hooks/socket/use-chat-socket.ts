@@ -19,8 +19,10 @@ import type {
   IMessageReactionPayload,
   IMessagePinnedPayload,
 } from "@/types/chat";
+import { useTranslations } from "next-intl";
 
 export const useChatSocket = () => {
+  const tSocket = useTranslations("Chat.Detail.socketToast");
   const {
     handleIncomingMessage,
     handleMessageEdited,
@@ -28,12 +30,16 @@ export const useChatSocket = () => {
     handleMessageReaction,
     handleMessagePinned,
     handleGroupUpdated,
+    handleNicknameUpdated,
+    handleConversationSettingsUpdated,
     setTypingUser,
     setUserStatus,
     updateMessageStatus,
     handleReadMessage,
     setActiveCall,
     updateActiveCall,
+    handlePollUpdated,
+    handleLinkPreviewReady,
   } = useChatStore();
   const currentUser = useAuthStore((s) => s.currentAccount);
   const isAuthenticated = !!currentUser?.accessToken;
@@ -100,6 +106,29 @@ export const useChatSocket = () => {
       },
     );
 
+    const cleanNicknameUpdated = socketService.on<{
+      conversationId: string;
+      targetUserId: string;
+      nickname: string | null;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CHAT.NICKNAME_UPDATED,
+      (payload) => {
+        handleNicknameUpdated(payload);
+      },
+    );
+
+    const cleanSettingsUpdated = socketService.on<{
+      conversationId: string;
+      disappearingTtl?: number | null;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CHAT.CONVERSATION_SETTINGS_UPDATED,
+      (payload) => {
+        handleConversationSettingsUpdated(payload);
+      },
+    );
+
     const cleanStatusUpdate = socketService.on<IMessageStatusUpdatePayload>(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.CHAT.MESSAGE_STATUS_UPDATE,
@@ -123,15 +152,6 @@ export const useChatSocket = () => {
         setTypingUser(payload);
       }
     });
-
-    const cleanException = socketService.on<ISocketErrorPayload>(
-      SocketNamespaceEnum.CHAT,
-      SOCKET_EVENTS.SYSTEM.EXCEPTION,
-      (error) => {
-        const message = error?.message || "Lỗi kết nối Socket";
-        toast.error(Array.isArray(message) ? message[0] : message);
-      },
-    );
 
     const cleanUserStatus = socketService.on<IUserStatusPayload>(
       SocketNamespaceEnum.CHAT,
@@ -202,8 +222,8 @@ export const useChatSocket = () => {
         if (payload.isCallTerminated) {
           toast.info(
             payload.reason === "busy"
-              ? "Người nhận đang bận ở cuộc gọi khác"
-              : "Cuộc gọi đã bị từ chối",
+              ? tSocket("recipientBusy")
+              : tSocket("callRejected"),
           );
           setActiveCall(null);
         }
@@ -215,7 +235,7 @@ export const useChatSocket = () => {
       SOCKET_EVENTS.CALL.ENDED,
       (payload) => {
         if (payload?.reason === "timeout") {
-          toast.info("Người nhận không phản hồi cuộc gọi");
+          toast.info(tSocket("callNoAnswer"));
         }
         setActiveCall(null);
       },
@@ -237,6 +257,58 @@ export const useChatSocket = () => {
       },
     );
 
+    const cleanPollUpdated = socketService.on(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CHAT.POLL_UPDATED,
+      (payload: any) => {
+        handlePollUpdated(payload);
+      },
+    );
+
+    const cleanLinkPreview = socketService.on(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CHAT.LINK_PREVIEW_READY,
+      (payload: any) => {
+        handleLinkPreviewReady(payload);
+      },
+    );
+
+    const cleanCallHandledElsewhere = socketService.on<{
+      callId: string;
+      action: "accepted" | "rejected";
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CALL.HANDLED_ELSEWHERE,
+      (payload) => {
+        const current = useChatStore.getState().activeCall;
+        if (
+          current &&
+          current.callId === payload.callId &&
+          current.status === CallStatusEnum.RINGING
+        ) {
+          setActiveCall(null);
+        }
+      },
+    );
+
+    
+
+    const cleanHostMuted = socketService.on<{
+      callId: string;
+      mutedBy: string;
+    }>(SocketNamespaceEnum.CHAT, SOCKET_EVENTS.CALL.HOST_MUTED, () => {
+      toast.info(tSocket("hostMutedYourMic"));
+    });
+
+    const cleanException = socketService.on<ISocketErrorPayload>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.SYSTEM.EXCEPTION,
+      (error) => {
+        const message = error?.message || tSocket("connectionError");
+        toast.error(Array.isArray(message) ? message[0] : message);
+      },
+    );
+
     return () => {
       cleanNewMessage();
       cleanEdited();
@@ -244,6 +316,8 @@ export const useChatSocket = () => {
       cleanReaction();
       cleanPinned();
       cleanGroupUpdated();
+      cleanNicknameUpdated();
+      cleanSettingsUpdated();
       cleanStatusUpdate();
       cleanRead();
       cleanTyping();
@@ -255,10 +329,15 @@ export const useChatSocket = () => {
       cleanCallRejected();
       cleanCallEnded();
       cleanCallMediaState();
+      cleanPollUpdated();
+      cleanLinkPreview();
+      cleanCallHandledElsewhere();
+      cleanHostMuted();
     };
   }, [
     isAuthenticated,
     currentUser?.user?.id,
+    tSocket,
     handleIncomingMessage,
     handleMessageEdited,
     handleMessageRecalled,

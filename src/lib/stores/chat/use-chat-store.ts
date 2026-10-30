@@ -16,6 +16,8 @@ import type {
   ITypingPayload,
   IUserStatusPayload,
   MessageStatus,
+  IPollUpdatedPayload,
+  ILinkPreviewReadyPayload,
 } from "@/types/chat";
 import type { CreateDirectChatPayload, IPaginationMeta } from "@/types/common";
 import type { ActionCallbacks } from "@/types/store";
@@ -42,6 +44,12 @@ import {
   updateConversationSettingsApi,
   updateDisappearingMessagesApi,
   deleteConversationApi,
+  updateGroupMemberRoleApi,
+  forwardMessageApi,
+  getOrCreateSavedMessagesApi,
+  createPollApi,
+  votePollApi,
+  closePollApi,
 } from "./api";
 import { blockUserApi, unblockUserApi } from "../contact/api";
 import type { IConversationDetails, ISharedAssetsResponse } from "@/types/chat";
@@ -51,6 +59,7 @@ import {
   CallStatusEnum,
   CallTypeEnum,
   ConversationTypeEnum,
+  GroupRoleEnum,
   MessageTypeEnum,
   SocketNamespaceEnum,
 } from "@/common/enum";
@@ -62,6 +71,12 @@ import { toast } from "sonner";
 
 import { useNotificationStore } from "../notification/use-notification-store";
 import { parseSafeDate } from "@/utils/date-helper";
+import { tStore } from "@/i18n/translate-store";
+
+const tChatToast = (
+  subKey: string,
+  params?: Record<string, string | number>,
+) => tStore(`Chat.Detail.storeToast.${subKey}`, params);
 
 const typingTimers = new Map<string, NodeJS.Timeout>();
 
@@ -251,6 +266,35 @@ interface ChatState {
   ) => Promise<void>;
   removeFailedMessage: (tempId: string, conversationId: string) => void;
   resetTempConversations: () => void;
+  updateGroupMemberRole: (payload: {
+    conversationId: string;
+    memberId: string;
+    role: GroupRoleEnum;
+  }) => Promise<boolean>;
+  forwardMessage: (payload: {
+    messageId: string;
+    sourceConversationId: string;
+    targetConversationIds: string[];
+  }) => Promise<boolean>;
+  openSavedMessages: () => Promise<string | null>;
+  createPoll: (payload: {
+    conversationId: string;
+    question: string;
+    options: string[];
+    allowMultipleAnswers?: boolean;
+    isAnonymous?: boolean;
+  }) => Promise<boolean>;
+  votePoll: (payload: {
+    conversationId: string;
+    messageId: string;
+    optionIds: string[];
+  }) => Promise<void>;
+  closePoll: (payload: {
+    conversationId: string;
+    messageId: string;
+  }) => Promise<void>;
+  handlePollUpdated: (payload: IPollUpdatedPayload) => void;
+  handleLinkPreviewReady: (payload: ILinkPreviewReadyPayload) => void;
 }
 
 export const useChatStore = createPersistedStore<ChatState>(
@@ -409,7 +453,7 @@ export const useChatStore = createPersistedStore<ChatState>(
     initiateCall: async (conversationId, callType) => {
       const { activeCall } = get();
       if (activeCall) {
-        toast.warning("Bạn đang trong một cuộc gọi khác");
+        toast.warning(tChatToast("alreadyInAnotherCall"));
         return;
       }
 
@@ -428,7 +472,7 @@ export const useChatStore = createPersistedStore<ChatState>(
           res?.ringingUserIds?.length === 0 &&
           res?.busyUserIds?.length > 0
         ) {
-          toast.info("Người nhận hiện đang bận ở một cuộc gọi khác");
+          toast.info(tChatToast("recipientBusyInAnotherCall"));
           return;
         }
 
@@ -451,7 +495,7 @@ export const useChatStore = createPersistedStore<ChatState>(
           },
         });
       } catch (err: any) {
-        toast.error(err?.message || "Không thể khởi tạo cuộc gọi");
+        toast.error(err?.message || tChatToast("initiateCallError"));
       }
     },
 
@@ -607,12 +651,13 @@ export const useChatStore = createPersistedStore<ChatState>(
     },
 
     handleMessageRecalled: ({ conversationId, messageId }) => {
+      const recalledText = tChatToast("recalledPlaceholder");
       set((state) => {
         const msgs = state.messages[conversationId];
         if (msgs) {
           const idx = msgs.findIndex((m) => m.id === messageId);
           if (idx !== -1) {
-            msgs[idx].content = "[Tin nhắn đã được thu hồi]";
+            msgs[idx].content = recalledText;
             msgs[idx].status = "removed";
             msgs[idx].isPinned = false;
             msgs[idx].metadata = {
@@ -625,7 +670,7 @@ export const useChatStore = createPersistedStore<ChatState>(
 
         const conv = state.conversations.find((c) => c.id === conversationId);
         if (conv && msgs && msgs[msgs.length - 1]?.id === messageId) {
-          conv.lastMessage = "[Tin nhắn đã được thu hồi]";
+          conv.lastMessage = recalledText;
         }
       });
     },
@@ -681,9 +726,46 @@ export const useChatStore = createPersistedStore<ChatState>(
             state.activeConversationId = null;
           }
         });
-        toast.info("Bạn đã rời khỏi hoặc bị xóa khỏi nhóm trò chuyện");
+        toast.info(tChatToast("removedFromGroupInfo"));
       } else {
         get().fetchInbox({ page: 1 });
+        get().fetchConversationDetails(payload.conversationId);
+      }
+    },
+
+    updateGroupMemberRole: async ({ conversationId, memberId, role }) => {
+      try {
+        await updateGroupMemberRoleApi({ conversationId, memberId, role });
+        await get().fetchConversationDetails(conversationId);
+        toast.success("Đã cập nhật phân quyền thành viên");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message ||
+            "Không thể cập nhật phân quyền thành viên",
+        );
+        return false;
+      }
+    },
+
+    forwardMessage: async ({
+      messageId,
+      sourceConversationId,
+      targetConversationIds,
+    }) => {
+      try {
+        await forwardMessageApi({
+          messageId,
+          sourceConversationId,
+          targetConversationIds,
+        });
+        toast.success("Đã chuyển tiếp tin nhắn");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể chuyển tiếp tin nhắn",
+        );
+        return false;
       }
     },
 
@@ -1674,6 +1756,111 @@ export const useChatStore = createPersistedStore<ChatState>(
         toast.error("Không thể thực hiện thao tác chặn");
         return false;
       }
+    },
+
+    openSavedMessages: async () => {
+      try {
+        const res: any = await getOrCreateSavedMessagesApi();
+        const conv = res?.data ?? res;
+        if (!conv?.id) return null;
+
+        set((state) => {
+          state.activeConversationId = conv.id;
+          const exists = state.conversations.some((c) => c.id === conv.id);
+          if (!exists) {
+            state.conversations.unshift({
+              ...conv,
+              isSavedMessages: true,
+            });
+          }
+        });
+
+        if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
+          socketService
+            .emit(SocketNamespaceEnum.CHAT, SOCKET_EVENTS.CHAT.JOIN_ROOM, {
+              conversationId: conv.id,
+            })
+            .catch(() => {});
+        }
+        return conv.id;
+      } catch {
+        toast.error("Không thể mở Cloud của tôi");
+        return null;
+      }
+    },
+
+    createPoll: async (payload) => {
+      try {
+        await createPollApi(payload);
+        toast.success("Đã tạo cuộc bình chọn");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể tạo cuộc bình chọn",
+        );
+        return false;
+      }
+    },
+
+    votePoll: async ({ conversationId, messageId, optionIds }) => {
+      try {
+        if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
+          await socketService.emit(
+            SocketNamespaceEnum.CHAT,
+            SOCKET_EVENTS.CHAT.VOTE_POLL,
+            { conversationId, messageId, optionIds },
+          );
+        } else {
+          await votePollApi({ conversationId, messageId, optionIds });
+        }
+      } catch {
+        toast.error("Không thể gửi bình chọn");
+      }
+    },
+
+    closePoll: async ({ conversationId, messageId }) => {
+      try {
+        if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
+          await socketService.emit(
+            SocketNamespaceEnum.CHAT,
+            SOCKET_EVENTS.CHAT.CLOSE_POLL,
+            { conversationId, messageId },
+          );
+        } else {
+          await closePollApi({ conversationId, messageId });
+        }
+        toast.success("Đã khóa cuộc bình chọn");
+      } catch {
+        toast.error("Không thể khóa cuộc bình chọn");
+      }
+    },
+
+    handlePollUpdated: ({ conversationId, messageId, poll }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        const msg = msgs.find((m) => m.id === messageId);
+        if (msg) {
+          msg.metadata = {
+            ...(msg.metadata || {}),
+            poll,
+          };
+        }
+      });
+    },
+
+    handleLinkPreviewReady: ({ conversationId, messageId, linkPreview }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        const msg = msgs.find((m) => m.id === messageId);
+        if (msg) {
+          msg.metadata = {
+            ...(msg.metadata || {}),
+            linkPreview,
+          };
+        }
+      });
     },
 
     resetTempConversations: () => {

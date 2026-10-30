@@ -33,6 +33,9 @@ import {
   Eye,
   Plus,
   Ban,
+  BarChart3,
+  Link2,
+  AtSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
@@ -42,6 +45,11 @@ import { socketService } from "@/services/socket/socket-client";
 import { formatFileSize } from "@/utils/crypto-e2ee";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { getLinkPreviewApi } from "@/lib/stores/chat/api";
+import { ILinkPreviewMetadata } from "@/types/chat";
+import { CreatePollModal } from "./create-poll-modal";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { getInitials } from "@/utils/helper";
 
 const COMMON_EMOJIS = [
   "😀",
@@ -120,9 +128,18 @@ export const ChatInput = ({
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTypingTimeRef = useRef<number>(0);
+  const [isPollModalOpen, setIsPollModalOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+  const [mentionAll, setMentionAll] = useState(false);
+  const [draftLinkPreview, setDraftLinkPreview] =
+    useState<ILinkPreviewMetadata | null>(null);
+  const lastPreviewedUrlRef = useRef<string | null>(null);
 
   const {
     activeConversationId,
+    conversations,
+    conversationDetails,
     replyingTo,
     editingMessage,
     setReplyingTo,
@@ -138,6 +155,88 @@ export const ChatInput = ({
   const activeEdit = activeConversationId
     ? editingMessage[activeConversationId]
     : null;
+
+  const currentConv = conversations.find((c) => c.id === activeConversationId);
+  const isGroupChat = currentConv?.type === "GROUP";
+  const groupMembers = activeConversationId
+    ? conversationDetails[activeConversationId]?.members || []
+    : [];
+
+  // Lọc danh sách thành viên khi gõ @
+  const mentionCandidates =
+    isGroupChat && mentionQuery !== null
+      ? groupMembers.filter((m) =>
+          (m.nickname || m.name || "")
+            .toLowerCase()
+            .includes(mentionQuery.toLowerCase()),
+        )
+      : [];
+
+  // Tự động phát hiện thay đổi @mention trong ô nhập
+  const detectMentionTrigger = (text: string, cursorPosition: number) => {
+    if (!isGroupChat) {
+      setMentionQuery(null);
+      return;
+    }
+    const textBeforeCursor = text.slice(0, cursorPosition);
+    const match = /(?:^|\s)@([^\s@]*)$/.exec(textBeforeCursor);
+    if (match) {
+      setMentionQuery(match[1]);
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const handleSelectMention = (target: {
+    userId: string;
+    displayName: string;
+    isAll?: boolean;
+  }) => {
+    const textarea = textareaRef.current;
+    const cursor = textarea?.selectionStart ?? message.length;
+    const before = message.slice(0, cursor);
+    const after = message.slice(cursor);
+    const replacedBefore = before.replace(
+      /(?:^|\s)@([^\s@]*)$/,
+      (full) => `${full.startsWith(" ") ? " " : ""}@${target.displayName} `,
+    );
+
+    setMessage(`${replacedBefore}${after}`);
+    setMentionQuery(null);
+
+    if (target.isAll) {
+      setMentionAll(true);
+    } else if (!mentionedUserIds.includes(target.userId)) {
+      setMentionedUserIds((prev) => [...prev, target.userId]);
+    }
+
+    setTimeout(() => textarea?.focus(), 10);
+  };
+
+  // Tự động lấy bản xem trước liên kết khi người dùng nhập/dán URL
+  useEffect(() => {
+    const match = message.match(/https?:\/\/[^\s<>"'`]+/i);
+    const url = match ? match[0] : null;
+    if (!url) {
+      setDraftLinkPreview(null);
+      lastPreviewedUrlRef.current = null;
+      return;
+    }
+    if (url === lastPreviewedUrlRef.current) return;
+
+    const timer = setTimeout(async () => {
+      lastPreviewedUrlRef.current = url;
+      try {
+        const res: any = await getLinkPreviewApi(url);
+        const data = res?.data ?? res;
+        if (data?.url) setDraftLinkPreview(data);
+      } catch {
+        // Ignore preview error
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [message]);
 
   useEffect(() => {
     if (activeEdit) {
@@ -505,6 +604,114 @@ export const ChatInput = ({
 
   return (
     <div className="bg-background relative">
+      {isGroupChat && mentionQuery !== null && (
+        <LiquidGlass
+          variant="primary"
+          blur="xl"
+          opacity="95"
+          rounded="2xl"
+          isolate={false}
+          className="absolute bottom-full left-0 mb-2 w-72 max-w-[calc(100vw-2rem)] p-1.5 border shadow-xl z-40"
+        >
+          <div className="max-h-48 overflow-y-auto space-y-0.5">
+            <button
+              type="button"
+              onClick={() =>
+                handleSelectMention({
+                  userId: "ALL",
+                  displayName: "All",
+                  isAll: true,
+                })
+              }
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-primary/10 text-left text-xs font-semibold text-primary cursor-pointer"
+            >
+              <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                <AtSign className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate">@All</p>
+                <p className="text-[10px] text-muted-foreground font-normal truncate">
+                  {t("mentionAllDesc")}
+                </p>
+              </div>
+            </button>
+
+            {mentionCandidates.map((member) => {
+              const label = member.nickname || member.name;
+              return (
+                <button
+                  key={member.userId}
+                  type="button"
+                  onClick={() =>
+                    handleSelectMention({
+                      userId: member.userId,
+                      displayName: label,
+                    })
+                  }
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-muted text-left text-xs cursor-pointer"
+                >
+                  <Avatar className="h-7 w-7 border shrink-0">
+                    <AvatarImage src={member.avatar || undefined} />
+                    <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                      {getInitials(label)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="font-medium truncate">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </LiquidGlass>
+      )}
+
+      {/* Khung xem trước Liên kết (Link Preview) ngay khi đang gõ */}
+      {draftLinkPreview && (
+        <div className="flex items-center justify-between gap-2.5 px-3 py-2 mb-2 rounded-xl bg-muted/60 border border-border/60 text-xs">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <Link2 className="w-4 h-4 text-primary shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold truncate">
+                {draftLinkPreview.title || draftLinkPreview.hostname}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {draftLinkPreview.description || draftLinkPreview.url}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-full shrink-0"
+            onClick={() => setDraftLinkPreview(null)}
+          >
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* Trong cụm nút bên trái của ChatInput: bổ sung nút Tạo Bình chọn nếu là Nhóm */}
+      {isGroupChat && activeConversationId && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsPollModalOpen(true)}
+          className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary rounded-full"
+          title={t("createPoll")}
+        >
+          <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
+        </Button>
+      )}
+
+      {isGroupChat && activeConversationId && (
+        <CreatePollModal
+          open={isPollModalOpen}
+          onOpenChange={setIsPollModalOpen}
+          conversationId={activeConversationId}
+        />
+      )}
+      
       {/* Thanh hiển thị Trả lời / Chỉnh sửa tin nhắn */}
       {(activeReply || activeEdit) && activeConversationId && (
         <div className="flex items-center justify-between gap-2.5 sm:gap-3 px-3 sm:px-3.5 py-2 mb-2 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">

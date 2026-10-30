@@ -4,7 +4,7 @@ import type React from "react";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useShallow } from "zustand/react/shallow";
-import { UserPlus, UsersRound } from "lucide-react";
+import { Cloud, UserPlus, UsersRound } from "lucide-react";
 
 import { ChatSearch } from "./chat-search";
 import { CreateGroupModal } from "./create-group-modal";
@@ -33,12 +33,20 @@ export default function ChatSidebar({
   const router = useRouter();
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
 
-  const { conversations, isSocketConnected } = useChatStore(
+  const { conversations, isSocketConnected, openSavedMessages } = useChatStore(
     useShallow((state) => ({
       conversations: state.conversations,
       isSocketConnected: state.isSocketConnected,
+      openSavedMessages: state.openSavedMessages,
     })),
   );
+
+  const handleOpenSavedCloud = async () => {
+    const id = await openSavedMessages();
+    if (id) {
+      router.push(config.routes.private.detailChat(id));
+    }
+  };
 
   const currentConfig = VIEW_CONFIG[viewMode];
 
@@ -65,6 +73,18 @@ export default function ChatSidebar({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
+            <BaseTooltip content={t("savedMessages")}>
+              <PatternButton
+                variant="ghost"
+                size="icon"
+                rounded="full"
+                className="size-8 text-sky-500 hover:text-sky-600 hover:bg-sky-500/10"
+                onClick={handleOpenSavedCloud}
+              >
+                <Cloud className="size-4" />
+              </PatternButton>
+            </BaseTooltip>
+
             <BaseTooltip content={t("createNew")}>
               <PatternButton
                 variant="ghost"

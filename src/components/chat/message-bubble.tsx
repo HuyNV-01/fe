@@ -24,6 +24,9 @@ import {
   Forward,
   Copy,
   ZoomIn,
+  ExternalLink,
+  BarChart3,
+  Lock,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 import type { IMessage } from "@/types/chat";
@@ -40,6 +43,8 @@ import {
 import { MessageReadList } from "./message-read-list";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { Progress } from "../ui/progress";
+import { Badge } from "../ui/badge";
 
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "😡"];
 
@@ -63,6 +68,30 @@ interface MessageBubbleProps {
   onForward?: (message: IMessage) => void;
   onCallbackCall?: (callType: CallTypeEnum) => void;
   onScrollToMessage?: (messageId: string) => void;
+  onVotePoll?: (messageId: string, optionIds: string[]) => void;
+  onClosePoll?: (messageId: string) => void;
+}
+
+function renderTextWithMentions(text: string, isMe: boolean) {
+  const parts = text.split(/(@All|@[A-Za-zÀ-ỹ0-9_.-]+)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith("@") && part.length > 1) {
+      return (
+        <span
+          key={idx}
+          className={cn(
+            "font-semibold px-1 py-0.2 rounded-md",
+            isMe
+              ? "bg-white/25 text-white underline decoration-white/60"
+              : "bg-primary/15 text-primary",
+          )}
+        >
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
 }
 
 export const MessageBubble = memo(
@@ -86,6 +115,8 @@ export const MessageBubble = memo(
     onForward,
     onCallbackCall,
     onScrollToMessage,
+    onVotePoll,
+    onClosePoll,
   }: MessageBubbleProps) => {
     const t = useTranslations("Chat.Detail.conversation.bubble");
     const { toMessageTime, toFullDateTime } = useDateFormat();
@@ -98,6 +129,9 @@ export const MessageBubble = memo(
     const forwardedFrom = message.metadata?.forwardedFrom;
     const reactions = message.metadata?.reactions || {};
     const callInfo = message.metadata?.callInfo;
+
+    const pollInfo = message.metadata?.poll;
+    const linkPreview = message.metadata?.linkPreview;
 
     const imageGallery: LightboxImageItem[] = useMemo(() => {
       if (message.type !== MessageTypeEnum.IMAGE) return [];
@@ -434,14 +468,160 @@ export const MessageBubble = memo(
                   </div>
                 )}
 
-                {/* 6. Nội dung văn bản */}
+                {message.type === MessageTypeEnum.POLL && pollInfo && (
+                  <div className="my-1 min-w-[230px] sm:min-w-[280px] space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm">
+                        <BarChart3 className="w-4 h-4 shrink-0" />
+                        <span className="break-words [overflow-wrap:anywhere]">
+                          {pollInfo.question}
+                        </span>
+                      </div>
+                      {pollInfo.isClosed && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[9px] shrink-0 gap-0.5"
+                        >
+                          <Lock className="w-2.5 h-2.5" />
+                          {t("poll.closed")}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <p className="text-[10px] opacity-80">
+                      {pollInfo.allowMultipleAnswers
+                        ? t("poll.multipleChoice")
+                        : t("poll.singleChoice")}
+                    </p>
+
+                    <div className="space-y-1.5">
+                      {(() => {
+                        const totalVotes = pollInfo.options.reduce(
+                          (acc, o) => acc + (o.voterIds?.length || 0),
+                          0,
+                        );
+                        const myVotedIds = pollInfo.options
+                          .filter(
+                            (o) =>
+                              currentUserId &&
+                              o.voterIds?.includes(currentUserId),
+                          )
+                          .map((o) => o.id);
+
+                        return pollInfo.options.map((opt) => {
+                          const count = opt.voterIds?.length || 0;
+                          const percent =
+                            totalVotes > 0
+                              ? Math.round((count * 100) / totalVotes)
+                              : 0;
+                          const isSelected = myVotedIds.includes(opt.id);
+
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              disabled={pollInfo.isClosed}
+                              onClick={() => {
+                                if (pollInfo.isClosed || !onVotePoll) return;
+                                let nextIds: string[];
+                                if (pollInfo.allowMultipleAnswers) {
+                                  nextIds = isSelected
+                                    ? myVotedIds.filter((id) => id !== opt.id)
+                                    : [...myVotedIds, opt.id];
+                                } else {
+                                  nextIds = isSelected ? [] : [opt.id];
+                                }
+                                onVotePoll(message.id, nextIds);
+                              }}
+                              className={cn(
+                                "w-full text-left p-2 rounded-xl border transition-all space-y-1.5 cursor-pointer disabled:cursor-default",
+                                isMe
+                                  ? isSelected
+                                    ? "bg-white/25 border-white"
+                                    : "bg-black/15 border-white/20 hover:bg-black/25"
+                                  : isSelected
+                                    ? "bg-primary/10 border-primary"
+                                    : "bg-muted/50 border-border/60 hover:bg-muted",
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-medium break-words [overflow-wrap:anywhere]">
+                                  {opt.text}
+                                </span>
+                                <span className="text-[10px] font-semibold shrink-0 tabular-nums">
+                                  {count} ({percent}%)
+                                </span>
+                              </div>
+                              <Progress value={percent} className="h-1.5" />
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+
+                    {isMe && !pollInfo.isClosed && onClosePoll && (
+                      <button
+                        type="button"
+                        onClick={() => onClosePoll(message.id)}
+                        className="text-[11px] underline opacity-85 hover:opacity-100 cursor-pointer"
+                      >
+                        {t("poll.closeBtn")}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* 6. Nội dung văn bản có Highlight @Mention */}
                 {(message.type === MessageTypeEnum.TEXT ||
                   (message.content &&
                     message.type !== MessageTypeEnum.CALL &&
+                    message.type !== MessageTypeEnum.POLL &&
                     message.type !== MessageTypeEnum.IMAGE)) && (
                   <p className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere] max-w-full">
-                    {message.content}
+                    {renderTextWithMentions(message.content, isMe)}
                   </p>
+                )}
+
+                {/* 7. Thẻ Xem trước Liên kết (Rich OpenGraph Link Preview) */}
+                {linkPreview && (
+                  <a
+                    href={sanitizeMediaUrl(linkPreview.url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      "mt-2 block rounded-xl overflow-hidden border transition-opacity hover:opacity-95 max-w-xs sm:max-w-sm",
+                      isMe
+                        ? "bg-black/20 border-white/20 text-primary-foreground"
+                        : "bg-muted/60 border-border text-foreground",
+                    )}
+                  >
+                    {linkPreview.image && (
+                      <img
+                        src={sanitizeMediaUrl(linkPreview.image)}
+                        alt={linkPreview.title || linkPreview.hostname}
+                        className="w-full h-36 object-cover border-b border-border/20"
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="p-2.5 space-y-1">
+                      <div className="flex items-center justify-between gap-1 text-[10px] uppercase tracking-wider opacity-75">
+                        <span className="truncate">
+                          {linkPreview.siteName || linkPreview.hostname}
+                        </span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </div>
+                      {linkPreview.title && (
+                        <p className="text-xs font-bold line-clamp-2 break-words">
+                          {linkPreview.title}
+                        </p>
+                      )}
+                      {linkPreview.description && (
+                        <p className="text-[11px] opacity-85 line-clamp-2 break-words">
+                          {linkPreview.description}
+                        </p>
+                      )}
+                    </div>
+                  </a>
                 )}
 
                 {/* Thanh tiến trình tải lên (Upload Progress) */}

@@ -2,6 +2,26 @@
 import apiClient from "@/lib/http/axios-client";
 import type { IPaginationOptions } from "@/types";
 import type { CreateDirectChatPayload } from "@/types/common";
+import type { GroupRoleEnum } from "@/common/enum";
+
+export const updateGroupMemberRoleApi = async (payload: {
+  conversationId: string;
+  memberId: string;
+  role: GroupRoleEnum;
+}) => {
+  return apiClient.patch(
+    `/chat/groups/${payload.conversationId}/members/${payload.memberId}/role`,
+    { role: payload.role },
+  );
+};
+
+export const forwardMessageApi = async (payload: {
+  messageId: string;
+  sourceConversationId: string;
+  targetConversationIds: string[];
+}) => {
+  return apiClient.post("/chat/messages/forward", payload);
+};
 
 export const getInbox = async (payload: { params: IPaginationOptions }) => {
   const { params } = payload;
@@ -211,4 +231,37 @@ export const updateDisappearingMessagesApi = async (payload: {
 
 export const deleteConversationApi = async (conversationId: string) => {
   return apiClient.delete(`/chat/conversations/${conversationId}`);
+};
+
+export const getOrCreateSavedMessagesApi = async () => {
+  return apiClient.post("/chat/saved-messages");
+};
+
+export const createPollApi = async (payload: {
+  conversationId: string;
+  question: string;
+  options: string[];
+  allowMultipleAnswers?: boolean;
+  isAnonymous?: boolean;
+}) => {
+  return apiClient.post("/chat/polls", payload);
+};
+
+export const votePollApi = async (payload: {
+  conversationId: string;
+  messageId: string;
+  optionIds: string[];
+}) => {
+  return apiClient.post("/chat/polls/vote", payload);
+};
+
+export const closePollApi = async (payload: {
+  conversationId: string;
+  messageId: string;
+}) => {
+  return apiClient.patch("/chat/polls/close", payload);
+};
+
+export const getLinkPreviewApi = async (url: string) => {
+  return apiClient.get("/chat/link-preview", { params: { url } });
 };

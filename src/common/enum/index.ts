@@ -16,6 +16,7 @@ export enum MessageTypeEnum {
   AUDIO = "AUDIO",
   VIDEO = "VIDEO",
   CALL = "CALL",
+  POLL = "POLL",
   SYSTEM = "SYSTEM",
 }
 

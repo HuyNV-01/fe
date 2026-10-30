@@ -9,9 +9,11 @@ import { SOCKET_EVENTS } from "@/constant/socket-events";
 import type { IContactSocketPayload } from "@/types/socket";
 import { showInfoToast } from "@/utils/toast";
 import { useTranslations } from "next-intl";
+import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 
 export const useContactSocket = () => {
   const { handleSocketUpdate } = useContactStore();
+  const { activeConversationId, fetchConversationDetails } = useChatStore();
   const currentUser = useAuthStore((s) => s.currentAccount);
   const isAuthenticated = !!currentUser?.accessToken;
   const t = useTranslations("Chat.Detail.contact.item.toast");
@@ -55,10 +57,55 @@ export const useContactSocket = () => {
       },
     );
 
+    const cleanUserBlocked = socketService.on<{
+      blockerId: string;
+      targetId: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CONTACT.USER_BLOCKED,
+      (payload) => {
+        const myId = currentUser?.user?.id;
+        if (payload.blockerId === myId) {
+          handleSocketUpdate(payload.targetId, ContactStatusEnum.BLOCKED);
+        } else if (payload.targetId === myId) {
+          handleSocketUpdate(payload.blockerId, null);
+        }
+        if (activeConversationId) {
+          fetchConversationDetails(activeConversationId);
+        }
+      },
+    );
+
+    const cleanUserUnblocked = socketService.on<{
+      unblockerId: string;
+      targetId: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CONTACT.USER_UNBLOCKED,
+      (payload) => {
+        const myId = currentUser?.user?.id;
+        if (payload.unblockerId === myId) {
+          handleSocketUpdate(payload.targetId, null);
+        }
+        if (activeConversationId) {
+          fetchConversationDetails(activeConversationId);
+        }
+      },
+    );
+
     return () => {
       cleanRequestReceived();
       cleanRequestAccepted();
       cleanFriendRemoved();
+      cleanUserBlocked();
+      cleanUserUnblocked();
     };
-  }, [isAuthenticated, handleSocketUpdate, t]);
+  }, [
+    isAuthenticated,
+    currentUser?.user?.id,
+    activeConversationId,
+    handleSocketUpdate,
+    fetchConversationDetails,
+    t,
+  ]);
 };

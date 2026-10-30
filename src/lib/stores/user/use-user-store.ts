@@ -12,6 +12,7 @@ import type { IUserState } from "@/types/state";
 import type { IPaginationOptions } from "@/types";
 import type { ContactStatusEnum } from "@/common/enum";
 import { useAuthStore } from "../auth/use-auth-store";
+import { tStore } from "@/i18n/translate-store";
 
 interface UserActions {
   fetchUsers: (
@@ -119,7 +120,7 @@ export const useUserStore = createPersistedStore<IUserState & UserActions>(
         cb?.onError?.(
           error.response?.data?.message ||
             error.response?.data?.code ||
-            "Không thể tải lên ảnh đại diện",
+            tStore("Profile.actions.toast.avatarUploadError"),
         );
       }
     },
@@ -138,7 +139,8 @@ export const useUserStore = createPersistedStore<IUserState & UserActions>(
         }
       } catch (error: any) {
         cb?.onError?.(
-          error.response?.data?.message || "Không thể xóa ảnh đại diện",
+          error.response?.data?.message ||
+            tStore("Profile.actions.toast.avatarDeleteError"),
         );
       }
     },

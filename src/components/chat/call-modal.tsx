@@ -22,6 +22,10 @@ import {
   Maximize2,
   ShieldCheck,
   Users,
+  Hand,
+  Pin,
+  PinOff,
+  UserPlus,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -44,6 +48,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
+
+
 interface RemotePeerTileProps {
   userId: string;
   name: string;
@@ -52,22 +58,34 @@ interface RemotePeerTileProps {
   isAudioMuted?: boolean;
   isVideoOff?: boolean;
   isScreenSharing?: boolean;
+  isHandRaised?: boolean;
   isSingleRemote?: boolean;
+  isPinned?: boolean;
+  isHost?: boolean;
   connectingLabel: string;
+  onTogglePin?: (userId: string) => void;
+  onHostMute?: (userId: string) => void;
 }
 
 const RemotePeerTile = React.memo(
   ({
+    userId,
     name,
     avatar,
     stream,
     isAudioMuted,
     isVideoOff,
     isScreenSharing,
+    isHandRaised,
     isSingleRemote,
+    isPinned,
+    isHost,
     connectingLabel,
+    onTogglePin,
+    onHostMute,
   }: RemotePeerTileProps) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
+    const [isSpeaking, setIsSpeaking] = useState(false);
 
     useEffect(() => {
       if (videoRef.current && stream) {
@@ -75,15 +93,55 @@ const RemotePeerTile = React.memo(
       }
     }, [stream]);
 
+    useEffect(() => {
+      if (!stream || isAudioMuted || stream.getAudioTracks().length === 0) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      let audioCtx: AudioContext | null = null;
+      let intervalId: NodeJS.Timeout | null = null;
+
+      try {
+        const AudioContextClass =
+          window.AudioContext || (window as any).webkitAudioContext;
+        audioCtx = new AudioContextClass();
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        intervalId = setInterval(() => {
+          analyser.getByteFrequencyData(dataArray);
+          const avg =
+            dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
+          setIsSpeaking(avg > 18);
+        }, 220);
+      } catch {
+        setIsSpeaking(false);
+      }
+
+      return () => {
+        if (intervalId) clearInterval(intervalId);
+        if (audioCtx && audioCtx.state !== "closed") {
+          audioCtx.close().catch(() => undefined);
+        }
+      };
+    }, [stream, isAudioMuted]);
+
     const hasActiveVideo = Boolean(stream && !isVideoOff);
 
     return (
       <div
         className={cn(
-          "relative overflow-hidden flex items-center justify-center bg-slate-900/80 border border-white/15 transition-all",
+          "group/tile relative overflow-hidden flex items-center justify-center bg-slate-900/80 border transition-all duration-200",
           isSingleRemote
             ? "w-full h-full rounded-none border-0"
             : "rounded-2xl h-full w-full min-h-[140px] sm:min-h-[160px] shadow-lg",
+          isSpeaking
+            ? "border-emerald-400 ring-2 ring-emerald-400/60"
+            : "border-white/15",
         )}
       >
         <video
@@ -91,10 +149,44 @@ const RemotePeerTile = React.memo(
           autoPlay
           playsInline
           className={cn(
-            "w-full h-full object-cover transition-opacity duration-300",
+            "w-full h-full transition-opacity duration-300",
+            isScreenSharing ? "object-contain bg-black" : "object-cover",
             hasActiveVideo ? "opacity-100" : "opacity-0 pointer-events-none",
           )}
         />
+
+        {/* Huy hiệu Giơ tay phát biểu (Google Meet Style) */}
+        {isHandRaised && (
+          <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-bold shadow-lg animate-bounce">
+            <Hand className="w-3.5 h-3.5 fill-current" />
+          </div>
+        )}
+
+        {/* Thanh công cụ Ghim màn hình & Host Mute khi Hover */}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 opacity-0 group-hover/tile:opacity-100 transition-opacity">
+          {onTogglePin && (
+            <button
+              type="button"
+              onClick={() => onTogglePin(userId)}
+              className="p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 cursor-pointer"
+            >
+              {isPinned ? (
+                <PinOff className="w-3.5 h-3.5 text-primary" />
+              ) : (
+                <Pin className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
+          {isHost && !isAudioMuted && onHostMute && (
+            <button
+              type="button"
+              onClick={() => onHostMute(userId)}
+              className="p-1.5 rounded-full bg-red-600/80 text-white hover:bg-red-600 cursor-pointer"
+            >
+              <MicOff className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
 
         {!hasActiveVideo && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-800/60 to-slate-950/90 p-4">
@@ -162,6 +254,8 @@ export function CallModal() {
   );
   const iceServersCacheRef = useRef<RTCIceServer[] | null>(null);
   const initiatedOffersRef = useRef<Set<string>>(new Set());
+  const makingOfferRef = useRef<Map<string, boolean>>(new Map());
+  const ignoreOfferRef = useRef<Map<string, boolean>>(new Map());
 
   const [remoteStreams, setRemoteStreams] = useState<
     Record<string, MediaStream>
@@ -170,6 +264,58 @@ export function CallModal() {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [durationSec, setDurationSec] = useState(0);
+  const [isHandRaised, setIsHandRaised] = useState(false);
+  const [pinnedPeerId, setPinnedPeerId] = useState<string | null>(null);
+
+  const isMeHost = activeCall?.initiatorId === currentUser?.id;
+
+  const effectivePinnedPeerId = useMemo(() => {
+    if (pinnedPeerId && activeCall?.participants?.[pinnedPeerId]) {
+      return pinnedPeerId;
+    }
+    const screenSharer = Object.values(activeCall?.participants || {}).find(
+      (p) => p.isScreenSharing && p.userId !== currentUser?.id,
+    );
+    return screenSharer?.userId || null;
+  }, [pinnedPeerId, activeCall?.participants, currentUser?.id]);
+
+  // Adaptive Video Constraint: Tự động điều chỉnh độ phân giải/FPS theo quy mô phòng gọi
+  const getAdaptiveVideoConstraints = useCallback(() => {
+    const peerCount = Object.keys(activeCall?.participants || {}).length;
+    if (peerCount >= 5) {
+      return { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { max: 18 } };
+    }
+    if (peerCount >= 3) {
+      return { width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { max: 24 } };
+    }
+    return { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { max: 30 } };
+  }, [activeCall?.participants]);
+
+  const toggleRaiseHand = () => {
+    if (!activeCall) return;
+    const nextRaised = !isHandRaised;
+    setIsHandRaised(nextRaised);
+    socketService.send(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CALL.MEDIA_STATE,
+      {
+        callId: activeCall.callId,
+        isHandRaised: nextRaised,
+      },
+    );
+  };
+
+  const handleHostMuteMember = (targetUserId: string) => {
+    if (!activeCall || !isMeHost) return;
+    socketService.send(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CALL.HOST_MUTE,
+      {
+        callId: activeCall.callId,
+        targetUserId,
+      },
+    );
+  };
 
   const conversation = useMemo(
     () => conversations.find((c) => c.id === activeCall?.conversationId),
@@ -296,11 +442,14 @@ export function CallModal() {
       pc.onicecandidate = null;
       pc.ontrack = null;
       pc.onconnectionstatechange = null;
+      pc.oniceconnectionstatechange = null;
       pc.close();
       peersRef.current.delete(targetUserId);
     }
     pendingCandidatesRef.current.delete(targetUserId);
     initiatedOffersRef.current.delete(targetUserId);
+    makingOfferRef.current.delete(targetUserId);
+    ignoreOfferRef.current.delete(targetUserId);
     setRemoteStreams((prev) => {
       const next = { ...prev };
       delete next[targetUserId];
@@ -357,6 +506,35 @@ export function CallModal() {
         }
       };
 
+      // Tự động phục hồi kết nối (ICE Restart) khi mạng chập chờn
+      pc.oniceconnectionstatechange = async () => {
+        if (pc.iceConnectionState === "failed") {
+          const isPolite = (currentUser?.id || "") < targetUserId;
+          if (!isPolite) {
+            try {
+              pc.restartIce();
+              makingOfferRef.current.set(targetUserId, true);
+              const offer = await pc.createOffer({ iceRestart: true });
+              await pc.setLocalDescription(offer);
+              socketService.send(
+                SocketNamespaceEnum.CHAT,
+                SOCKET_EVENTS.CALL.SIGNAL,
+                {
+                  callId,
+                  targetUserId,
+                  type: "renegotiate",
+                  signalData: pc.localDescription,
+                },
+              );
+            } catch (err) {
+              console.warn("ICE restart failed:", err);
+            } finally {
+              makingOfferRef.current.set(targetUserId, false);
+            }
+          }
+        }
+      };
+
       pc.ontrack = (event) => {
         const stream = event.streams?.[0];
         if (stream) {
@@ -374,7 +552,7 @@ export function CallModal() {
 
       return pc;
     },
-    [ensureLocalMediaStream, fetchIceServers],
+    [currentUser?.id, ensureLocalMediaStream, fetchIceServers],
   );
 
   useEffect(() => {
@@ -386,8 +564,10 @@ export function CallModal() {
     }
   }, [activeCall?.isMinimized, isVideoOff, isScreenSharing]);
 
+  const currentCallId = activeCall?.callId;
+
   useEffect(() => {
-    if (!activeCall) {
+    if (!currentCallId) {
       cleanupAllMediaAndPeers();
       return;
     }
@@ -396,20 +576,44 @@ export function CallModal() {
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.CALL.SIGNAL,
       async (payload) => {
-        if (payload.callId !== activeCall.callId) return;
+        const latestCall = useChatStore.getState().activeCall;
+        if (!latestCall || payload.callId !== latestCall.callId) return;
         const fromUserId = payload.fromUserId as string;
         if (!fromUserId || fromUserId === currentUser?.id) return;
 
         try {
           if (payload.type === "offer" || payload.type === "renegotiate") {
             const pc = await getOrCreatePeerConnection(
-              activeCall.callId,
+              latestCall.callId,
               fromUserId,
-              activeCall.callType === CallTypeEnum.VIDEO,
+              latestCall.callType === CallTypeEnum.VIDEO,
             );
-            await pc.setRemoteDescription(
-              new RTCSessionDescription(payload.signalData),
-            );
+
+            // W3C Perfect Negotiation: Giải quyết xung đột Offer (Glare Condition)
+            const isPolite = (currentUser?.id || "") < fromUserId;
+            const isMakingOffer = Boolean(makingOfferRef.current.get(fromUserId));
+            const offerCollision =
+              isMakingOffer || pc.signalingState !== "stable";
+
+            const shouldIgnore = !isPolite && offerCollision;
+            ignoreOfferRef.current.set(fromUserId, shouldIgnore);
+            if (shouldIgnore) {
+              return;
+            }
+
+            if (offerCollision) {
+              await Promise.all([
+                pc.setLocalDescription({ type: "rollback" }),
+                pc.setRemoteDescription(
+                  new RTCSessionDescription(payload.signalData),
+                ),
+              ]);
+            } else {
+              await pc.setRemoteDescription(
+                new RTCSessionDescription(payload.signalData),
+              );
+            }
+
             await flushPendingCandidates(fromUserId, pc);
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
@@ -417,22 +621,24 @@ export function CallModal() {
               SocketNamespaceEnum.CHAT,
               SOCKET_EVENTS.CALL.SIGNAL,
               {
-                callId: activeCall.callId,
+                callId: latestCall.callId,
                 targetUserId: fromUserId,
                 type: "answer",
-                signalData: answer,
+                signalData: pc.localDescription,
               },
             );
           } else if (payload.type === "answer") {
+            if (ignoreOfferRef.current.get(fromUserId)) return;
             const pc = peersRef.current.get(fromUserId);
-            if (!pc) return;
+            if (!pc || pc.signalingState !== "have-local-offer") return;
             await pc.setRemoteDescription(
               new RTCSessionDescription(payload.signalData),
             );
             await flushPendingCandidates(fromUserId, pc);
           } else if (payload.type === "ice-candidate" && payload.signalData) {
+            if (ignoreOfferRef.current.get(fromUserId)) return;
             const pc = peersRef.current.get(fromUserId);
-            if (pc && pc.remoteDescription) {
+            if (pc && pc.remoteDescription && pc.remoteDescription.type) {
               await pc.addIceCandidate(new RTCIceCandidate(payload.signalData));
             } else {
               const list = pendingCandidatesRef.current.get(fromUserId) || [];
@@ -450,10 +656,12 @@ export function CallModal() {
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.CALL.PARTICIPANT_JOINED,
       async (payload) => {
-        if (payload.callId !== activeCall.callId) return;
+        const latestCall = useChatStore.getState().activeCall;
+        if (!latestCall || payload.callId !== latestCall.callId) return;
+
         updateActiveCall({
           participants: payload.participants || {},
-          membersInfo: payload.membersInfo || activeCall.membersInfo,
+          membersInfo: payload.membersInfo || latestCall.membersInfo,
         });
 
         const joinedUserId = payload.userId as string;
@@ -464,10 +672,11 @@ export function CallModal() {
         ) {
           initiatedOffersRef.current.add(joinedUserId);
           try {
+            makingOfferRef.current.set(joinedUserId, true);
             const pc = await getOrCreatePeerConnection(
-              activeCall.callId,
+              latestCall.callId,
               joinedUserId,
-              activeCall.callType === CallTypeEnum.VIDEO,
+              latestCall.callType === CallTypeEnum.VIDEO,
             );
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
@@ -475,14 +684,16 @@ export function CallModal() {
               SocketNamespaceEnum.CHAT,
               SOCKET_EVENTS.CALL.SIGNAL,
               {
-                callId: activeCall.callId,
+                callId: latestCall.callId,
                 targetUserId: joinedUserId,
                 type: "offer",
-                signalData: offer,
+                signalData: pc.localDescription,
               },
             );
           } catch (err) {
             console.error("Mesh offer error:", err);
+          } finally {
+            makingOfferRef.current.set(joinedUserId, false);
           }
         }
       },
@@ -492,7 +703,8 @@ export function CallModal() {
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.CALL.PARTICIPANT_LEFT,
       (payload) => {
-        if (payload.callId !== activeCall.callId) return;
+        const latestCall = useChatStore.getState().activeCall;
+        if (!latestCall || payload.callId !== latestCall.callId) return;
         if (payload.userId) {
           removePeerConnection(payload.userId);
         }
@@ -510,7 +722,7 @@ export function CallModal() {
       cleanParticipantLeft();
     };
   }, [
-    activeCall,
+    currentCallId,
     currentUser?.id,
     cleanupAllMediaAndPeers,
     flushPendingCandidates,

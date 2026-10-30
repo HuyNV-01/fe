@@ -32,6 +32,10 @@ export const SOCKET_EVENTS = {
 
     CONVERSATION_SETTINGS_UPDATED: "conversation_settings_updated",
     NICKNAME_UPDATED: "nickname_updated",
+    VOTE_POLL: "vote_poll",
+    CLOSE_POLL: "close_poll",
+    POLL_UPDATED: "poll_updated",
+    LINK_PREVIEW_READY: "link_preview_ready",
   },
   CALL: {
     INITIATE: "call:initiate",
@@ -47,6 +51,12 @@ export const SOCKET_EVENTS = {
     PARTICIPANT_LEFT: "call:participant_left",
     HANGUP: "call:hangup",
     ENDED: "call:ended",
+    HANDLED_ELSEWHERE: "call:handled_elsewhere",
+    HOST_MUTE: "call:host_mute",
+    HOST_MUTED: "call:host_muted",
+    RING_USER: "call:ring_user",
+    SESSION_STARTED: "call:session_started",
+    SESSION_ENDED: "call:session_ended",
   },
   NOTIFICATION: {
     NEW: "new_notification",
@@ -67,5 +77,7 @@ export const SOCKET_EVENTS = {
     REQUEST_RECEIVED: "contact.request_received",
     REQUEST_ACCEPTED: "contact.request_accepted",
     FRIEND_REMOVED: "contact.friend_removed",
+    USER_BLOCKED: "contact.user_blocked",
+    USER_UNBLOCKED: "contact.user_unblocked",
   },
 } as const;
