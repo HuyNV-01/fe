@@ -4,14 +4,16 @@
 
 import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   LiquidGlass,
   LiquidGlassCard,
-} from "@/components/liquid-glass/liquid-glass";
+  GlassAvatar,
+  GlassBadge,
+  GlassIconButton,
+  PatternButton,
+} from "@/components/toolkit";
 import {
   ImageLightboxModal,
   type LightboxImageItem,
@@ -28,7 +30,6 @@ import {
   Reply,
   Pencil,
   FileText,
-  Film,
   Volume2,
   Eye,
   Plus,
@@ -46,10 +47,8 @@ import { formatFileSize } from "@/utils/crypto-e2ee";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { getLinkPreviewApi } from "@/lib/stores/chat/api";
-import { ILinkPreviewMetadata } from "@/types/chat";
+import type { ILinkPreviewMetadata } from "@/types/chat";
 import { CreatePollModal } from "./create-poll-modal";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { getInitials } from "@/utils/helper";
 
 const COMMON_EMOJIS = [
   "😀",
@@ -76,7 +75,10 @@ interface SelectedFilePreview {
 }
 
 export interface IChatInputProps {
-  onSendMessage: (content: string) => Promise<void> | void;
+  onSendMessage: (
+    content: string,
+    options?: { mentionedUserIds?: string[]; mentionAll?: boolean },
+  ) => Promise<void> | void;
   onSendAttachments?: (files: File[], content?: string) => Promise<void> | void;
   onConfirmEdit?: (
     messageId: string,
@@ -385,6 +387,7 @@ export const ChatInput = ({
 
     setMessage("");
     setShowEmojiPicker(false);
+    setMentionQuery(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -402,13 +405,21 @@ export const ChatInput = ({
     if (activeEdit && onConfirmEdit) {
       onConfirmEdit(activeEdit.id, trimmedMessage);
     } else if (trimmedMessage) {
-      onSendMessage(trimmedMessage);
+      onSendMessage(trimmedMessage, {
+        mentionedUserIds:
+          mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
+        mentionAll: mentionAll || undefined,
+      });
+      setMentionedUserIds([]);
+      setMentionAll(false);
     }
   }, [
     disabled,
     message,
     selectedItems,
     activeEdit,
+    mentionedUserIds,
+    mentionAll,
     onSendAttachments,
     onConfirmEdit,
     onSendMessage,
@@ -500,6 +511,7 @@ export const ChatInput = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setMessage(value);
+    detectMentionTrigger(value, e.target.selectionStart ?? value.length);
 
     if (!activeConversationId) return;
 
@@ -588,15 +600,16 @@ export const ChatInput = ({
           </p>
         </div>
         {blockState.blockedByMe && onUnblockPartner && (
-          <Button
+          <PatternButton
             type="button"
             size="sm"
             variant="outline"
+            rounded="full"
             onClick={onUnblockPartner}
-            className="h-7 px-3 text-xs rounded-full shrink-0"
+            className="h-7 px-3 text-xs shrink-0"
           >
             {t("unblockBtn")}
-          </Button>
+          </PatternButton>
         )}
       </LiquidGlass>
     );
@@ -650,12 +663,11 @@ export const ChatInput = ({
                   }
                   className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-muted text-left text-xs cursor-pointer"
                 >
-                  <Avatar className="h-7 w-7 border shrink-0">
-                    <AvatarImage src={member.avatar || undefined} />
-                    <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
-                      {getInitials(label)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <GlassAvatar
+                    src={member.avatar}
+                    name={label}
+                    size="xs"
+                  />
                   <span className="font-medium truncate">{label}</span>
                 </button>
               );
@@ -678,30 +690,15 @@ export const ChatInput = ({
               </p>
             </div>
           </div>
-          <Button
+          <GlassIconButton
             type="button"
             variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-full shrink-0"
+            size="sm"
+            className="h-6 w-6 shrink-0"
+            icon={<X className="w-3.5 h-3.5" />}
             onClick={() => setDraftLinkPreview(null)}
-          >
-            <X className="w-3.5 h-3.5" />
-          </Button>
+          />
         </div>
-      )}
-
-      {/* Trong cụm nút bên trái của ChatInput: bổ sung nút Tạo Bình chọn nếu là Nhóm */}
-      {isGroupChat && activeConversationId && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsPollModalOpen(true)}
-          className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary rounded-full"
-          title={t("createPoll")}
-        >
-          <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
-        </Button>
       )}
 
       {isGroupChat && activeConversationId && (
@@ -711,7 +708,7 @@ export const ChatInput = ({
           conversationId={activeConversationId}
         />
       )}
-      
+
       {/* Thanh hiển thị Trả lời / Chỉnh sửa tin nhắn */}
       {(activeReply || activeEdit) && activeConversationId && (
         <div className="flex items-center justify-between gap-2.5 sm:gap-3 px-3 sm:px-3.5 py-2 mb-2 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -746,19 +743,19 @@ export const ChatInput = ({
             </div>
           </button>
 
-          <Button
+          <GlassIconButton
             type="button"
             variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full shrink-0 hover:bg-destructive/10 hover:text-destructive"
+            color="danger"
+            size="sm"
+            className="h-7 w-7 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+            icon={<X className="w-4 h-4" />}
             onClick={() => {
               setReplyingTo(activeConversationId, null);
               setEditingMessage(activeConversationId, null);
               if (activeEdit) setMessage("");
             }}
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          />
         </div>
       )}
 
@@ -772,38 +769,43 @@ export const ChatInput = ({
         >
           <div className="flex items-center justify-between gap-2 px-0.5">
             <div className="flex items-center gap-2 min-w-0">
-              <Badge
+              <GlassBadge
                 variant="secondary"
-                className="text-[11px] font-semibold rounded-full px-2.5 py-0.5"
+                size="sm"
+                className="font-semibold px-2.5 py-0.5"
               >
                 {t("previewCount", { count: selectedItems.length })}
-              </Badge>
+              </GlassBadge>
               <span className="text-[11px] text-muted-foreground truncate">
                 {formatFileSize(totalSelectedSize)}
               </span>
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
-              <Button
+              <PatternButton
                 type="button"
                 variant="ghost"
+                color="primary"
                 size="sm"
+                rounded="full"
                 onClick={() => fileInputRef.current?.click()}
-                className="h-7 px-2 text-xs text-primary hover:bg-primary/10 rounded-full"
+                className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
+                icon={<Plus className="w-3.5 h-3.5" />}
               >
-                <Plus className="w-3.5 h-3.5 mr-1" />
                 {t("addMoreFiles")}
-              </Button>
-              <Button
+              </PatternButton>
+              <PatternButton
                 type="button"
                 variant="ghost"
+                color="danger"
                 size="sm"
+                rounded="full"
                 onClick={clearAllSelectedFiles}
-                className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 rounded-full"
+                className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
+                icon={<Trash2 className="w-3.5 h-3.5" />}
               >
-                <Trash2 className="w-3.5 h-3.5 mr-1" />
                 {t("clearAllFiles")}
-              </Button>
+              </PatternButton>
             </div>
           </div>
 
@@ -862,15 +864,17 @@ export const ChatInput = ({
                         </span>
                       </div>
 
-                      <Button
+                      <PatternButton
                         type="button"
-                        variant="destructive"
+                        variant="solid"
+                        color="danger"
                         size="icon"
+                        rounded="full"
                         onClick={() => removeSelectedFile(idx)}
-                        className="absolute top-1 right-1 h-5 w-5 rounded-full shadow-md opacity-95 hover:scale-110 transition-transform"
+                        className="absolute top-1 right-1 h-5 w-5 shadow-md opacity-95 hover:scale-110 transition-transform"
                       >
                         <X className="w-3 h-3" />
-                      </Button>
+                      </PatternButton>
                     </div>
                   );
                 }
@@ -910,15 +914,16 @@ export const ChatInput = ({
                       </span>
                     </div>
 
-                    <Button
+                    <PatternButton
                       type="button"
                       variant="ghost"
                       size="icon"
+                      rounded="full"
                       onClick={() => removeSelectedFile(idx)}
-                      className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      className="absolute top-1.5 right-1.5 h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     >
                       <X className="w-3.5 h-3.5" />
-                    </Button>
+                    </PatternButton>
                   </LiquidGlass>
                 );
               })}
@@ -977,36 +982,42 @@ export const ChatInput = ({
       <div className="flex items-end gap-1.5 sm:gap-2 bg-muted/50 p-1.5 sm:p-2 rounded-2xl border focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all">
         {!isRecording && (
           <div className="flex gap-0.5 pb-0.5 shrink-0">
-            <Button
+            {isGroupChat && activeConversationId && (
+              <GlassIconButton
+                type="button"
+                variant="ghost"
+                onClick={() => setIsPollModalOpen(true)}
+                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary"
+                tooltip={t("createPoll")}
+                icon={<BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />}
+              />
+            )}
+            <GlassIconButton
               type="button"
               variant="ghost"
-              size="icon"
               onClick={() => fileInputRef.current?.click()}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
-              title={t("attachFile")}
-            >
-              <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-            <Button
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
+              tooltip={t("attachFile")}
+              icon={<Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />}
+            />
+            <div className="hidden sm:inline-flex">
+              <GlassIconButton
+                type="button"
+                variant="ghost"
+                onClick={() => imageInputRef.current?.click()}
+                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
+                tooltip={t("attachMedia")}
+                icon={<ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
+              />
+            </div>
+            <GlassIconButton
               type="button"
               variant="ghost"
-              size="icon"
-              onClick={() => imageInputRef.current?.click()}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
-              title={t("attachMedia")}
-            >
-              <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
               onClick={startVoiceRecording}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
-              title={t("recordVoice")}
-            >
-              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
+              tooltip={t("recordVoice")}
+              icon={<Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
+            />
           </div>
         )}
 
@@ -1020,26 +1031,30 @@ export const ChatInput = ({
               </span>
             </div>
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              <Button
+              <PatternButton
                 type="button"
                 variant="ghost"
+                color="danger"
                 size="sm"
+                rounded="md"
                 onClick={cancelVoiceRecording}
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive rounded-lg"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                icon={<Trash2 className="w-3.5 h-3.5" />}
               >
-                <Trash2 className="w-3.5 h-3.5 mr-1" />
                 {t("cancel")}
-              </Button>
-              <Button
+              </PatternButton>
+              <PatternButton
                 type="button"
-                variant="destructive"
+                variant="solid"
+                color="danger"
                 size="sm"
+                rounded="md"
                 onClick={stopAndSendVoiceRecording}
-                className="h-7 px-3 text-xs rounded-lg"
+                className="h-7 px-3 text-xs"
+                icon={<Square className="w-3 h-3 fill-current" />}
               >
-                <Square className="w-3 h-3 mr-1.5 fill-current" />
                 {t("send")}
-              </Button>
+              </PatternButton>
             </div>
           </div>
         ) : (
@@ -1065,32 +1080,37 @@ export const ChatInput = ({
 
         {!isRecording && (
           <div className="flex gap-0.5 sm:gap-1 pb-0.5 shrink-0">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowEmojiPicker((v) => !v)}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
-              title={t("emoji")}
-            >
-              <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-            <Button
+            <div className="hidden sm:inline-flex">
+              <GlassIconButton
+                type="button"
+                variant="ghost"
+                onClick={() => setShowEmojiPicker((v) => !v)}
+                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
+                tooltip={t("emoji")}
+                icon={<Smile className="w-4 h-4 sm:w-5 sm:h-5" />}
+              />
+            </div>
+            <PatternButton
               type="button"
               onClick={handleSend}
               disabled={
                 (!message.trim() && selectedItems.length === 0) || disabled
               }
               size="icon"
+              rounded="full"
+              variant={
+                message.trim() || selectedItems.length > 0 ? "solid" : "ghost"
+              }
+              color="primary"
               className={cn(
-                "h-8 w-8 sm:h-9 sm:w-9 rounded-full transition-all duration-200",
+                "h-8 w-8 sm:h-9 sm:w-9 transition-all duration-200",
                 message.trim() || selectedItems.length > 0
                   ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm scale-100"
                   : "bg-transparent text-muted-foreground hover:bg-muted scale-95",
               )}
             >
               <SendHorizontal className="w-4 h-4" />
-            </Button>
+            </PatternButton>
           </div>
         )}
       </div>

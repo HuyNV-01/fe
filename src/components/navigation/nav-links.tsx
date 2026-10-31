@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
+import { GlassBadge } from "@/components/toolkit";
 import config from "@/config";
 
 interface NavLink {
@@ -52,9 +53,13 @@ export function NavLinks({ links, className }: NavLinksProps) {
           >
             <span>{link.label}</span>
             {isChatLink && totalUnreadMessages > 0 && (
-              <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground shadow-2xs">
+              <GlassBadge
+                variant="primary"
+                size="sm"
+                className="h-4.5 min-w-4.5 px-1.5 text-[10px] font-bold bg-primary text-primary-foreground border-none"
+              >
                 {totalUnreadMessages > 99 ? "99+" : totalUnreadMessages}
-              </span>
+              </GlassBadge>
             )}
           </Link>
         );

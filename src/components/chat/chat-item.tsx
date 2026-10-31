@@ -2,10 +2,12 @@
 
 import type React from "react";
 import { memo, useMemo } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  GlassAvatar,
+  GlassBadge,
+  PatternButton,
+  Skeleton,
+} from "@/components/toolkit";
 import { BellOff, EllipsisVertical, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRelativeTime } from "@/utils/hooks/use-relative-time";
@@ -71,14 +73,15 @@ export const ChatItem = memo(
       if (typeof badge === "number") {
         if (badge <= 0) return null;
         return (
-          <Badge
-            variant="default"
-            className="h-5 min-w-5 px-1.5 flex items-center justify-center text-[10px] rounded-full hover:bg-primary"
+          <GlassBadge
+            variant="primary"
+            size="sm"
+            className="h-5 min-w-5 px-1.5 flex items-center justify-center text-[10px] bg-primary text-primary-foreground"
           >
             {badge > NOTIFICATION_MESSAGES
               ? `${NOTIFICATION_MESSAGES}+`
               : badge}
-          </Badge>
+          </GlassBadge>
         );
       }
       return badge;
@@ -101,34 +104,32 @@ export const ChatItem = memo(
           )}
         />
         <div className="flex items-center w-full pr-2 rounded-xl">
-          <Button
-            variant="ghost"
+          <button
             type="button"
             onClick={handleSelect}
             className="flex-1 min-w-0 h-auto flex items-center justify-start gap-3 p-2.5 sm:p-3 rounded-xl text-left font-normal whitespace-normal hover:bg-transparent cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <div className="relative shrink-0">
               {groupAvatars && groupAvatars.length >= 2 ? (
-                <GroupAvatar
-                  url={avatarUrl || undefined}
-                  members={groupAvatars}
-                  fallback={initials}
-                />
-              ) : (
-                <Avatar className="h-11 w-11 sm:h-12 sm:w-12 border border-border/40 shadow-xs transition-transform group-hover:scale-105">
-                  <AvatarImage
-                    src={avatarUrl || undefined}
-                    alt={displayName}
-                    className="object-cover"
+                <>
+                  <GroupAvatar
+                    url={avatarUrl || undefined}
+                    members={groupAvatars}
+                    fallback={initials}
                   />
-                  <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-              )}
-
-              {isOnline && (
-                <span className="absolute bottom-0 right-0 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+                  {isOnline && (
+                    <span className="absolute bottom-0 right-0 h-3 w-3 sm:h-3.5 sm:w-3.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+                  )}
+                </>
+              ) : (
+                <GlassAvatar
+                  src={avatarUrl}
+                  name={displayName}
+                  size="lg"
+                  isOnline={isOnline}
+                  showStatus={isOnline}
+                  className="transition-transform group-hover:scale-105"
+                />
               )}
             </div>
 
@@ -181,16 +182,17 @@ export const ChatItem = memo(
                 </div>
               </div>
             </div>
-          </Button>
+          </button>
 
           {(actions || onMoreOptions) && (
             <div className="shrink-0 z-10">
               {actions || (
-                <Button
+                <PatternButton
                   variant="ghost"
                   size="icon"
+                  rounded="full"
                   className={cn(
-                    "h-8 w-8 rounded-full",
+                    "h-8 w-8",
                     "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-200",
                     "data-[state=open]:opacity-100 bg-background/80 backdrop-blur-sm shadow-xs hover:bg-background",
                   )}
@@ -198,7 +200,7 @@ export const ChatItem = memo(
                   aria-label={t("item.moreOptions")}
                 >
                   <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
-                </Button>
+                </PatternButton>
               )}
             </div>
           )}

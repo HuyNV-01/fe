@@ -5,14 +5,13 @@ import { useRouter } from "next/navigation";
 import { User, MessageSquarePlus } from "lucide-react";
 import {
   LiquidSearch,
+  GlassAvatar,
   type SearchResultItem,
   type SearchGroup,
-} from "@/components/input/liquid-search";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+} from "@/components/toolkit";
 
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useDebounce } from "@/utils/hooks/use-debounce";
-import { getInitials } from "@/utils/helper";
 import {
   DEFAULT_LIMIT_SEARCH,
   DEFAULT_PAGE,
@@ -63,31 +62,14 @@ export function ChatSearch() {
   );
 
   const renderUserItem = useCallback((item: SearchResultItem) => {
-    const initials = getInitials(item.title?.toString() || "");
     return (
       <div className="flex items-center gap-3 w-full p-1 group/item">
-        <div className="relative shrink-0">
-          <Avatar
-            className={cn(
-              "h-10 w-10 border border-white/10 shadow-sm transition-all duration-300",
-              "group-aria-selected/item:scale-105 group-aria-selected/item:border-primary/30",
-            )}
-          >
-            <AvatarImage
-              src={item.avatar}
-              alt={item.title?.toString()}
-              className="object-cover"
-            />
-            <AvatarFallback
-              className={cn(
-                "bg-primary/5 text-primary text-xs font-bold transition-colors",
-                "group-aria-selected/item:bg-primary group-aria-selected/item:text-primary-foreground",
-              )}
-            >
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-        </div>
+        <GlassAvatar
+          src={item.avatar}
+          name={item.title?.toString() || "U"}
+          size="md"
+          className="transition-all duration-300 group-aria-selected/item:scale-105"
+        />
 
         <div className="flex flex-col min-w-0 flex-1 gap-0.5">
           <div className="flex items-center justify-between">

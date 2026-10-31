@@ -1,7 +1,4 @@
-import {
-  ToastCard,
-  type ToastCardProps,
-} from "@/components/toast/custom-toast";
+import { ToastCard, type ToastCardProps } from "@/components/toolkit";
 import { toast } from "sonner";
 
 type ShowToastProps = Omit<ToastCardProps, "id">;

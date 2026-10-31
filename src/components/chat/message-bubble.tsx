@@ -4,7 +4,7 @@
 
 import { memo, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { GlassAvatar, GlassBadge } from "@/components/toolkit";
 import {
   AlertCircle,
   Check,
@@ -44,7 +44,6 @@ import { MessageReadList } from "./message-read-list";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Progress } from "../ui/progress";
-import { Badge } from "../ui/badge";
 
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "😡"];
 
@@ -232,12 +231,11 @@ export const MessageBubble = memo(
           {!isMe && (
             <div className="w-7 sm:w-8 shrink-0 flex flex-col justify-end">
               {isLastInGroup ? (
-                <Avatar className="w-7 h-7 sm:w-8 sm:h-8 border border-border/50 shadow-xs">
-                  <AvatarImage src={avatarUrl} alt={displayName} />
-                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                    {displayName?.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <GlassAvatar
+                  src={avatarUrl}
+                  name={displayName || "U"}
+                  size="xs"
+                />
               ) : (
                 <div className="w-7 sm:w-8" />
               )}
@@ -478,13 +476,14 @@ export const MessageBubble = memo(
                         </span>
                       </div>
                       {pollInfo.isClosed && (
-                        <Badge
+                        <GlassBadge
                           variant="secondary"
+                          size="sm"
                           className="text-[9px] shrink-0 gap-0.5"
                         >
                           <Lock className="w-2.5 h-2.5" />
                           {t("poll.closed")}
-                        </Badge>
+                        </GlassBadge>
                       )}
                     </div>
 

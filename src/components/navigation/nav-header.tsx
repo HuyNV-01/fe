@@ -11,7 +11,7 @@ import { Separator } from "../ui/separator";
 import { AccountMenu } from "../dropdown-menu/account-menu";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import config from "@/config";
-import { LiquidGlassNavigation } from "../liquid-glass/liquid-glass";
+import { LiquidGlassNavigation } from "@/components/toolkit";
 import { NotificationBell } from "../notifications/notification-bell";
 import { useTranslations } from "next-intl";
 

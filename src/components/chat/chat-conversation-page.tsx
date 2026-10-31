@@ -11,19 +11,20 @@ import {
   Trash2,
   RefreshCw,
   AlertCircle,
-  Pin,
   X,
   Search,
   ChevronUp,
   ChevronDown,
-  Ban,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
 import { CreateGroupModal } from "@/components/chat/create-group-modal";
-import { Button } from "@/components/ui/button";
-import { PatternButton } from "../button/button-patterns";
+import {
+  PatternButton,
+  GlassIconButton,
+  GlassConfirmDialog,
+} from "@/components/toolkit";
 
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
@@ -42,7 +43,6 @@ import config from "@/config";
 import { Input } from "@/components/ui/input";
 import { PinnedMessagesBar } from "@/components/chat/pinned-messages-bar";
 import { ConversationInfoDrawer } from "@/components/chat/conversation-info-drawer";
-import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 import type { IMessage } from "@/types/chat";
 import { ForwardMessageModal } from "./forward-message-modal";
 import { OngoingCallBanner } from "./ongoing-call-banner";
@@ -408,11 +408,12 @@ export default function ChatConversationPage({
                   : "0/0"}
               </span>
             )}
-            <Button
-              size="icon"
+            <GlassIconButton
+              size="sm"
               variant="ghost"
               className="h-7 w-7"
               disabled={!matchedMessageIds.length}
+              icon={<ChevronUp className="w-4 h-4" />}
               onClick={() => {
                 const nextIdx =
                   (searchMatchIndex - 1 + matchedMessageIds.length) %
@@ -420,34 +421,30 @@ export default function ChatConversationPage({
                 setSearchMatchIndex(nextIdx);
                 scrollToMessage(matchedMessageIds[nextIdx]);
               }}
-            >
-              <ChevronUp className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
+            />
+            <GlassIconButton
+              size="sm"
               variant="ghost"
               className="h-7 w-7"
               disabled={!matchedMessageIds.length}
+              icon={<ChevronDown className="w-4 h-4" />}
               onClick={() => {
                 const nextIdx =
                   (searchMatchIndex + 1) % matchedMessageIds.length;
                 setSearchMatchIndex(nextIdx);
                 scrollToMessage(matchedMessageIds[nextIdx]);
               }}
-            >
-              <ChevronDown className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
+            />
+            <GlassIconButton
+              size="sm"
               variant="ghost"
               className="h-7 w-7"
+              icon={<X className="w-4 h-4" />}
               onClick={() => {
                 setIsSearchBarOpen(false);
                 setInChatSearchQuery("");
               }}
-            >
-              <X className="w-4 h-4" />
-            </Button>
+            />
           </div>
         )}
 
@@ -577,24 +574,28 @@ export default function ChatConversationPage({
                               <AlertCircle className="w-3.5 h-3.5" />
                               {t("sendFailed")}
                             </span>
-                            <Button
+                            <PatternButton
                               size="sm"
                               variant="ghost"
-                              className="h-6 px-2 text-[11px] text-blue-600 hover:bg-blue-500/10 rounded-full"
+                              color="info"
+                              rounded="full"
+                              className="h-6 px-2 text-[11px] text-blue-600 hover:bg-blue-500/10"
+                              icon={<RefreshCw className="w-3 h-3" />}
                               onClick={() => handleRetry(msg.id, msg.content)}
                             >
-                              <RefreshCw className="w-3 h-3 mr-1" />
                               {t("retry")}
-                            </Button>
-                            <Button
+                            </PatternButton>
+                            <PatternButton
                               size="sm"
                               variant="ghost"
-                              className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10 rounded-full"
+                              color="danger"
+                              rounded="full"
+                              className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10"
+                              icon={<Trash2 className="w-3 h-3" />}
                               onClick={() => setDeleteFailedTargetId(msg.id)}
                             >
-                              <Trash2 className="w-3 h-3 mr-1" />
                               {t("delete")}
-                            </Button>
+                            </PatternButton>
                           </div>
                         )}
                       </div>
@@ -678,7 +679,7 @@ export default function ChatConversationPage({
         onLeaveGroup={handleLeaveGroup}
       />
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(recallTarget)}
         onOpenChange={(open) => !open && setRecallTarget(null)}
         title={t("recallConfirmTitle")}
@@ -694,7 +695,7 @@ export default function ChatConversationPage({
         }}
       />
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(deleteFailedTargetId)}
         onOpenChange={(open) => !open && setDeleteFailedTargetId(null)}
         onConfirm={() => {
@@ -705,7 +706,7 @@ export default function ChatConversationPage({
         }}
       />
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={isLeaveGroupConfirmOpen}
         onOpenChange={setIsLeaveGroupConfirmOpen}
         title={t("leaveGroupConfirmTitle")}
@@ -713,7 +714,7 @@ export default function ChatConversationPage({
         onConfirm={handleLeaveGroup}
       />
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={isDeleteConvConfirmOpen}
         onOpenChange={setIsDeleteConvConfirmOpen}
         title={t("deleteConversationConfirmTitle")}

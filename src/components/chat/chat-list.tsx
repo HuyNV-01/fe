@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollArea } from "../ui/scroll-area";
 import { ChatSidebarEmpty } from "./chat-sidebar-empty";
 import ChatItem, { ChatItemSkeleton } from "./chat-item";
@@ -10,16 +10,17 @@ import { useShallow } from "zustand/react/shallow";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import config from "@/config";
 import { useRouter } from "@/i18n/navigation";
-import { useState } from "react";
 import { Bell, BellOff, Trash2, EllipsisVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
-import ItemMenu from "@/components/dropdown-menu/item-menu";
-import { Button } from "@/components/ui/button";
-import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
+import {
+  DropdownMenuContentCus,
+  ItemMenu,
+  PatternButton,
+  GlassConfirmDialog,
+} from "@/components/toolkit";
 import type { IConversation } from "@/types/chat";
 import { useTranslations } from "next-intl";
 
@@ -113,14 +114,15 @@ export default function ChatList() {
               actions={
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
+                    <PatternButton
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                      rounded="full"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
-                    </Button>
+                    </PatternButton>
                   </DropdownMenuTrigger>
                   <DropdownMenuContentCus
                     align="end"
@@ -164,7 +166,7 @@ export default function ChatList() {
         )}
       </div>
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         itemName={deleteTarget?.name}

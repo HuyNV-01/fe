@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
-  ArrowLeft,
   CheckCircle2,
   Mail,
   ShieldCheck,
@@ -17,15 +16,14 @@ import { useStoreWait } from "@/utils/hooks/use-store-wait";
 import { ProfileHeader } from "@/components/user/profile-header";
 import { ProfileSkeleton } from "@/components/skeleton/profile-skeleton";
 import {
-  LiquidGlass,
-  LiquidGlassCard,
-} from "@/components/liquid-glass/liquid-glass";
+  GlassSurfaceCard,
+  ButtonBack,
+} from "@/components/toolkit";
 import { ContactStatusEnum } from "@/common/enum";
 import { useTranslations } from "next-intl";
 
 export default function UserProfilePage() {
   const params = useParams();
-  const router = useRouter();
   const t = useTranslations("Profile");
   const { profile, fetchProfile, status, resetProfile } = useUserStore();
 
@@ -67,16 +65,7 @@ export default function UserProfilePage() {
       >
         {/* Back Button */}
         <div className="absolute top-4 left-4 z-30 md:hidden">
-          <LiquidGlass
-            interactive
-            hover
-            rounded="full"
-            fluid={false}
-            className="p-2 text-white"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </LiquidGlass>
+          <ButtonBack />
         </div>
 
         <div className="max-w-5xl mx-auto pb-16">
@@ -84,11 +73,14 @@ export default function UserProfilePage() {
 
           {/* Thông tin chi tiết hồ sơ */}
           <div className="px-4 sm:px-6 md:px-10 mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <LiquidGlassCard className="p-4 sm:p-5 space-y-3">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-primary" />
-                <span>{t("accountInfo.title")}</span>
-              </h3>
+            <GlassSurfaceCard
+              header={
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-primary" />
+                  <span>{t("accountInfo.title")}</span>
+                </h3>
+              }
+            >
               <div className="space-y-2 text-xs sm:text-sm">
                 <div className="flex items-center justify-between gap-2 py-1.5 border-b border-border/40">
                   <span className="text-muted-foreground shrink-0">
@@ -113,13 +105,16 @@ export default function UserProfilePage() {
                   </span>
                 </div>
               </div>
-            </LiquidGlassCard>
+            </GlassSurfaceCard>
 
-            <LiquidGlassCard className="p-4 sm:p-5 space-y-3">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span>{t("security.title")}</span>
-              </h3>
+            <GlassSurfaceCard
+              header={
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <span>{t("security.title")}</span>
+                </h3>
+              }
+            >
               <div className="space-y-2 text-xs sm:text-sm">
                 <div className="flex items-center justify-between gap-2 py-1.5 border-b border-border/40">
                   <span className="text-muted-foreground shrink-0">
@@ -148,7 +143,7 @@ export default function UserProfilePage() {
                   </span>
                 </div>
               </div>
-            </LiquidGlassCard>
+            </GlassSurfaceCard>
           </div>
         </div>
       </motion.div>

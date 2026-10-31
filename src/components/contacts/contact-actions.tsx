@@ -2,8 +2,7 @@
 
 import { UserX, Check, Pencil, User } from "lucide-react";
 import { ContactStatusEnum } from "@/common/enum";
-import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
-import ItemMenu from "@/components/dropdown-menu/item-menu";
+import { DropdownMenuContentCus, ItemMenu } from "@/components/toolkit";
 import { useContactStore } from "@/lib/stores/contact/use-contact-store";
 import type { IContactsDataRes } from "@/types/common";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";

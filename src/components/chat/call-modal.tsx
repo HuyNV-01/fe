@@ -25,14 +25,16 @@ import {
   Hand,
   Pin,
   PinOff,
-  UserPlus,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
   LiquidGlass,
   LiquidGlassModal,
-} from "@/components/liquid-glass/liquid-glass";
-import { PatternButton } from "@/components/button/button-patterns";
+  PatternButton,
+  GlassAvatar,
+} from "@/components/toolkit";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import {
@@ -47,8 +49,6 @@ import { getIceServersApi } from "@/lib/stores/chat/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-
-
 
 interface RemotePeerTileProps {
   userId: string;
@@ -283,12 +283,24 @@ export function CallModal() {
   const getAdaptiveVideoConstraints = useCallback(() => {
     const peerCount = Object.keys(activeCall?.participants || {}).length;
     if (peerCount >= 5) {
-      return { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { max: 18 } };
+      return {
+        width: { ideal: 640 },
+        height: { ideal: 360 },
+        frameRate: { max: 18 },
+      };
     }
     if (peerCount >= 3) {
-      return { width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { max: 24 } };
+      return {
+        width: { ideal: 854 },
+        height: { ideal: 480 },
+        frameRate: { max: 24 },
+      };
     }
-    return { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { max: 30 } };
+    return {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      frameRate: { max: 30 },
+    };
   }, [activeCall?.participants]);
 
   const toggleRaiseHand = () => {
@@ -307,14 +319,10 @@ export function CallModal() {
 
   const handleHostMuteMember = (targetUserId: string) => {
     if (!activeCall || !isMeHost) return;
-    socketService.send(
-      SocketNamespaceEnum.CHAT,
-      SOCKET_EVENTS.CALL.HOST_MUTE,
-      {
-        callId: activeCall.callId,
-        targetUserId,
-      },
-    );
+    socketService.send(SocketNamespaceEnum.CHAT, SOCKET_EVENTS.CALL.HOST_MUTE, {
+      callId: activeCall.callId,
+      targetUserId,
+    });
   };
 
   const conversation = useMemo(
@@ -591,7 +599,9 @@ export function CallModal() {
 
             // W3C Perfect Negotiation: Giải quyết xung đột Offer (Glare Condition)
             const isPolite = (currentUser?.id || "") < fromUserId;
-            const isMakingOffer = Boolean(makingOfferRef.current.get(fromUserId));
+            const isMakingOffer = Boolean(
+              makingOfferRef.current.get(fromUserId),
+            );
             const offerCollision =
               isMakingOffer || pc.signalingState !== "stable";
 
@@ -1068,15 +1078,13 @@ export function CallModal() {
       <div className="fixed top-20 right-3 md:right-6 z-50 w-[calc(100vw-1.5rem)] max-w-80 animate-in fade-in slide-in-from-bottom-3">
         <LiquidGlassModal className="p-3.5 flex items-center justify-between gap-3 border border-white/30 shadow-2xl">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="relative shrink-0">
-              <Avatar className="h-10 w-10 border border-white/30">
-                <AvatarImage src={displayAvatar || undefined} />
-                <AvatarFallback className="bg-indigo-300 text-white text-xs font-bold">
-                  {displayTitle.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-background animate-pulse" />
-            </div>
+            <GlassAvatar
+              src={displayAvatar}
+              name={displayTitle}
+              size="md"
+              isOnline
+              showStatus
+            />
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-semibold truncate">
                 {displayTitle}

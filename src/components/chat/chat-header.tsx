@@ -1,14 +1,18 @@
 "use client";
 
 import { memo } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
-import ItemMenu from "@/components/dropdown-menu/item-menu";
+import {
+  GlassAvatar,
+  GlassIconButton,
+  PatternButton,
+  ButtonBack,
+  DropdownMenuContentCus,
+  ItemMenu,
+} from "@/components/toolkit";
 import {
   Phone,
   Video,
@@ -26,8 +30,6 @@ import {
 } from "lucide-react";
 import { EMPTY_STRING } from "@/constant";
 import { useTranslations } from "next-intl";
-import ButtonBack from "../button/button-back";
-import { BaseTooltip } from "@/components/tooltip/base-tooltip";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 
@@ -92,17 +94,14 @@ export const ChatHeader = memo(
             onClick={handleViewProfile}
             className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 overflow-hidden text-left group/header cursor-pointer"
           >
-            <div className="relative shrink-0">
-              <Avatar className="h-9 w-9 sm:h-10 sm:w-10 border transition-transform group-hover/header:scale-105">
-                <AvatarImage src={avatarUrl || undefined} alt={displayName} />
-                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-                  {displayName.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              {!isGroupChat && isOnline && (
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-background rounded-full" />
-              )}
-            </div>
+            <GlassAvatar
+              src={avatarUrl}
+              name={displayName}
+              size="md"
+              isOnline={Boolean(!isGroupChat && isOnline)}
+              showStatus={Boolean(!isGroupChat && isOnline)}
+              className="transition-transform group-hover/header:scale-105"
+            />
 
             <div className="flex flex-col leading-tight min-w-0 flex-1 overflow-hidden">
               <div className="flex items-center gap-1.5 min-w-0">
@@ -138,77 +137,65 @@ export const ChatHeader = memo(
         </div>
 
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-          <BaseTooltip content={t("actions.audioCall")}>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onAudioCall}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
-            >
-              <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-          </BaseTooltip>
+          <GlassIconButton
+            variant="ghost"
+            onClick={onAudioCall}
+            tooltip={t("actions.audioCall")}
+            className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10"
+            icon={<Phone className="w-4 h-4 sm:w-5 sm:h-5" />}
+          />
 
-          <BaseTooltip content={t("actions.videoCall")}>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onVideoCall}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
-            >
-              <Video className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-          </BaseTooltip>
+          <GlassIconButton
+            variant="ghost"
+            onClick={onVideoCall}
+            tooltip={t("actions.videoCall")}
+            className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10"
+            icon={<Video className="w-4 h-4 sm:w-5 sm:h-5" />}
+          />
 
-          <BaseTooltip content={t("actions.searchInChat")}>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleSearch}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
-            >
-              <Search className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-          </BaseTooltip>
+          <GlassIconButton
+            variant="ghost"
+            onClick={onToggleSearch}
+            tooltip={t("actions.searchInChat")}
+            className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10"
+            icon={<Search className="w-4 h-4 sm:w-5 sm:h-5" />}
+          />
 
-          <BaseTooltip content={t("actions.openVaultAndSettings")}>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onOpenInfoDrawer}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
-            >
-              <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-          </BaseTooltip>
+          <GlassIconButton
+            variant="ghost"
+            onClick={onOpenInfoDrawer}
+            tooltip={t("actions.openVaultAndSettings")}
+            className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10"
+            icon={<FolderOpen className="w-4 h-4 sm:w-5 sm:h-5" />}
+          />
 
-          <BaseTooltip
-            content={isMuted ? t("actions.unmute") : t("actions.mute")}
-          >
-            <Button
+          <div className="hidden sm:inline-flex">
+            <GlassIconButton
               variant="ghost"
-              size="icon"
               onClick={onToggleMute}
-              className="hidden sm:inline-flex h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
-            >
-              {isMuted ? (
-                <BellOff className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
-              ) : (
-                <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-              )}
-            </Button>
-          </BaseTooltip>
+              tooltip={isMuted ? t("actions.unmute") : t("actions.mute")}
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
+              icon={
+                isMuted ? (
+                  <BellOff className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
+                ) : (
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                )
+              }
+            />
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
+              <PatternButton
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
+                rounded="full"
+                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
                 aria-label={t("actions.moreOptions")}
               >
                 <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
-              </Button>
+              </PatternButton>
             </DropdownMenuTrigger>
             <DropdownMenuContentCus align="end" className="w-52">
               {!isGroupChat && partnerId && (

@@ -1,15 +1,6 @@
 import { Check } from "lucide-react";
-
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { useTranslations } from "next-intl";
-import { PatternButton } from "../button/button-patterns";
+import { GlassEmptyState, PatternButton } from "@/components/toolkit";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 
@@ -17,18 +8,14 @@ export function SuccessOtp() {
   const tForm = useTranslations("Common.Success");
   const router = useRouter();
   return (
-    <Empty className="p-0!">
-      <EmptyHeader>
-        <EmptyMedia>
-          <Check className="w-12 h-12 text-green-500" />
-        </EmptyMedia>
-        <EmptyTitle>{tForm("title")}</EmptyTitle>
-        <EmptyDescription></EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
+    <GlassEmptyState
+      icon={<Check className="w-8 h-8 text-emerald-500" />}
+      title={tForm("title")}
+      action={
         <PatternButton
           variant="solid"
           size="md"
+          rounded="full"
           fullWidth
           onClick={() => {
             router.push(config.routes.public.login);
@@ -36,7 +23,8 @@ export function SuccessOtp() {
         >
           {tForm("button")}
         </PatternButton>
-      </EmptyContent>
-    </Empty>
+      }
+      className="py-6 px-0"
+    />
   );
 }

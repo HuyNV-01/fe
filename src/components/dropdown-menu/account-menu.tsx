@@ -7,12 +7,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import {
+  GlassAvatar,
+  DropdownMenuContentCus,
+  ItemMenu,
+} from "@/components/toolkit";
 import Logout from "../auth/logout";
-import DropdownMenuContentCus from "./dropdown-menu-content-cus";
-import ItemMenu from "./item-menu";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
-import { getInitials } from "@/utils/helper";
 import config from "@/config";
 import { Contact, MessageSquare, User, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -31,16 +32,7 @@ export function AccountMenu() {
           className="relative rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-transform hover:scale-105 cursor-pointer"
           aria-label={t("ariaLabel")}
         >
-          <Avatar className="h-9 w-9 border border-border/60 shadow-xs">
-            <AvatarImage
-              src={user?.avatar || undefined}
-              alt={displayName}
-              className="object-cover"
-            />
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-              {getInitials(displayName)}
-            </AvatarFallback>
-          </Avatar>
+          <GlassAvatar src={user?.avatar} name={displayName} size="sm" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContentCus
@@ -49,16 +41,7 @@ export function AccountMenu() {
       >
         <DropdownMenuLabel className="font-normal py-2">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 border border-border/50 shrink-0">
-              <AvatarImage
-                src={user?.avatar || undefined}
-                alt={displayName}
-                className="object-cover"
-              />
-              <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
+            <GlassAvatar src={user?.avatar} name={displayName} size="md" />
             <div className="flex flex-col min-w-0">
               <p className="text-sm font-semibold leading-none truncate">
                 {displayName}

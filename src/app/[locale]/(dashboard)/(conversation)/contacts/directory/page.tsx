@@ -7,7 +7,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LiquidGlass,
   LiquidGlassCard,
-} from "@/components/liquid-glass/liquid-glass";
+  LiquidSearch,
+  PatternButton,
+  GlassSectionHeader,
+  GlassAvatar,
+  ContentSelect,
+  ItemSelect,
+  TriggerSelect,
+} from "@/components/toolkit";
 import { ContactItem } from "@/components/contacts/contact-item";
 import {
   ConversationTypeEnum,
@@ -22,10 +29,7 @@ import { useGroupedContacts } from "@/utils/hooks/use-grouped-contacts";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ContactListSkeleton } from "@/components/skeleton/contact-list-skeleton";
 import { ContactEmptyState } from "@/components/contacts/contact-empty-state";
-import { LiquidSearch } from "@/components/input/liquid-search";
 import { CreateGroupModal } from "@/components/chat/create-group-modal";
-import { PatternButton } from "@/components/button/button-patterns";
-import ButtonBack from "@/components/button/button-back";
 import {
   ArrowDownAZ,
   ArrowUpZA,
@@ -37,11 +41,6 @@ import {
   UsersRound,
 } from "lucide-react";
 import { Select, SelectValue } from "@/components/ui/select";
-import ContentSelect from "@/components/select/select-content";
-import ItemSelect from "@/components/select/select-item";
-import TriggerSelect from "@/components/select/select-trigger";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getInitials } from "@/utils/helper";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import config from "@/config";
@@ -155,25 +154,12 @@ export default function DirectoryPage() {
     <div className="h-full w-full flex flex-col overflow-hidden">
       {/* Header cố định trên cùng */}
       <div className="flex-none z-20 px-3.5 sm:px-6 pt-3.5 sm:pt-4 pb-3 border-b border-border/50 bg-background/85 backdrop-blur-xl space-y-3">
-        <div className="flex items-center justify-between gap-2.5 sm:gap-3">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="md:hidden shrink-0">
-              <ButtonBack />
-            </div>
-
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10 text-primary shrink-0">
-                <HeaderIcon className="h-5 w-5" />
-              </div>
-
-              <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-foreground truncate">
-                {currentTabMeta.label}
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {isGroupsTab ? (
+        <GlassSectionHeader
+          showBackOnMobile
+          icon={<HeaderIcon className="h-5 w-5" />}
+          title={currentTabMeta.label}
+          actions={
+            isGroupsTab ? (
               <PatternButton
                 size="sm"
                 variant="solid"
@@ -194,9 +180,9 @@ export default function DirectoryPage() {
               >
                 {t("actions.addFriend")}
               </PatternButton>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
 
         {/* Thanh tìm kiếm & sắp xếp */}
         <div className="flex items-center justify-between gap-2 w-full">
@@ -271,15 +257,11 @@ export default function DirectoryPage() {
                 >
                   <div className="flex items-center justify-between gap-3 sm:gap-4">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <Avatar className="h-11 w-11 sm:h-12 sm:w-12 border border-border/50 shrink-0">
-                        <AvatarImage
-                          src={group.avatar || undefined}
-                          alt={group.name}
-                        />
-                        <AvatarFallback className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold">
-                          {getInitials(group.name || "GR")}
-                        </AvatarFallback>
-                      </Avatar>
+                      <GlassAvatar
+                        src={group.avatar}
+                        name={group.name || "GR"}
+                        size="lg"
+                      />
                       <div className="min-w-0 flex-1">
                         <h4 className="font-semibold text-sm sm:text-base truncate">
                           {group.name || t("groupItem.defaultName")}

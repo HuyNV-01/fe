@@ -1,9 +1,14 @@
 "use client";
 
 import { PhoneCall, Video, Users } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LiquidGlass } from "@/components/liquid-glass/liquid-glass";
-import { PatternButton } from "@/components/button/button-patterns";
+import {
+  LiquidGlass,
+  PatternButton,
+  GlassBadge,
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/toolkit";
 import { CallTypeEnum } from "@/common/enum";
 import type { IActiveCallState } from "@/types/chat";
 import { getInitials } from "@/utils/helper";
@@ -59,10 +64,10 @@ export function OngoingCallBanner({
                   ? t("ongoingVideoBannerTitle")
                   : t("ongoingAudioBannerTitle")}
               </p>
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 shrink-0">
+              <GlassBadge variant="success" size="sm" className="shrink-0">
                 <Users className="w-3 h-3" />
                 {participantIds.length}
-              </span>
+              </GlassBadge>
             </div>
             <p className="text-[11px] text-muted-foreground truncate">
               {t("ongoingBannerDesc")}

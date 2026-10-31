@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { PatternButton } from "../button/button-patterns";
+import { PatternButton } from "@/components/toolkit";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";

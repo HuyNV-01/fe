@@ -7,9 +7,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { LiquidGlass } from "@/components/liquid-glass/liquid-glass";
+import {
+  LiquidGlass,
+  GlassBadge,
+  GlassIconButton,
+  PatternButton,
+} from "@/components/toolkit";
 import {
   Download,
   ZoomIn,
@@ -140,14 +143,14 @@ export function ImageLightboxModal({
               {currentImage.fileName || t("title")}
             </span>
             {currentImage.size ? (
-              <Badge variant="secondary" className="text-[10px] shrink-0">
+              <GlassBadge variant="secondary" size="sm" className="shrink-0">
                 {formatFileSize(currentImage.size)}
-              </Badge>
+              </GlassBadge>
             ) : null}
             {hasMultiple && (
-              <Badge variant="outline" className="text-[10px] shrink-0">
+              <GlassBadge variant="frosted" size="sm" className="shrink-0">
                 {currentIndex + 1} / {images.length}
-              </Badge>
+              </GlassBadge>
             )}
           </LiquidGlass>
 
@@ -161,77 +164,73 @@ export function ImageLightboxModal({
             className="p-1"
             contentClassName="flex items-center gap-1"
           >
-            <Button
+            <GlassIconButton
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
+              size="sm"
               onClick={() => setScale((s) => Math.max(0.5, s - 0.25))}
-              title={t("zoomOut")}
-            >
-              <ZoomOut className="w-4 h-4" />
-            </Button>
+              tooltip={t("zoomOut")}
+              icon={<ZoomOut className="w-4 h-4" />}
+            />
             <span className="text-[11px] font-mono w-11 text-center tabular-nums">
               {Math.round(scale * 100)}%
             </span>
-            <Button
+            <GlassIconButton
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
+              size="sm"
               onClick={() => setScale((s) => Math.min(3, s + 0.25))}
-              title={t("zoomIn")}
-            >
-              <ZoomIn className="w-4 h-4" />
-            </Button>
-            <Button
+              tooltip={t("zoomIn")}
+              icon={<ZoomIn className="w-4 h-4" />}
+            />
+            <GlassIconButton
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
+              size="sm"
               onClick={() => setRotation((r) => (r + 90) % 360)}
-              title={t("rotate")}
-            >
-              <RotateCw className="w-4 h-4" />
-            </Button>
-            <Button
+              tooltip={t("rotate")}
+              icon={<RotateCw className="w-4 h-4" />}
+            />
+            <GlassIconButton
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full"
+              size="sm"
               onClick={() => {
                 setScale(1);
                 setRotation(0);
               }}
-              title={t("reset")}
-            >
-              <Maximize2 className="w-4 h-4" />
-            </Button>
-            <Button
+              tooltip={t("reset")}
+              icon={<Maximize2 className="w-4 h-4" />}
+            />
+            <PatternButton
               type="button"
-              variant="default"
+              variant="solid"
+              color="primary"
               size="sm"
+              rounded="full"
               disabled={isDownloading}
               onClick={handleDownload}
-              className="h-8 rounded-full px-3 text-xs gap-1.5"
+              className="h-8 px-3 text-xs gap-1.5"
+              icon={
+                isDownloading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )
+              }
             >
-              {isDownloading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
               <span className="hidden sm:inline">{t("download")}</span>
-            </Button>
-            <Button
+            </PatternButton>
+            <GlassIconButton
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full hover:bg-destructive/15 hover:text-destructive"
+              color="danger"
+              size="sm"
+              className="hover:bg-destructive/15 hover:text-destructive"
               onClick={() => onOpenChange(false)}
-              title={t("close")}
-            >
-              <X className="w-4 h-4" />
-            </Button>
+              tooltip={t("close")}
+              icon={<X className="w-4 h-4" />}
+            />
           </LiquidGlass>
         </div>
 
@@ -243,15 +242,16 @@ export function ImageLightboxModal({
           }}
         >
           {hasMultiple && (
-            <Button
+            <PatternButton
               type="button"
-              variant="secondary"
+              variant="glass"
               size="icon"
+              rounded="full"
               onClick={handlePrev}
-              className="absolute left-3 sm:left-6 z-30 h-10 w-10 rounded-full shadow-lg bg-background/80 backdrop-blur-md hover:scale-105 transition-transform"
+              className="absolute left-3 sm:left-6 z-30 h-10 w-10 shadow-lg bg-background/80 backdrop-blur-md hover:scale-105 transition-transform"
             >
               <ChevronLeft className="w-5 h-5" />
-            </Button>
+            </PatternButton>
           )}
 
           <img
@@ -265,15 +265,16 @@ export function ImageLightboxModal({
           />
 
           {hasMultiple && (
-            <Button
+            <PatternButton
               type="button"
-              variant="secondary"
+              variant="glass"
               size="icon"
+              rounded="full"
               onClick={handleNext}
-              className="absolute right-3 sm:right-6 z-30 h-10 w-10 rounded-full shadow-lg bg-background/80 backdrop-blur-md hover:scale-105 transition-transform"
+              className="absolute right-3 sm:right-6 z-30 h-10 w-10 shadow-lg bg-background/80 backdrop-blur-md hover:scale-105 transition-transform"
             >
               <ChevronRight className="w-5 h-5" />
-            </Button>
+            </PatternButton>
           )}
         </div>
 

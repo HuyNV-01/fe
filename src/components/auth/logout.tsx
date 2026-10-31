@@ -2,7 +2,7 @@ import config from "@/config";
 import { useRouter } from "@/i18n/navigation";
 import { LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
-import ItemMenu from "../dropdown-menu/item-menu";
+import { ItemMenu } from "@/components/toolkit";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 
 export default function Logout() {

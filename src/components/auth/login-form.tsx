@@ -15,7 +15,7 @@ import {
 import { Input } from "../ui/input";
 import { useForm } from "@tanstack/react-form";
 import { EMPTY_STRING } from "@/constant";
-import { PatternButton } from "../button/button-patterns";
+import { PatternButton, GlassAlert } from "@/components/toolkit";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 import { useTranslations } from "next-intl";
@@ -169,25 +169,30 @@ export function LoginForm() {
         </FieldSet>
 
         {pendingActivationEmail && (
-          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2 text-xs">
-            <p className="text-amber-700 dark:text-amber-300 font-medium">
-              {tForm("activation.unactivatedPrefix")}{" "}
-              <span className="font-bold">{pendingActivationEmail}</span>{" "}
-              {tForm("activation.unactivatedSuffix")}
-            </p>
-            <PatternButton
-              type="button"
-              variant="outline"
-              color="warning"
-              size="sm"
-              rounded="full"
-              isLoading={status === "wait"}
-              icon={<MailCheck className="w-3.5 h-3.5" />}
-              onClick={handleResendActivation}
-            >
-              {tForm("button.resendActivation")}
-            </PatternButton>
-          </div>
+          <GlassAlert
+            variant="warning"
+            description={
+              <span className="text-amber-700 dark:text-amber-300 font-medium">
+                {tForm("activation.unactivatedPrefix")}{" "}
+                <span className="font-bold">{pendingActivationEmail}</span>{" "}
+                {tForm("activation.unactivatedSuffix")}
+              </span>
+            }
+            action={
+              <PatternButton
+                type="button"
+                variant="outline"
+                color="warning"
+                size="sm"
+                rounded="full"
+                isLoading={status === "wait"}
+                icon={<MailCheck className="w-3.5 h-3.5" />}
+                onClick={handleResendActivation}
+              >
+                {tForm("button.resendActivation")}
+              </PatternButton>
+            }
+          />
         )}
 
         <Field className="space-y-3">

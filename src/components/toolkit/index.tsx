@@ -15,6 +15,10 @@ import {
   LiquidGlassCard,
   LiquidGlassModal,
   LiquidGlassDropdown,
+  LiquidGlassNavigation,
+  LiquidGlassInput,
+  LiquidGlassFeature,
+  LiquidGlassAlert,
   type LiquidGlassProps,
   type GlassVariant,
 } from "@/components/liquid-glass";
@@ -47,10 +51,19 @@ import { PatternButton } from "@/components/button/button-patterns";
 import { IconButton } from "@/components/button/button-icon";
 import ButtonBack from "@/components/button/button-back";
 import { BaseTooltip } from "@/components/tooltip/base-tooltip";
-import { LiquidSearch } from "@/components/input/liquid-search";
-import { Steps } from "@/components/steps/steps";
-import { BaseSteps } from "@/components/steps/base-steps";
-import { ToastCard } from "@/components/toast/custom-toast";
+import {
+  LiquidSearch,
+  type SearchResultItem,
+  type SearchGroup,
+  type LiquidSearchLabels,
+} from "@/components/input/liquid-search";
+import { Steps, type Step, type StepsProps } from "@/components/steps/steps";
+import {
+  BaseSteps,
+  type StepConfig,
+  type StepComponentProps,
+} from "@/components/steps/base-steps";
+import { ToastCard, type ToastCardProps } from "@/components/toast/custom-toast";
 import { TruncatedText } from "@/components/common/truncated-text";
 import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
 import DropdownMenuSubContentCus from "@/components/dropdown-menu/dropdown-menu-sub-content-cus";
@@ -70,6 +83,10 @@ export {
   LiquidGlassCard,
   LiquidGlassModal,
   LiquidGlassDropdown,
+  LiquidGlassNavigation,
+  LiquidGlassInput,
+  LiquidGlassFeature,
+  LiquidGlassAlert,
   LiquidPopover,
   LiquidPopoverTrigger,
   LiquidPopoverContent,
@@ -96,6 +113,19 @@ export {
   Skeleton,
 };
 
+export type {
+  LiquidGlassProps,
+  GlassVariant,
+  SearchResultItem,
+  SearchGroup,
+  LiquidSearchLabels,
+  Step,
+  StepsProps,
+  StepConfig,
+  StepComponentProps,
+  ToastCardProps,
+};
+
 // ============================================================================
 // 2. NEW REUSABLE TOOLKIT COMPONENTS (Liquid Glass Design System)
 // ============================================================================
@@ -108,7 +138,7 @@ export interface GlassModalProps {
   onOpenChange: (open: boolean) => void;
   title?: ReactNode;
   description?: ReactNode;
-  children: ReactNode;
+  children?: ReactNode;
   footer?: ReactNode;
   size?: "sm" | "md" | "lg" | "xl" | "full";
   showCloseButton?: boolean;
@@ -138,6 +168,7 @@ export const GlassModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={showCloseButton}
+        onClick={(e) => e.stopPropagation()}
         className={cn(
           "p-0 bg-transparent border-none shadow-none max-w-[calc(100vw-1.5rem)]",
           MODAL_SIZE_MAP[size],
@@ -159,7 +190,7 @@ export const GlassModal = ({
               )}
             </DialogHeader>
           )}
-          <div>{children}</div>
+          {children && <div>{children}</div>}
           {footer && (
             <DialogFooter className="mt-5 gap-2">{footer}</DialogFooter>
           )}
@@ -175,10 +206,13 @@ export const GlassModal = ({
 export interface GlassConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  title: ReactNode;
+  title?: ReactNode;
   description?: ReactNode;
+  itemName?: string;
   confirmLabel?: string;
+  confirmText?: string;
   cancelLabel?: string;
+  cancelText?: string;
   variant?: "primary" | "danger" | "warning" | "success";
   isLoading?: boolean;
   onConfirm: () => void | Promise<void>;
@@ -189,22 +223,54 @@ export const GlassConfirmDialog = ({
   onOpenChange,
   title,
   description,
+  itemName,
   confirmLabel,
+  confirmText,
   cancelLabel,
+  cancelText,
   variant = "danger",
   isLoading = false,
   onConfirm,
 }: GlassConfirmDialogProps) => {
   const tConfirm = useTranslations("Common.ConfirmDialog");
-  const resolvedConfirmLabel = confirmLabel ?? tConfirm("confirm");
-  const resolvedCancelLabel = cancelLabel ?? tConfirm("cancel");
+  const tDelete = useTranslations("Delete");
+
+  const resolvedTitle = title || tDelete("confirmTitle");
+  const resolvedDescription =
+    description ??
+    (itemName ? (
+      <>
+        {tDelete("description")}
+        <span className="font-semibold text-foreground">
+          {" "}
+          &ldquo;{itemName}&rdquo;
+        </span>
+        {tDelete("description_1")}
+      </>
+    ) : (
+      <>
+        {tDelete("description")}
+        {tDelete("description_1")}
+      </>
+    ));
+
+  const resolvedConfirmLabel =
+    confirmLabel ?? confirmText ?? tConfirm("confirm");
+  const resolvedCancelLabel =
+    cancelLabel ?? cancelText ?? tConfirm("cancel");
+
+  const handleConfirm = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await onConfirm();
+    onOpenChange(false);
+  };
 
   return (
     <GlassModal
       open={open}
       onOpenChange={onOpenChange}
-      title={title}
-      description={description}
+      title={resolvedTitle}
+      description={resolvedDescription}
       size="sm"
       footer={
         <>
@@ -214,7 +280,10 @@ export const GlassConfirmDialog = ({
             size="sm"
             rounded="full"
             disabled={isLoading}
-            onClick={() => onOpenChange(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenChange(false);
+            }}
           >
             {resolvedCancelLabel}
           </PatternButton>
@@ -225,7 +294,7 @@ export const GlassConfirmDialog = ({
             size="sm"
             rounded="full"
             isLoading={isLoading}
-            onClick={onConfirm}
+            onClick={handleConfirm}
           >
             {resolvedConfirmLabel}
           </PatternButton>
@@ -246,6 +315,7 @@ export interface GlassSheetProps {
   side?: "top" | "right" | "bottom" | "left";
   title?: ReactNode;
   description?: ReactNode;
+  headerExtra?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
@@ -257,6 +327,7 @@ export const GlassSheet = ({
   side = "right",
   title,
   description,
+  headerExtra,
   children,
   footer,
   className,
@@ -266,22 +337,34 @@ export const GlassSheet = ({
       <SheetContent
         side={side}
         className={cn(
-          "p-2! bg-transparent! border-none shadow-none",
+          "w-full sm:max-w-md h-dvh max-h-dvh p-2! bg-transparent! border-none shadow-none flex flex-col overflow-hidden",
           className,
         )}
       >
-        <LiquidGlassModal className="h-full w-full p-4 sm:p-5 flex flex-col overflow-hidden">
-          {(title || description) && (
-            <SheetHeader className="p-0 pb-3 border-b border-border/40">
-              {title && <SheetTitle>{title}</SheetTitle>}
-              {description && (
-                <SheetDescription>{description}</SheetDescription>
+        <LiquidGlassModal
+          className="h-full w-full p-4 sm:p-5 overflow-hidden"
+          contentClassName="flex flex-col h-full min-h-0 overflow-hidden"
+        >
+          {(title || description || headerExtra) && (
+            <SheetHeader className="p-0 pb-3 border-b border-border/40 shrink-0">
+              {title && (
+                <SheetTitle className="text-base font-bold truncate">
+                  {title}
+                </SheetTitle>
               )}
+              {description && (
+                <SheetDescription className="text-xs break-words">
+                  {description}
+                </SheetDescription>
+              )}
+              {headerExtra}
             </SheetHeader>
           )}
-          <div className="flex-1 min-h-0 overflow-y-auto py-3">{children}</div>
+          <div className="flex-1 min-h-0 overflow-y-auto py-3 pr-1 custom-scrollbar">
+            {children}
+          </div>
           {footer && (
-            <SheetFooter className="p-0 pt-3 border-t border-border/40">
+            <SheetFooter className="p-0 pt-3 border-t border-border/40 shrink-0">
               {footer}
             </SheetFooter>
           )}
@@ -751,6 +834,12 @@ export interface GlassSurfaceCardProps extends LiquidGlassProps {
   header?: ReactNode;
   footer?: ReactNode;
   noPadding?: boolean;
+  divider?: boolean;
+  headerBorder?: boolean;
+  footerBorder?: boolean;
+  headerClassName?: string;
+  bodyClassName?: string;
+  footerClassName?: string;
 }
 
 export const GlassSurfaceCard = forwardRef<
@@ -758,9 +847,25 @@ export const GlassSurfaceCard = forwardRef<
   GlassSurfaceCardProps
 >(
   (
-    { header, footer, children, noPadding = false, className, ...props },
+    {
+      header,
+      footer,
+      children,
+      noPadding = false,
+      divider = true,
+      headerBorder,
+      footerBorder,
+      headerClassName,
+      bodyClassName,
+      footerClassName,
+      className,
+      ...props
+    },
     ref,
   ) => {
+    const showHeaderBorder = headerBorder ?? divider;
+    const showFooterBorder = footerBorder ?? divider;
+
     return (
       <LiquidGlassCard
         ref={ref}
@@ -768,11 +873,27 @@ export const GlassSurfaceCard = forwardRef<
         {...props}
       >
         {header && (
-          <div className="pb-3 mb-3 border-b border-border/40">{header}</div>
+          <div
+            className={cn(
+              "mb-3",
+              showHeaderBorder && "pb-3 border-b border-border/40",
+              headerClassName,
+            )}
+          >
+            {header}
+          </div>
         )}
-        <div>{children}</div>
+        <div className={bodyClassName}>{children}</div>
         {footer && (
-          <div className="pt-3 mt-3 border-t border-border/40">{footer}</div>
+          <div
+            className={cn(
+              "mt-3",
+              showFooterBorder && "pt-3 border-t border-border/40",
+              footerClassName,
+            )}
+          >
+            {footer}
+          </div>
         )}
       </LiquidGlassCard>
     );

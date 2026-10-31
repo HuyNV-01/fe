@@ -12,35 +12,27 @@ import {
   User,
   X,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   LiquidGlassCard,
-  LiquidGlassModal,
-} from "@/components/liquid-glass/liquid-glass";
+  GlassModal,
+  GlassConfirmDialog,
+  GlassAvatar,
+  GlassBadge,
+  PatternButton,
+} from "@/components/toolkit";
 import type { IContactsDataRes } from "@/types/common";
 import { ContactActionsMenu } from "./contact-actions";
 import config from "@/config";
-import { PatternButton } from "../button/button-patterns";
-import { getInitials } from "@/utils/helper";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useContactStore } from "@/lib/stores/contact/use-contact-store";
 import { ContactStatusEnum } from "@/common/enum";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
-import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 
 interface ContactItemProps {
   contact: IContactsDataRes;
@@ -125,12 +117,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
       >
         <div className="flex items-center justify-between gap-2.5 sm:gap-4 transition-all">
           <div className="relative shrink-0">
-            <Avatar className="h-11 w-11 sm:h-12 sm:w-12 border border-border/50 shadow-xs">
-              <AvatarImage src={user?.avatar || undefined} alt={displayName} />
-              <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
+            <GlassAvatar src={user?.avatar} name={displayName} size="lg" />
           </div>
 
           <div className="flex-1 min-w-0 text-left">
@@ -139,10 +126,14 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                 {displayName}
               </h4>
               {contact.alias && (
-                <span className="text-[11px] sm:text-xs text-muted-foreground/70 inline-flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-full truncate max-w-[140px]">
-                  <User className="w-3 h-3 shrink-0" />{" "}
+                <GlassBadge
+                  variant="secondary"
+                  size="sm"
+                  className="max-w-[140px] truncate"
+                >
+                  <User className="w-3 h-3 shrink-0" />
                   <span className="truncate">{user?.name}</span>
-                </span>
+                </GlassBadge>
               )}
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground truncate mt-0.5">
@@ -241,59 +232,55 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
         </div>
       </LiquidGlassCard>
 
-      <Dialog open={isAliasOpen} onOpenChange={setIsAliasOpen}>
-        <DialogContent
-          className="p-0 bg-transparent border-none shadow-none max-w-[calc(100vw-1.5rem)] sm:max-w-sm"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <LiquidGlassModal className="p-5 sm:p-6">
-            <form onSubmit={handleSaveAlias} className="space-y-4">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                  <Pencil className="w-4 h-4 text-primary" />
-                  <span>{t("aliasModal.title")}</span>
-                </DialogTitle>
-                <DialogDescription className="text-xs">
-                  {t("aliasModal.description", {
-                    name: user?.name || t("defaultUser"),
-                  })}
-                </DialogDescription>
-              </DialogHeader>
+      <GlassModal
+        open={isAliasOpen}
+        onOpenChange={setIsAliasOpen}
+        size="sm"
+        title={
+          <span className="flex items-center gap-2">
+            <Pencil className="w-4 h-4 text-primary" />
+            <span>{t("aliasModal.title")}</span>
+          </span>
+        }
+        description={t("aliasModal.description", {
+          name: user?.name || t("defaultUser"),
+        })}
+        footer={
+          <>
+            <PatternButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              rounded="full"
+              onClick={() => setIsAliasOpen(false)}
+            >
+              {t("aliasModal.cancel")}
+            </PatternButton>
+            <PatternButton
+              type="submit"
+              form={`alias-form-${contact.id}`}
+              variant="solid"
+              size="sm"
+              rounded="full"
+              isLoading={isRequest}
+            >
+              {t("aliasModal.save")}
+            </PatternButton>
+          </>
+        }
+      >
+        <form id={`alias-form-${contact.id}`} onSubmit={handleSaveAlias}>
+          <Input
+            value={aliasValue}
+            onChange={(e) => setAliasValue(e.target.value)}
+            placeholder={t("aliasModal.placeholder")}
+            className="rounded-xl bg-background/60"
+            autoFocus
+          />
+        </form>
+      </GlassModal>
 
-              <Input
-                value={aliasValue}
-                onChange={(e) => setAliasValue(e.target.value)}
-                placeholder={t("aliasModal.placeholder")}
-                className="rounded-xl bg-background/60"
-                autoFocus
-              />
-
-              <DialogFooter className="gap-2">
-                <PatternButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  rounded="full"
-                  onClick={() => setIsAliasOpen(false)}
-                >
-                  {t("aliasModal.cancel")}
-                </PatternButton>
-                <PatternButton
-                  type="submit"
-                  variant="solid"
-                  size="sm"
-                  rounded="full"
-                  isLoading={isRequest}
-                >
-                  {t("aliasModal.save")}
-                </PatternButton>
-              </DialogFooter>
-            </form>
-          </LiquidGlassModal>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(confirmRemoveAction)}
         onOpenChange={(open) => !open && setConfirmRemoveAction(null)}
         itemName={displayName}

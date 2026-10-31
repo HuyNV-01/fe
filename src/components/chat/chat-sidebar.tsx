@@ -8,8 +8,12 @@ import { Cloud, UserPlus, UsersRound } from "lucide-react";
 
 import { ChatSearch } from "./chat-search";
 import { CreateGroupModal } from "./create-group-modal";
-import { PatternButton } from "@/components/button/button-patterns";
-import { BaseTooltip } from "@/components/tooltip/base-tooltip";
+import {
+  PatternButton,
+  GlassIconButton,
+  BaseTooltip,
+  TruncatedText,
+} from "@/components/toolkit";
 
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { cn } from "@/lib/utils";
@@ -17,7 +21,6 @@ import type { TSidebarViewMode } from "@/types/common";
 import { VIEW_CONFIG } from "@/constant/chat";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
-import { TruncatedText } from "../common/truncated-text";
 
 export default function ChatSidebar({
   children,
@@ -73,41 +76,32 @@ export default function ChatSidebar({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            <BaseTooltip content={t("savedMessages")}>
-              <PatternButton
-                variant="ghost"
-                size="icon"
-                rounded="full"
-                className="size-8 text-sky-500 hover:text-sky-600 hover:bg-sky-500/10"
-                onClick={handleOpenSavedCloud}
-              >
-                <Cloud className="size-4" />
-              </PatternButton>
-            </BaseTooltip>
+            <GlassIconButton
+              variant="ghost"
+              size="sm"
+              tooltip={t("savedMessages")}
+              className="size-8 text-sky-500 hover:text-sky-600 hover:bg-sky-500/10"
+              icon={<Cloud className="size-4" />}
+              onClick={handleOpenSavedCloud}
+            />
 
-            <BaseTooltip content={t("createNew")}>
-              <PatternButton
-                variant="ghost"
-                size="icon"
-                rounded="full"
-                className="size-8 text-muted-foreground hover:text-foreground"
-                onClick={handleAddNew}
-              >
-                <UserPlus className="size-4" />
-              </PatternButton>
-            </BaseTooltip>
+            <GlassIconButton
+              variant="ghost"
+              size="sm"
+              tooltip={t("createNew")}
+              className="size-8 text-muted-foreground hover:text-foreground"
+              icon={<UserPlus className="size-4" />}
+              onClick={handleAddNew}
+            />
 
-            <BaseTooltip content={t("createGroup")}>
-              <PatternButton
-                variant="ghost"
-                size="icon"
-                rounded="full"
-                className="size-8 text-muted-foreground hover:text-foreground"
-                onClick={() => setIsGroupModalOpen(true)}
-              >
-                <UsersRound className="size-4" />
-              </PatternButton>
-            </BaseTooltip>
+            <GlassIconButton
+              variant="ghost"
+              size="sm"
+              tooltip={t("createGroup")}
+              className="size-8 text-muted-foreground hover:text-foreground"
+              icon={<UsersRound className="size-4" />}
+              onClick={() => setIsGroupModalOpen(true)}
+            />
 
             <BaseTooltip content={t(currentConfig.switchLabelKey)}>
               <PatternButton

@@ -1,8 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  GlassBadge,
+} from "@/components/toolkit";
 import { Mail, Shield, Calendar } from "lucide-react";
 import type { IUserProfile } from "@/types/profile";
 import { ProfileActions } from "./profile-actions";
@@ -69,9 +73,9 @@ export const ProfileHeader = ({ profile }: ProfileHeaderProps) => {
                 {profile.name}
               </h1>
               {profile.isMe && (
-                <Badge variant="secondary" className="text-[11px] rounded-full">
+                <GlassBadge variant="secondary" size="sm">
                   {t("youBadge")}
-                </Badge>
+                </GlassBadge>
               )}
             </div>
 

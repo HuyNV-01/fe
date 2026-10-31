@@ -16,12 +16,14 @@ import {
 import type { IUserProfile } from "@/types/profile";
 import { cn } from "@/lib/utils";
 import { useProfileActions } from "@/utils/hooks/use-profile-actions";
-import { PatternButton } from "../button/button-patterns";
-import DropdownMenuContentCus from "../dropdown-menu/dropdown-menu-content-cus";
-import ItemMenu from "../dropdown-menu/item-menu";
+import {
+  PatternButton,
+  DropdownMenuContentCus,
+  ItemMenu,
+  GlassConfirmDialog,
+} from "@/components/toolkit";
 import { ContactActionButton } from "../chat/add-new-contact";
 import { useTranslations } from "next-intl";
-import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 
 interface ProfileActionsProps {
   profile: IUserProfile;
@@ -96,6 +98,19 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
             {t("deleteAvatar")}
           </PatternButton>
         )}
+
+        <GlassConfirmDialog
+          open={Boolean(confirmMode)}
+          onOpenChange={(open) => !open && setConfirmMode(null)}
+          itemName={t("deleteAvatar")}
+          isLoading={isLoading || isUploadingAvatar}
+          onConfirm={async () => {
+            if (confirmMode === "AVATAR") {
+              await onDeleteAvatar();
+            }
+            setConfirmMode(null);
+          }}
+        />
       </div>
     );
   }
@@ -164,7 +179,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
         </DropdownMenu>
       )}
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(confirmMode)}
         onOpenChange={(open) => !open && setConfirmMode(null)}
         itemName={confirmMode === "AVATAR" ? t("deleteAvatar") : profile.name}

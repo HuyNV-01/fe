@@ -9,9 +9,13 @@ import { useState, useEffect } from "react";
 import { UserPlus, UserCheck, Clock, Sparkles } from "lucide-react";
 import {
   LiquidSearch,
+  GlassAvatar,
+  GlassBadge,
+  GlassSectionHeader,
+  GlassConfirmDialog,
+  PatternButton,
   type SearchResultItem,
-} from "@/components/input/liquid-search";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+} from "@/components/toolkit";
 import { Separator } from "../ui/separator";
 import { useDebounce } from "@/utils/hooks/use-debounce";
 import { DEFAULT_LIMIT_SEARCH, DEFAULT_PAGE } from "@/constant";
@@ -19,12 +23,9 @@ import { useContactStore } from "@/lib/stores/contact/use-contact-store";
 import { useStoreWait } from "@/utils/hooks/use-store-wait";
 import { ContactStatusEnum } from "@/common/enum";
 import { Spinner } from "../ui/spinner";
-import { PatternButton } from "../button/button-patterns";
-import ButtonBack from "../button/button-back";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 import { useTranslations } from "next-intl";
-import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 
 export const ContactActionButton = ({
   contactStatus,
@@ -50,19 +51,19 @@ export const ContactActionButton = ({
 
   if (contactStatus === ContactStatusEnum.FRIEND) {
     return (
-      <span className="text-xs font-medium text-emerald-500 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+      <GlassBadge variant="success" size="md">
         <UserCheck className="w-3.5 h-3.5" />
         <span>{t("friend")}</span>
-      </span>
+      </GlassBadge>
     );
   }
 
   if (contactStatus === ContactStatusEnum.PENDING_SENT) {
     return (
-      <span className="text-xs font-medium text-amber-500 flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 rounded-full border border-amber-500/20">
+      <GlassBadge variant="warning" size="md">
         <Clock className="w-3.5 h-3.5" />
         <span>{t("pendingSent")}</span>
-      </span>
+      </GlassBadge>
     );
   }
 
@@ -195,12 +196,12 @@ export default function AddNewContact() {
     return (
       <div className="flex items-center justify-between w-full p-1 group/row gap-2">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <Avatar className="h-10 w-10 border border-white/10 shadow-sm transition-transform group-hover/row:scale-105 shrink-0">
-            <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-              {user.name.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <GlassAvatar
+            src={user.avatar}
+            name={user.name}
+            size="md"
+            className="transition-transform group-hover/row:scale-105"
+          />
 
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-semibold text-foreground truncate">
@@ -235,15 +236,12 @@ export default function AddNewContact() {
 
   return (
     <div className="w-full px-4 sm:px-8 pt-4 sm:pt-5 space-y-5">
-      <div className="flex flex-col gap-1 px-1 w-full">
-        <h2 className="text-base sm:text-lg font-semibold tracking-tight flex items-center gap-2">
-          <div className="md:hidden z-30">
-            <ButtonBack />
-          </div>
-          <UserPlus className="w-5 h-5 text-primary shrink-0" />
-          <span className="truncate">{t("header.title.newContact")}</span>
-        </h2>
-
+      <div className="flex flex-col gap-2 px-1 w-full">
+        <GlassSectionHeader
+          showBackOnMobile
+          icon={<UserPlus className="w-5 h-5" />}
+          title={t("header.title.newContact")}
+        />
         <Separator className="mt-1" />
       </div>
 
@@ -266,7 +264,7 @@ export default function AddNewContact() {
           />
         </div>
       </div>
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(confirmRemoveUser)}
         onOpenChange={(open) => !open && setConfirmRemoveUser(null)}
         itemName={confirmRemoveUser?.name}

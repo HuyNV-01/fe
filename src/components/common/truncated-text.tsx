@@ -2,11 +2,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { BaseTooltip } from "@/components/tooltip/base-tooltip";
 
 interface TruncatedTextProps extends React.HTMLAttributes<HTMLHeadingElement> {
   text: string;
@@ -30,22 +26,23 @@ export function TruncatedText({
         : "truncate";
 
   return (
-    <Tooltip delayDuration={300}>
-      <TooltipTrigger asChild>
-        <Component
-          className={cn("min-w-0 max-w-full cursor-default", clampClass, className)}
-          {...props}
-        >
-          {text}
-        </Component>
-      </TooltipTrigger>
-      <TooltipContent
-        side="bottom"
-        align="start"
-        className="max-w-xs break-words [overflow-wrap:anywhere] z-90"
+    <BaseTooltip
+      delayDuration={300}
+      side="bottom"
+      align="start"
+      content={text}
+      className="max-w-xs break-words [overflow-wrap:anywhere] z-90"
+    >
+      <Component
+        className={cn(
+          "min-w-0 max-w-full cursor-default",
+          clampClass,
+          className,
+        )}
+        {...props}
       >
-        <p>{text}</p>
-      </TooltipContent>
-    </Tooltip>
+        {text}
+      </Component>
+    </BaseTooltip>
   );
 }
