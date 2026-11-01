@@ -5,12 +5,10 @@
 import { useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Check,
   MessageCircle,
   MoreHorizontal,
   Pencil,
   User,
-  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,6 +25,7 @@ import {
 } from "@/components/toolkit";
 import type { IContactsDataRes } from "@/types/common";
 import { ContactActionsMenu } from "./contact-actions";
+import { ContactActionButton } from "../chat/add-new-contact";
 import config from "@/config";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useContactStore } from "@/lib/stores/contact/use-contact-store";
@@ -41,9 +40,15 @@ interface ContactItemProps {
 export const ContactItem = ({ contact }: ContactItemProps) => {
   const router = useRouter();
   const t = useTranslations("Chat.Detail.contact.item");
-  const { createDirectChat } = useChatStore();
-  const { acceptFriend, removeContact, updateAlias, isRequest } =
-    useContactStore();
+  const { createDirectChat, syncBlockStateForUser } = useChatStore();
+  const {
+    acceptFriend,
+    removeContact,
+    updateAlias,
+    blockUser,
+    unblockUser,
+    isRequest,
+  } = useContactStore();
 
   const user = contact.contactUser;
   const targetUserId = user?.id || contact.contactId;
@@ -53,7 +58,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
   const [aliasValue, setAliasValue] = useState(contact.alias || "");
 
   const [confirmRemoveAction, setConfirmRemoveAction] = useState<
-    "REJECT" | "REVOKE" | "REMOVE" | null
+    "REJECT" | "REVOKE" | "REMOVE" | "BLOCK" | "UNBLOCK" | null
   >(null);
 
   const handleNavigate = () => {
@@ -70,7 +75,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
   };
 
   const handleSendMessage = async () => {
-    if (!targetUserId) return;
+    if (!targetUserId || contact.status === ContactStatusEnum.BLOCKED) return;
     const conversation = await createDirectChat({ receiverId: targetUserId });
     if (conversation) {
       router.push(config.routes.private.detailChat(conversation));
@@ -145,64 +150,39 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
             className="flex items-center gap-1 sm:gap-1.5 shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
-            {contact.status === ContactStatusEnum.PENDING_RECEIVED && (
-              <>
-                <PatternButton
-                  size="sm"
-                  variant="solid"
-                  color="success"
-                  rounded="full"
-                  disabled={isRequest}
-                  icon={<Check className="w-3.5 h-3.5" />}
-                  onClick={() =>
-                    acceptFriend(
-                      { data: { senderId: targetUserId } },
-                      {
-                        onSuccess: () => toast.success(t("toast.accepted")),
-                      },
-                    )
-                  }
-                >
-                  <span className="hidden xs:inline">{t("accept")}</span>
-                </PatternButton>
-                <PatternButton
-                  size="icon"
-                  variant="ghost"
-                  color="danger"
-                  rounded="full"
-                  className="h-8 w-8"
-                  disabled={isRequest}
-                  title={t("reject")}
-                  onClick={() => setConfirmRemoveAction("REJECT")}
-                >
-                  <X className="w-4 h-4" />
-                </PatternButton>
-              </>
-            )}
+            <ContactActionButton
+              contactStatus={contact.status}
+              isLoading={isRequest}
+              disabled={isRequest}
+              tooltip={
+                contact.status === ContactStatusEnum.PENDING_RECEIVED
+                  ? t("accept")
+                  : undefined
+              }
+              handleAccept={() =>
+                acceptFriend(
+                  { data: { senderId: targetUserId } },
+                  {
+                    onSuccess: () => toast.success(t("toast.accepted")),
+                  },
+                )
+              }
+              handleRemove={() => setConfirmRemoveAction("REJECT")}
+            />
 
-            {contact.status === ContactStatusEnum.PENDING_SENT && (
+            {contact.status !== ContactStatusEnum.BLOCKED && (
               <PatternButton
-                size="sm"
-                variant="outline"
-                color="warning"
+                size="icon"
+                variant="glass"
                 rounded="full"
+                className="h-8 w-8 sm:h-9 sm:w-9"
                 disabled={isRequest}
-                onClick={() => setConfirmRemoveAction("REVOKE")}
+                onClick={handleSendMessage}
+                title={t("sendMessage")}
               >
-                {t("revoke")}
+                <MessageCircle className="w-4 h-4" />
               </PatternButton>
             )}
-
-            <PatternButton
-              size="icon"
-              variant="glass"
-              rounded="full"
-              className="h-8 w-8 sm:h-9 sm:w-9"
-              onClick={handleSendMessage}
-              title={t("sendMessage")}
-            >
-              <MessageCircle className="w-4 h-4" />
-            </PatternButton>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -210,6 +190,7 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                   size="icon"
                   variant="ghost"
                   rounded="full"
+                  disabled={isRequest}
                   className="h-8 w-8 sm:h-9 sm:w-9"
                   aria-label={t("moreOptions")}
                 >
@@ -224,7 +205,22 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
                     setAliasValue(contact.alias || user?.name || "");
                     setIsAliasOpen(true);
                   }}
-                  onRequestRemove={() => setConfirmRemoveAction("REMOVE")}
+                  onRequestRemove={() =>
+                    setConfirmRemoveAction(
+                      contact.status === ContactStatusEnum.PENDING_SENT
+                        ? "REVOKE"
+                        : contact.status === ContactStatusEnum.PENDING_RECEIVED
+                          ? "REJECT"
+                          : "REMOVE",
+                    )
+                  }
+                  onRequestBlock={() =>
+                    setConfirmRemoveAction(
+                      contact.status === ContactStatusEnum.BLOCKED
+                        ? "UNBLOCK"
+                        : "BLOCK",
+                    )
+                  }
                 />
               )}
             </DropdownMenu>
@@ -283,22 +279,51 @@ export const ContactItem = ({ contact }: ContactItemProps) => {
       <GlassConfirmDialog
         open={Boolean(confirmRemoveAction)}
         onOpenChange={(open) => !open && setConfirmRemoveAction(null)}
+        title={
+          confirmRemoveAction === "BLOCK"
+            ? t("blockConfirmTitle")
+            : confirmRemoveAction === "UNBLOCK"
+              ? t("unblockConfirmTitle")
+              : undefined
+        }
+        description={
+          confirmRemoveAction === "BLOCK"
+            ? t("blockConfirmDesc", { name: displayName })
+            : confirmRemoveAction === "UNBLOCK"
+              ? t("unblockConfirmDesc", { name: displayName })
+              : undefined
+        }
         itemName={displayName}
         isLoading={isRequest}
         onConfirm={async () => {
           if (!targetUserId || !confirmRemoveAction) return;
-          await removeContact(
-            { data: { targetId: targetUserId } },
-            {
-              onSuccess: () => {
-                if (confirmRemoveAction === "REJECT") {
-                  toast.info(t("toast.rejected"));
-                } else if (confirmRemoveAction === "REVOKE") {
-                  toast.info(t("toast.revoked"));
-                }
+
+          if (confirmRemoveAction === "BLOCK") {
+            const ok = await blockUser(targetUserId, user);
+            if (ok) {
+              syncBlockStateForUser(targetUserId, { blockedByMe: true });
+              toast.success(t("toast.blocked"));
+            }
+          } else if (confirmRemoveAction === "UNBLOCK") {
+            const ok = await unblockUser(targetUserId);
+            if (ok) {
+              syncBlockStateForUser(targetUserId, { blockedByMe: false });
+              toast.success(t("toast.unblocked"));
+            }
+          } else {
+            await removeContact(
+              { data: { targetId: targetUserId } },
+              {
+                onSuccess: () => {
+                  if (confirmRemoveAction === "REJECT") {
+                    toast.info(t("toast.rejected"));
+                  } else if (confirmRemoveAction === "REVOKE") {
+                    toast.info(t("toast.revoked"));
+                  }
+                },
               },
-            },
-          );
+            );
+          }
           setConfirmRemoveAction(null);
         }}
       />

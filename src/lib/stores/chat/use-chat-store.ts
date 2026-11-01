@@ -118,6 +118,69 @@ const mergeAndSortMessages = (
   });
 };
 
+/**
+ * Bộ lọc tìm kiếm cuộc trò chuyện phân tách rõ 2 trường hợp nghiệp vụ:
+ * - Trò chuyện 1-1 (DIRECT): Tìm theo 3 trường (tên hiển thị, biệt danh, email) và loại bỏ người dùng đang trong trạng thái chặn.
+ * - Trò chuyện nhóm (GROUP): Chỉ tìm theo tên nhóm (group name), bỏ qua hoàn toàn email/biệt danh của thành viên.
+ */
+export const matchConversationBySearchRule = (
+  conv: IConversation,
+  rawKeyword: string,
+  details?: IConversationDetails,
+  currentUserId?: string,
+): boolean => {
+  const keyword = rawKeyword.trim().toLowerCase();
+  if (!keyword) return false;
+
+  if (conv.type === ConversationTypeEnum.GROUP) {
+    const groupName = (conv.name || "").trim().toLowerCase();
+    return groupName.includes(keyword);
+  }
+
+  if (conv.type === ConversationTypeEnum.DIRECT) {
+    if (
+      conv.isBlocked ||
+      conv.blockedByMe ||
+      conv.blockedByPartner ||
+      details?.blockState?.isBlocked
+    ) {
+      return false;
+    }
+
+    const partnerMember = details?.members?.find(
+      (m) => m.userId !== currentUserId,
+    );
+
+    const displayName = (
+      conv.originalName ||
+      partnerMember?.name ||
+      conv.name ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+    const nickname = (
+      conv.partnerNickname ||
+      partnerMember?.nickname ||
+      conv.name ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+    const email = (conv.partnerEmail || partnerMember?.email || "")
+      .trim()
+      .toLowerCase();
+
+    return (
+      displayName.includes(keyword) ||
+      nickname.includes(keyword) ||
+      email.includes(keyword)
+    );
+  }
+
+  return false;
+};
+
 interface ChatState {
   tempConversations: IConversation[];
   conversations: IConversation[];
@@ -165,6 +228,13 @@ interface ChatState {
     targetUserId: string,
     shouldBlock: boolean,
   ) => Promise<boolean>;
+  syncBlockStateForUser: (
+    targetUserId: string,
+    blockPatch: {
+      blockedByMe?: boolean;
+      blockedByPartner?: boolean;
+    },
+  ) => void;
   handleNicknameUpdated: (payload: {
     conversationId: string;
     targetUserId: string;
@@ -953,11 +1023,48 @@ export const useChatStore = createPersistedStore<ChatState>(
         );
 
         if (search) {
+          const currentUserId =
+            useAuthStore.getState().currentAccount?.user?.id;
           set((state) => {
+            const filteredServerList = normalizedList.filter(
+              (item: IConversation) =>
+                matchConversationBySearchRule(
+                  item,
+                  search,
+                  state.conversationDetails[item.id],
+                  currentUserId,
+                ),
+            );
+
+            const localMatches = state.conversations.filter((conv) =>
+              matchConversationBySearchRule(
+                conv,
+                search,
+                state.conversationDetails[conv.id],
+                currentUserId,
+              ),
+            );
+
+            const mergedMap = new Map<string, IConversation>();
+            for (const item of filteredServerList) {
+              mergedMap.set(item.id, item);
+            }
+            for (const localConv of localMatches) {
+              if (!mergedMap.has(localConv.id)) {
+                mergedMap.set(localConv.id, localConv);
+              } else {
+                mergedMap.set(localConv.id, {
+                  ...localConv,
+                  ...mergedMap.get(localConv.id)!,
+                });
+              }
+            }
+            const mergedList = Array.from(mergedMap.values());
+
             if (page === 1) {
-              state.tempConversations = normalizedList;
+              state.tempConversations = mergedList;
             } else {
-              const newConvs = normalizedList.filter(
+              const newConvs = mergedList.filter(
                 (newC: { id: string }) =>
                   !state.tempConversations.some((curr) => curr.id === newC.id),
               );
@@ -1608,7 +1715,16 @@ export const useChatStore = createPersistedStore<ChatState>(
                 if (partnerMember) {
                   conv.originalName = partnerMember.name;
                   conv.partnerNickname = partnerMember.nickname || null;
+                  conv.partnerEmail = partnerMember.email || conv.partnerEmail || null;
                   conv.name = partnerMember.nickname || partnerMember.name;
+                }
+                if (data.blockState) {
+                  conv.isBlocked = data.blockState.isBlocked;
+                  conv.blockedByMe = data.blockState.blockedByMe;
+                  conv.blockedByPartner = data.blockState.blockedByPartner;
+                  if (data.blockState.isBlocked) {
+                    conv.isOnline = false;
+                  }
                 }
               }
             }
@@ -1832,16 +1948,74 @@ export const useChatStore = createPersistedStore<ChatState>(
       }
     },
 
+    syncBlockStateForUser: (targetUserId, blockPatch) => {
+      if (!targetUserId) return;
+      set((state) => {
+        state.conversations = state.conversations.map((conv) => {
+          if (
+            conv.type === ConversationTypeEnum.DIRECT &&
+            conv.partnerId === targetUserId
+          ) {
+            const nextBlockedByMe =
+              blockPatch.blockedByMe ?? Boolean(conv.blockedByMe);
+            const nextBlockedByPartner =
+              blockPatch.blockedByPartner ?? Boolean(conv.blockedByPartner);
+            const nextIsBlocked = nextBlockedByMe || nextBlockedByPartner;
+            return {
+              ...conv,
+              blockedByMe: nextBlockedByMe,
+              blockedByPartner: nextBlockedByPartner,
+              isBlocked: nextIsBlocked,
+              isOnline: nextIsBlocked ? false : conv.isOnline,
+            };
+          }
+          return conv;
+        });
+
+        state.tempConversations = state.tempConversations.filter(
+          (conv) =>
+            !(
+              conv.type === ConversationTypeEnum.DIRECT &&
+              conv.partnerId === targetUserId &&
+              (blockPatch.blockedByMe || blockPatch.blockedByPartner)
+            ),
+        );
+
+        for (const details of Object.values(state.conversationDetails)) {
+          if (
+            details?.type === ConversationTypeEnum.DIRECT &&
+            details?.blockState?.partnerId === targetUserId
+          ) {
+            const nextBlockedByMe =
+              blockPatch.blockedByMe ?? details.blockState.blockedByMe;
+            const nextBlockedByPartner =
+              blockPatch.blockedByPartner ??
+              details.blockState.blockedByPartner;
+            details.blockState = {
+              ...details.blockState,
+              blockedByMe: nextBlockedByMe,
+              blockedByPartner: nextBlockedByPartner,
+              isBlocked: nextBlockedByMe || nextBlockedByPartner,
+            };
+          }
+        }
+      });
+    },
+
     toggleBlockUser: async (conversationId, targetUserId, shouldBlock) => {
       try {
         if (shouldBlock) {
           await blockUserApi(targetUserId);
+          get().syncBlockStateForUser(targetUserId, { blockedByMe: true });
           toast.success("Đã chặn người dùng này");
         } else {
           await unblockUserApi(targetUserId);
+          get().syncBlockStateForUser(targetUserId, { blockedByMe: false });
           toast.success("Đã bỏ chặn người dùng này");
         }
-        await get().fetchConversationDetails(conversationId);
+        if (conversationId) {
+          await get().fetchConversationDetails(conversationId);
+        }
         return true;
       } catch {
         toast.error("Không thể thực hiện thao tác chặn");

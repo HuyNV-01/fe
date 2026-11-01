@@ -31,12 +31,18 @@ export const ContactActionButton = ({
   contactStatus,
   onClick,
   isLoading,
+  disabled,
+  icon,
+  tooltip,
   handleAccept,
   handleRemove,
 }: {
   contactStatus: ContactStatusEnum;
-  onClick: (e: React.MouseEvent) => void;
+  onClick?: (e: React.MouseEvent) => void;
   isLoading?: boolean;
+  disabled?: boolean;
+  icon?: React.ReactNode;
+  tooltip?: string;
   handleAccept: () => void;
   handleRemove?: () => void;
 }) => {
@@ -74,6 +80,8 @@ export const ContactActionButton = ({
           <PatternButton
             size="sm"
             variant="ghost"
+            disabled={disabled}
+            title={tooltip}
             onClick={handleRemove}
             rounded={"full"}
           >
@@ -83,8 +91,10 @@ export const ContactActionButton = ({
         <PatternButton
           size="sm"
           variant="outline"
+          disabled={disabled}
+          title={tooltip}
           onClick={handleAccept}
-          icon={<Sparkles className="w-3.5 h-3.5" />}
+          icon={icon || <Sparkles className="w-3.5 h-3.5" />}
           rounded={"full"}
         >
           {t("accept")}
@@ -97,8 +107,10 @@ export const ContactActionButton = ({
     <PatternButton
       size="sm"
       variant="ghost"
+      disabled={disabled}
+      title={tooltip}
       onClick={onClick}
-      icon={<UserPlus className="w-3.5 h-3.5" />}
+      icon={icon || <UserPlus className="w-3.5 h-3.5" />}
       rounded={"full"}
     >
       {t("addFriend")}
@@ -220,6 +232,7 @@ export default function AddNewContact() {
           <ContactActionButton
             contactStatus={user.contactStatus}
             isLoading={loadingId === user.id}
+            disabled={Boolean(loadingId)}
             onClick={(e) => {
               e.stopPropagation();
               handleAddFriend(user.id);

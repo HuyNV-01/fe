@@ -1,6 +1,6 @@
 "use client";
 
-import { UserX, Check, Pencil, User } from "lucide-react";
+import { UserX, Check, Pencil, User, Ban, ShieldOff } from "lucide-react";
 import { ContactStatusEnum } from "@/common/enum";
 import { DropdownMenuContentCus, ItemMenu } from "@/components/toolkit";
 import { useContactStore } from "@/lib/stores/contact/use-contact-store";
@@ -14,6 +14,7 @@ interface ContactActionsMenuProps {
   userId: string;
   onEditAlias?: () => void;
   onRequestRemove?: () => void;
+  onRequestBlock?: () => void;
 }
 
 export const ContactActionsMenu = ({
@@ -21,6 +22,7 @@ export const ContactActionsMenu = ({
   userId,
   onEditAlias,
   onRequestRemove,
+  onRequestBlock,
 }: ContactActionsMenuProps) => {
   const t = useTranslations("Chat.Detail.contact.item");
   const { removeContact, acceptFriend } = useContactStore();
@@ -51,14 +53,18 @@ export const ContactActionsMenu = ({
     return t("removeContact");
   };
 
+  const isBlocked = contact.status === ContactStatusEnum.BLOCKED;
+
   return (
     <DropdownMenuContentCus align="end" className="w-52">
-      <ItemMenu
-        route={config.routes.private.profile(userId)}
-        icon={<User className="w-4 h-4 mr-2" />}
-      >
-        {t("viewProfile")}
-      </ItemMenu>
+      {!isBlocked && (
+        <ItemMenu
+          route={config.routes.private.profile(userId)}
+          icon={<User className="w-4 h-4 mr-2" />}
+        >
+          {t("viewProfile")}
+        </ItemMenu>
+      )}
 
       {contact.status === ContactStatusEnum.FRIEND && onEditAlias && (
         <ItemMenu
@@ -79,13 +85,31 @@ export const ContactActionsMenu = ({
         </ItemMenu>
       )}
 
-      <ItemMenu
-        onClick={handleRemove}
-        className="text-red-600 focus:text-red-600"
-        icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
-      >
-        {getRemoveLabel()}
-      </ItemMenu>
+      {!isBlocked && (
+        <ItemMenu
+          onClick={handleRemove}
+          className="text-red-600 focus:text-red-600"
+          icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
+        >
+          {getRemoveLabel()}
+        </ItemMenu>
+      )}
+
+      {onRequestBlock && (
+        <ItemMenu
+          onClick={onRequestBlock}
+          className="text-red-600 focus:text-red-600"
+          icon={
+            isBlocked ? (
+              <ShieldOff className="w-4 h-4 mr-2 text-red-600" />
+            ) : (
+              <Ban className="w-4 h-4 mr-2 text-red-600" />
+            )
+          }
+        >
+          {isBlocked ? t("unblockUser") : t("blockUser")}
+        </ItemMenu>
+      )}
     </DropdownMenuContentCus>
   );
 };

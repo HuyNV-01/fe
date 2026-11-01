@@ -37,6 +37,7 @@ import {
   Contact,
   MessageCircle,
   Plus,
+  Ban,
   UserPlus,
   UsersRound,
 } from "lucide-react";
@@ -86,6 +87,11 @@ export default function DirectoryPage() {
         key: KeyContactsEnum.GROUPS,
         label: t("tabs.groups"),
         icon: UsersRound,
+      },
+      {
+        key: KeyContactsEnum.BLOCKED,
+        label: t("tabs.blocked"),
+        icon: Ban,
       },
     ],
     [t],

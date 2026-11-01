@@ -411,7 +411,8 @@
           "placeholder": "Tìm kiếm cuộc trò chuyện...",
           "empty": "Không tìm thấy cuộc trò chuyện phù hợp",
           "category": {
-            "user": "Cuộc trò chuyện"
+            "user": "Cuộc trò chuyện",
+            "group": "Nhóm trò chuyện"
           }
         }
       },
@@ -667,14 +668,16 @@
           "friendList": "Danh sách bạn bè",
           "friendRequests": "Lời mời kết bạn",
           "groupList": "Danh sách nhóm",
-          "groupRequests": "Lời mời đã gửi"
+          "groupRequests": "Lời mời đã gửi",
+          "blockedList": "Danh sách đã chặn"
         },
         "directory": {
           "tabs": {
             "friends": "Bạn bè",
             "pendingReceived": "Lời mời kết bạn",
             "pendingSent": "Đã gửi",
-            "groups": "Nhóm chat"
+            "groups": "Nhóm chat",
+            "blocked": "Đã chặn"
           },
           "actions": {
             "createGroup": "Tạo nhóm",
@@ -729,8 +732,16 @@
             "rejected": "Đã từ chối lời mời kết bạn",
             "revoked": "Đã thu hồi lời mời kết bạn",
             "newRequestReceived": "Bạn nhận được một lời mời kết bạn mới!",
-            "requestAccepted": "Lời mời kết bạn đã được chấp nhận!"
-          }
+            "requestAccepted": "Lời mời kết bạn đã được chấp nhận!",
+            "blocked": "Đã chặn người dùng thành công",
+            "unblocked": "Đã bỏ chặn người dùng"
+          },
+          "blockUser": "Chặn người dùng",
+          "unblockUser": "Bỏ chặn người dùng",
+          "blockConfirmTitle": "Chặn người dùng",
+          "blockConfirmDesc": "Khi chặn {name}, người này sẽ không thể tìm thấy bạn, xem trang cá nhân, nhắn tin hoặc gọi điện cho bạn.",
+          "unblockConfirmTitle": "Bỏ chặn người dùng",
+          "unblockConfirmDesc": "Bạn chắc chắn muốn bỏ chặn {name}?"
         },
         "form": {
           "placeholder": {
@@ -747,7 +758,9 @@
           "accept": "Chấp nhận",
           "addFriend": "Kết bạn",
           "blocked": "Đã chặn",
-          "cancel": "Từ chối"
+          "cancel": "Từ chối",
+          "revoke": "Thu hồi",
+          "unblock": "Bỏ chặn"
         }
       },
       "infoDrawer": {
@@ -883,7 +896,11 @@
         "pendingSent": "Đã gửi lời mời kết bạn",
         "pendingReceived": "Đang chờ bạn xác nhận kết bạn",
         "none": "Chưa kết bạn"
-      }
+      },
+      "nickname": "Biệt danh",
+      "phone": "Số điện thoại",
+      "hiddenByPrivacy": "Đã ẩn theo cài đặt quyền riêng tư",
+      "notUpdated": "Chưa cập nhật"
     },
     "security": {
       "title": "Bảo mật & Trạng thái",
@@ -909,8 +926,100 @@
         "avatarUpdated": "Đã cập nhật ảnh đại diện mới",
         "avatarUploadError": "Không thể tải lên ảnh đại diện",
         "avatarDeleted": "Đã xóa ảnh đại diện",
-        "avatarDeleteError": "Không thể xóa ảnh đại diện"
-      }
+        "avatarDeleteError": "Không thể xóa ảnh đại diện",
+        "userBlocked": "Đã chặn người dùng này",
+        "userUnblocked": "Đã bỏ chặn người dùng này",
+        "coverUpdated": "Đã cập nhật ảnh bìa mới",
+        "coverUploadError": "Không thể tải lên ảnh bìa",
+        "coverDeleted": "Đã xóa ảnh bìa",
+        "coverDeleteError": "Không thể xóa ảnh bìa",
+        "profileUpdated": "Đã cập nhật thông tin hồ sơ"
+      },
+      "editProfile": "Chỉnh sửa hồ sơ",
+      "privacySettings": "Quyền riêng tư",
+      "changeCover": "Đổi ảnh bìa",
+      "deleteCover": "Xóa ảnh bìa",
+      "moreOptions": "Tùy chọn khác",
+      "blockUser": "Chặn người dùng",
+      "unblockUser": "Bỏ chặn người dùng",
+      "blockConfirmTitle": "Chặn người dùng này?",
+      "blockConfirmDesc": "Khi chặn {name}, người này sẽ không thể tìm thấy bạn trên thanh tìm kiếm, truy cập trang cá nhân, nhắn tin hay gọi điện cho bạn.",
+      "unblockConfirmTitle": "Bỏ chặn người dùng?",
+      "unblockConfirmDesc": "Bạn chắc chắn muốn bỏ chặn {name}?"
+    },
+    "friendCountLabel": "{count} bạn bè",
+    "tabs": {
+      "overview": "Tổng quan hồ sơ",
+      "blockManagement": "Quản lý chặn"
+    },
+    "onlineStatus": {
+      "label": "Trạng thái hoạt động",
+      "active": "Đang hoạt động",
+      "offlineOrHidden": "Ngoại tuyến / Đã ẩn"
+    },
+    "unavailable": {
+      "title": "404 - Nội dung không khả dụng",
+      "description": "Liên kết bạn truy cập có thể đã bị hỏng, trang không tồn tại hoặc chủ sở hữu chỉ chia sẻ nội dung này với một nhóm nhỏ người dùng.",
+      "backToChat": "Quay lại trò chuyện"
+    },
+    "strangerNotice": {
+      "title": "{name} đang giới hạn quyền xem hồ sơ",
+      "description": "Hãy kết bạn để xem thông tin liên hệ chi tiết, trạng thái hoạt động và các tệp phương tiện được chia sẻ."
+    },
+    "sharedAssets": {
+      "title": "Phương tiện & Tệp đã chia sẻ",
+      "selfDesc": "Danh sách hình ảnh, video và tài liệu bạn đã chia sẻ trong các cuộc trò chuyện.",
+      "friendDesc": "Hình ảnh, video và tệp tài liệu đã chia sẻ chung với {name}.",
+      "mediaTab": "Ảnh/Video",
+      "filesTab": "Tệp tài liệu",
+      "emptyMediaTitle": "Chưa có ảnh hoặc video",
+      "emptyMediaDesc": "Các hình ảnh và video được chia sẻ sẽ xuất hiện tại đây.",
+      "emptyFilesTitle": "Chưa có tệp tài liệu",
+      "emptyFilesDesc": "Các tệp đính kèm được chia sẻ sẽ xuất hiện tại đây.",
+      "download": "Tải xuống"
+    },
+    "editModal": {
+      "title": "Chỉnh sửa trang cá nhân",
+      "description": "Cập nhật thông tin giới thiệu công khai và số điện thoại liên hệ của bạn.",
+      "nameLabel": "Tên hiển thị",
+      "namePlaceholder": "Nhập họ và tên của bạn...",
+      "nameRequired": "Vui lòng nhập tên hiển thị",
+      "phoneLabel": "Số điện thoại",
+      "phonePlaceholder": "Nhập số điện thoại liên hệ...",
+      "bioLabel": "Tiểu sử (Bio)",
+      "bioPlaceholder": "Viết đôi dòng giới thiệu về bản thân bạn...",
+      "cancel": "Hủy",
+      "save": "Lưu thay đổi"
+    },
+    "privacyModal": {
+      "title": "Cài đặt quyền riêng tư hồ sơ",
+      "description": "Tùy chỉnh những thông tin mà Bạn bè có thể nhìn thấy trên trang cá nhân của bạn (Người lạ luôn chỉ thấy Ảnh đại diện, Tên và Ảnh bìa).",
+      "showEmailLabel": "Hiển thị địa chỉ Email với Bạn bè",
+      "showEmailDesc": "Cho phép bạn bè xem địa chỉ email liên hệ trên trang cá nhân",
+      "showPhoneLabel": "Hiển thị Số điện thoại với Bạn bè",
+      "showPhoneDesc": "Cho phép bạn bè xem số điện thoại của bạn",
+      "showAliasLabel": "Hiển thị Biệt danh với Bạn bè",
+      "showAliasDesc": "Hiển thị biệt danh gợi nhớ giữa bạn và bạn bè",
+      "showOnlineLabel": "Hiển thị Trạng thái hoạt động",
+      "showOnlineDesc": "Cho phép bạn bè thấy khi bạn đang trực tuyến trên hồ sơ",
+      "showSharedMediaLabel": "Hiển thị Phương tiện & Tệp đã chia sẻ",
+      "showSharedMediaDesc": "Hiển thị danh sách ảnh và tệp đã chia sẻ chung trên trang cá nhân"
+    },
+    "blockManagement": {
+      "title": "Quản lý chặn (Block Management)",
+      "description": "Những người trong danh sách này sẽ không thể tìm thấy bạn, xem trang cá nhân, nhắn tin hoặc gọi điện cho bạn.",
+      "searchPlaceholder": "Tìm người dùng đã chặn...",
+      "loading": "Đang tải danh sách chặn...",
+      "emptyTitle": "Danh sách chặn trống",
+      "emptyDesc": "Bạn hiện chưa chặn bất kỳ người dùng nào.",
+      "emptySearchTitle": "Không tìm thấy kết quả",
+      "emptySearchDesc": "Không có người dùng bị chặn nào khớp với từ khóa tìm kiếm.",
+      "defaultUser": "Người dùng",
+      "unblockBtn": "Bỏ chặn",
+      "confirmUnblockTitle": "Bỏ chặn người dùng",
+      "confirmUnblockDesc": "Bạn chắc chắn muốn bỏ chặn {name}? Sau khi bỏ chặn, người này có thể tìm thấy bạn và xem lại thông tin công khai.",
+      "unblockSuccess": "Đã bỏ chặn {name}",
+      "unblockError": "Không thể bỏ chặn người dùng này"
     }
   }
 }

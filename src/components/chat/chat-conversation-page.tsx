@@ -416,6 +416,10 @@ export default function ChatConversationPage({
           isGroupChat={isGroupChat}
           isAdmin={currentConversation?.isAdmin}
           partnerId={currentConversation?.partnerId}
+          isBlocked={Boolean(
+            currentDetails?.blockState?.isBlocked ||
+              currentConversation?.isBlocked,
+          )}
           onAudioCall={() => initiateCall(conversationId, CallTypeEnum.AUDIO)}
           onVideoCall={() => initiateCall(conversationId, CallTypeEnum.VIDEO)}
           onToggleMute={() =>

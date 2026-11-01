@@ -13,6 +13,10 @@ export interface IConversation {
   name?: string;
   originalName?: string;
   partnerNickname?: string | null;
+  partnerEmail?: string | null;
+  isBlocked?: boolean;
+  blockedByMe?: boolean;
+  blockedByPartner?: boolean;
   avatar?: string | null;
   lastMessage?: string | null;
   lastMessageAt?: string;

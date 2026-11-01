@@ -42,6 +42,7 @@ interface IChatHeaderProps {
   isGroupChat?: boolean;
   isAdmin?: boolean;
   partnerId?: string;
+  isBlocked?: boolean;
   statusText?: string;
   onAudioCall?: () => void;
   onVideoCall?: () => void;
@@ -63,6 +64,7 @@ export const ChatHeader = memo(
     isGroupChat = false,
     isAdmin = false,
     partnerId,
+    isBlocked = false,
     statusText,
     onAudioCall,
     onVideoCall,
@@ -98,8 +100,8 @@ export const ChatHeader = memo(
               src={avatarUrl}
               name={displayName}
               size="md"
-              isOnline={Boolean(!isGroupChat && isOnline)}
-              showStatus={Boolean(!isGroupChat && isOnline)}
+              isOnline={Boolean(!isGroupChat && !isBlocked && isOnline)}
+              showStatus={Boolean(!isGroupChat && !isBlocked && isOnline)}
               className="transition-transform group-hover/header:scale-105"
             />
 
@@ -139,6 +141,7 @@ export const ChatHeader = memo(
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
           <GlassIconButton
             variant="ghost"
+            disabled={isBlocked}
             onClick={onAudioCall}
             tooltip={t("actions.audioCall")}
             className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10"
@@ -147,6 +150,7 @@ export const ChatHeader = memo(
 
           <GlassIconButton
             variant="ghost"
+            disabled={isBlocked}
             onClick={onVideoCall}
             tooltip={t("actions.videoCall")}
             className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary hover:bg-primary/10"

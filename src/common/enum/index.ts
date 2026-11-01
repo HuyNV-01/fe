@@ -65,6 +65,7 @@ export enum KeyContactsEnum {
   PENDING_RECEIVED = "PENDING_RECEIVED",
   GROUPS_RECEIVED = "GROUPS_RECEIVED",
   PENDING_SENT = "PENDING_SENT",
+  BLOCKED = "BLOCKED",
 }
 
 export enum SortTypeEnum {
