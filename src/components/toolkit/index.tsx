@@ -73,6 +73,7 @@ import TriggerSelect from "@/components/select/select-trigger";
 import ItemSelect from "@/components/select/select-item";
 import { getInitials } from "@/utils/helper";
 import { useTranslations } from "next-intl";
+import { ScrollArea } from "../ui/scroll-area";
 
 // ============================================================================
 // 1. RE-EXPORT EXISTING STANDARDIZED COMPONENTS INTO THE TOOLKIT
@@ -360,9 +361,9 @@ export const GlassSheet = ({
               {headerExtra}
             </SheetHeader>
           )}
-          <div className="flex-1 min-h-0 overflow-y-auto py-3 pr-1 custom-scrollbar">
+          <ScrollArea className="flex-1 min-h-0 py-3 pr-2">
             {children}
-          </div>
+          </ScrollArea>
           {footer && (
             <SheetFooter className="p-0 pt-3 border-t border-border/40 shrink-0">
               {footer}

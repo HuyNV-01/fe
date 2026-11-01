@@ -3,13 +3,7 @@
 /** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Mic,
   MicOff,
@@ -25,6 +19,8 @@ import {
   Hand,
   Pin,
   PinOff,
+  BellRing,
+  UserPlus,
 } from "lucide-react";
 import {
   Avatar,
@@ -35,6 +31,7 @@ import {
   PatternButton,
   GlassAvatar,
 } from "@/components/toolkit";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import {
@@ -67,6 +64,30 @@ interface RemotePeerTileProps {
   onHostMute?: (userId: string) => void;
 }
 
+interface ICallRuntimeContext {
+  localVideoEl: HTMLVideoElement | null;
+  peers: Map<string, RTCPeerConnection>;
+  localStream: MediaStream | null;
+  screenStream: MediaStream | null;
+  pendingCandidates: Map<string, RTCIceCandidateInit[]>;
+  iceServersCache: RTCIceServer[] | null;
+  initiatedOffers: Set<string>;
+  makingOffer: Map<string, boolean>;
+  ignoreOffer: Map<string, boolean>;
+}
+
+const createCallRuntimeContext = (): ICallRuntimeContext => ({
+  localVideoEl: null,
+  peers: new Map<string, RTCPeerConnection>(),
+  localStream: null,
+  screenStream: null,
+  pendingCandidates: new Map<string, RTCIceCandidateInit[]>(),
+  iceServersCache: null,
+  initiatedOffers: new Set<string>(),
+  makingOffer: new Map<string, boolean>(),
+  ignoreOffer: new Map<string, boolean>(),
+});
+
 const RemotePeerTile = React.memo(
   ({
     userId,
@@ -84,14 +105,14 @@ const RemotePeerTile = React.memo(
     onTogglePin,
     onHostMute,
   }: RemotePeerTileProps) => {
-    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
     const [isSpeaking, setIsSpeaking] = useState(false);
 
     useEffect(() => {
-      if (videoRef.current && stream) {
-        videoRef.current.srcObject = stream;
+      if (videoEl && stream && videoEl.srcObject !== stream) {
+        videoEl.srcObject = stream;
       }
-    }, [stream]);
+    }, [videoEl, stream]);
 
     useEffect(() => {
       if (!stream || isAudioMuted || stream.getAudioTracks().length === 0) {
@@ -100,7 +121,7 @@ const RemotePeerTile = React.memo(
       }
 
       let audioCtx: AudioContext | null = null;
-      let intervalId: NodeJS.Timeout | null = null;
+      let intervalId: ReturnType<typeof setInterval> | null = null;
 
       try {
         const AudioContextClass =
@@ -145,7 +166,7 @@ const RemotePeerTile = React.memo(
         )}
       >
         <video
-          ref={videoRef}
+          ref={setVideoEl}
           autoPlay
           playsInline
           className={cn(
@@ -158,7 +179,7 @@ const RemotePeerTile = React.memo(
         {/* Huy hiệu Giơ tay phát biểu (Google Meet Style) */}
         {isHandRaised && (
           <div className="absolute top-3 left-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 text-xs font-bold shadow-lg animate-bounce">
-            <Hand className="w-3.5 h-3.5 fill-current" />
+            <Hand className="w-3.5 h-3.5" />
           </div>
         )}
 
@@ -243,19 +264,10 @@ export function CallModal() {
   const tHeader = useTranslations("Chat.Detail.header");
   const { activeCall, setActiveCall, updateActiveCall, conversations } =
     useChatStore();
-  const currentUser = useAuthStore((s) => s.currentAccount?.user);
+  const authUser = useAuthStore((s) => s.currentAccount?.user);
 
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const screenStreamRef = useRef<MediaStream | null>(null);
-  const pendingCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(
-    new Map(),
-  );
-  const iceServersCacheRef = useRef<RTCIceServer[] | null>(null);
-  const initiatedOffersRef = useRef<Set<string>>(new Set());
-  const makingOfferRef = useRef<Map<string, boolean>>(new Map());
-  const ignoreOfferRef = useRef<Map<string, boolean>>(new Map());
+  // Quản lý tập trung toàn bộ trạng thái WebRTC Runtime qua ICallRuntimeContext
+  const [rtc] = useState<ICallRuntimeContext>(createCallRuntimeContext);
 
   const [remoteStreams, setRemoteStreams] = useState<
     Record<string, MediaStream>
@@ -266,18 +278,22 @@ export function CallModal() {
   const [durationSec, setDurationSec] = useState(0);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [pinnedPeerId, setPinnedPeerId] = useState<string | null>(null);
+  const [showParticipantsPanel, setShowParticipantsPanel] = useState(false);
+  const [ringingTargets, setRingingTargets] = useState<Record<string, boolean>>(
+    {},
+  );
 
-  const isMeHost = activeCall?.initiatorId === currentUser?.id;
+  const isMeHost = activeCall?.initiatorId === authUser?.id;
 
   const effectivePinnedPeerId = useMemo(() => {
     if (pinnedPeerId && activeCall?.participants?.[pinnedPeerId]) {
       return pinnedPeerId;
     }
     const screenSharer = Object.values(activeCall?.participants || {}).find(
-      (p) => p.isScreenSharing && p.userId !== currentUser?.id,
+      (p) => p.isScreenSharing && p.userId !== authUser?.id,
     );
     return screenSharer?.userId || null;
-  }, [pinnedPeerId, activeCall?.participants, currentUser?.id]);
+  }, [pinnedPeerId, activeCall?.participants, authUser?.id]);
 
   // Adaptive Video Constraint: Tự động điều chỉnh độ phân giải/FPS theo quy mô phòng gọi
   const getAdaptiveVideoConstraints = useCallback(() => {
@@ -303,6 +319,19 @@ export function CallModal() {
     };
   }, [activeCall?.participants]);
 
+  const bindLocalVideoElement = useCallback(
+    (node: HTMLVideoElement | null) => {
+      rtc.localVideoEl = node;
+      if (node) {
+        const activeLocal = rtc.screenStream || rtc.localStream;
+        if (activeLocal && node.srcObject !== activeLocal) {
+          node.srcObject = activeLocal;
+        }
+      }
+    },
+    [rtc],
+  );
+
   const toggleRaiseHand = () => {
     if (!activeCall) return;
     const nextRaised = !isHandRaised;
@@ -323,6 +352,23 @@ export function CallModal() {
       callId: activeCall.callId,
       targetUserId,
     });
+  };
+
+  const handleTogglePinPeer = useCallback((userId: string) => {
+    setPinnedPeerId((prev) => (prev === userId ? null : userId));
+  }, []);
+
+  const handleRingGroupMember = (targetUserId: string) => {
+    if (!activeCall) return;
+    setRingingTargets((prev) => ({ ...prev, [targetUserId]: true }));
+    socketService.send(SocketNamespaceEnum.CHAT, SOCKET_EVENTS.CALL.RING_USER, {
+      callId: activeCall.callId,
+      targetUserId,
+    });
+    toast.success(t("ringSentToast"));
+    setTimeout(() => {
+      setRingingTargets((prev) => ({ ...prev, [targetUserId]: false }));
+    }, 5000);
   };
 
   const conversation = useMemo(
@@ -364,7 +410,7 @@ export function CallModal() {
   );
 
   const fetchIceServers = useCallback(async (): Promise<RTCIceServer[]> => {
-    if (iceServersCacheRef.current) return iceServersCacheRef.current;
+    if (rtc.iceServersCache) return rtc.iceServersCache;
     const fallback: RTCIceServer[] = [
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
@@ -372,22 +418,23 @@ export function CallModal() {
     try {
       const res = await getIceServersApi();
       if (res?.data?.iceServers) {
-        iceServersCacheRef.current = res.data.iceServers;
+        rtc.iceServersCache = res.data.iceServers;
         return res.data.iceServers;
       }
     } catch {
       // Fallback to default STUN
     }
     return fallback;
-  }, []);
+  }, [rtc]);
 
   const ensureLocalMediaStream = useCallback(
     async (withVideo: boolean) => {
-      if (localStreamRef.current) {
-        return localStreamRef.current;
+      if (rtc.localStream) {
+        return rtc.localStream;
       }
 
       try {
+        const videoConstraints = getAdaptiveVideoConstraints();
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -396,17 +443,16 @@ export function CallModal() {
           },
           video: withVideo
             ? {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                ...videoConstraints,
                 facingMode: "user",
               }
             : false,
         });
-        localStreamRef.current = mediaStream;
+        rtc.localStream = mediaStream;
         setIsVideoOff(!withVideo);
 
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = mediaStream;
+        if (rtc.localVideoEl) {
+          rtc.localVideoEl.srcObject = mediaStream;
         }
         return mediaStream;
       } catch (err) {
@@ -415,7 +461,7 @@ export function CallModal() {
             audio: true,
             video: false,
           });
-          localStreamRef.current = audioOnlyStream;
+          rtc.localStream = audioOnlyStream;
           setIsVideoOff(true);
           toast.info(t("noCameraFallback"));
           return audioOnlyStream;
@@ -423,16 +469,16 @@ export function CallModal() {
         throw err;
       }
     },
-    [t],
+    [getAdaptiveVideoConstraints, rtc, t],
   );
 
   const flushPendingCandidates = useCallback(
     async (targetUserId: string, pc: RTCPeerConnection) => {
       if (!pc.remoteDescription) return;
-      const queue = pendingCandidatesRef.current.get(targetUserId) || [];
+      const queue = rtc.pendingCandidates.get(targetUserId) || [];
       if (queue.length === 0) return;
 
-      pendingCandidatesRef.current.delete(targetUserId);
+      rtc.pendingCandidates.delete(targetUserId);
       for (const candidate of queue) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(candidate));
@@ -441,63 +487,69 @@ export function CallModal() {
         }
       }
     },
-    [],
+    [rtc],
   );
 
-  const removePeerConnection = useCallback((targetUserId: string) => {
-    const pc = peersRef.current.get(targetUserId);
-    if (pc) {
+  const removePeerConnection = useCallback(
+    (targetUserId: string) => {
+      const pc = rtc.peers.get(targetUserId);
+      if (pc) {
+        pc.onicecandidate = null;
+        pc.ontrack = null;
+        pc.onconnectionstatechange = null;
+        pc.oniceconnectionstatechange = null;
+        pc.close();
+        rtc.peers.delete(targetUserId);
+      }
+      rtc.pendingCandidates.delete(targetUserId);
+      rtc.initiatedOffers.delete(targetUserId);
+      rtc.makingOffer.delete(targetUserId);
+      rtc.ignoreOffer.delete(targetUserId);
+      setRemoteStreams((prev) => {
+        const next = { ...prev };
+        delete next[targetUserId];
+        return next;
+      });
+    },
+    [rtc],
+  );
+
+  const cleanupAllMediaAndPeers = useCallback(() => {
+    if (rtc.localStream) {
+      rtc.localStream.getTracks().forEach((track) => track.stop());
+      rtc.localStream = null;
+    }
+    if (rtc.screenStream) {
+      rtc.screenStream.getTracks().forEach((track) => track.stop());
+      rtc.screenStream = null;
+    }
+    rtc.peers.forEach((pc) => {
       pc.onicecandidate = null;
       pc.ontrack = null;
       pc.onconnectionstatechange = null;
       pc.oniceconnectionstatechange = null;
       pc.close();
-      peersRef.current.delete(targetUserId);
-    }
-    pendingCandidatesRef.current.delete(targetUserId);
-    initiatedOffersRef.current.delete(targetUserId);
-    makingOfferRef.current.delete(targetUserId);
-    ignoreOfferRef.current.delete(targetUserId);
-    setRemoteStreams((prev) => {
-      const next = { ...prev };
-      delete next[targetUserId];
-      return next;
     });
-  }, []);
-
-  const cleanupAllMediaAndPeers = useCallback(() => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
-      localStreamRef.current = null;
-    }
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((track) => track.stop());
-      screenStreamRef.current = null;
-    }
-    peersRef.current.forEach((pc) => {
-      pc.onicecandidate = null;
-      pc.ontrack = null;
-      pc.onconnectionstatechange = null;
-      pc.close();
-    });
-    peersRef.current.clear();
-    pendingCandidatesRef.current.clear();
-    initiatedOffersRef.current.clear();
+    rtc.peers.clear();
+    rtc.pendingCandidates.clear();
+    rtc.initiatedOffers.clear();
+    rtc.makingOffer.clear();
+    rtc.ignoreOffer.clear();
     setRemoteStreams({});
     setIsAudioMuted(false);
     setIsVideoOff(false);
     setIsScreenSharing(false);
     setDurationSec(0);
-  }, []);
+  }, [rtc]);
 
   const getOrCreatePeerConnection = useCallback(
     async (callId: string, targetUserId: string, isVideo: boolean) => {
-      const existing = peersRef.current.get(targetUserId);
+      const existing = rtc.peers.get(targetUserId);
       if (existing) return existing;
 
       const iceServers = await fetchIceServers();
       const pc = new RTCPeerConnection({ iceServers });
-      peersRef.current.set(targetUserId, pc);
+      rtc.peers.set(targetUserId, pc);
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
@@ -517,11 +569,11 @@ export function CallModal() {
       // Tự động phục hồi kết nối (ICE Restart) khi mạng chập chờn
       pc.oniceconnectionstatechange = async () => {
         if (pc.iceConnectionState === "failed") {
-          const isPolite = (currentUser?.id || "") < targetUserId;
+          const isPolite = (authUser?.id || "") < targetUserId;
           if (!isPolite) {
             try {
               pc.restartIce();
-              makingOfferRef.current.set(targetUserId, true);
+              rtc.makingOffer.set(targetUserId, true);
               const offer = await pc.createOffer({ iceRestart: true });
               await pc.setLocalDescription(offer);
               socketService.send(
@@ -537,7 +589,7 @@ export function CallModal() {
             } catch (err) {
               console.warn("ICE restart failed:", err);
             } finally {
-              makingOfferRef.current.set(targetUserId, false);
+              rtc.makingOffer.set(targetUserId, false);
             }
           }
         }
@@ -560,22 +612,22 @@ export function CallModal() {
 
       return pc;
     },
-    [currentUser?.id, ensureLocalMediaStream, fetchIceServers],
+    [authUser?.id, ensureLocalMediaStream, fetchIceServers, rtc],
   );
 
   useEffect(() => {
-    if (localVideoRef.current) {
-      const activeLocal = screenStreamRef.current || localStreamRef.current;
-      if (activeLocal && localVideoRef.current.srcObject !== activeLocal) {
-        localVideoRef.current.srcObject = activeLocal;
+    if (rtc.localVideoEl) {
+      const activeLocal = rtc.screenStream || rtc.localStream;
+      if (activeLocal && rtc.localVideoEl.srcObject !== activeLocal) {
+        rtc.localVideoEl.srcObject = activeLocal;
       }
     }
-  }, [activeCall?.isMinimized, isVideoOff, isScreenSharing]);
+  }, [activeCall?.isMinimized, isVideoOff, isScreenSharing, rtc]);
 
-  const currentCallId = activeCall?.callId;
+  const activeCallId = activeCall?.callId;
 
   useEffect(() => {
-    if (!currentCallId) {
+    if (!activeCallId) {
       cleanupAllMediaAndPeers();
       return;
     }
@@ -587,7 +639,7 @@ export function CallModal() {
         const latestCall = useChatStore.getState().activeCall;
         if (!latestCall || payload.callId !== latestCall.callId) return;
         const fromUserId = payload.fromUserId as string;
-        if (!fromUserId || fromUserId === currentUser?.id) return;
+        if (!fromUserId || fromUserId === authUser?.id) return;
 
         try {
           if (payload.type === "offer" || payload.type === "renegotiate") {
@@ -598,15 +650,13 @@ export function CallModal() {
             );
 
             // W3C Perfect Negotiation: Giải quyết xung đột Offer (Glare Condition)
-            const isPolite = (currentUser?.id || "") < fromUserId;
-            const isMakingOffer = Boolean(
-              makingOfferRef.current.get(fromUserId),
-            );
+            const isPolite = (authUser?.id || "") < fromUserId;
+            const isMakingOffer = Boolean(rtc.makingOffer.get(fromUserId));
             const offerCollision =
               isMakingOffer || pc.signalingState !== "stable";
 
             const shouldIgnore = !isPolite && offerCollision;
-            ignoreOfferRef.current.set(fromUserId, shouldIgnore);
+            rtc.ignoreOffer.set(fromUserId, shouldIgnore);
             if (shouldIgnore) {
               return;
             }
@@ -638,22 +688,22 @@ export function CallModal() {
               },
             );
           } else if (payload.type === "answer") {
-            if (ignoreOfferRef.current.get(fromUserId)) return;
-            const pc = peersRef.current.get(fromUserId);
+            if (rtc.ignoreOffer.get(fromUserId)) return;
+            const pc = rtc.peers.get(fromUserId);
             if (!pc || pc.signalingState !== "have-local-offer") return;
             await pc.setRemoteDescription(
               new RTCSessionDescription(payload.signalData),
             );
             await flushPendingCandidates(fromUserId, pc);
           } else if (payload.type === "ice-candidate" && payload.signalData) {
-            if (ignoreOfferRef.current.get(fromUserId)) return;
-            const pc = peersRef.current.get(fromUserId);
+            if (rtc.ignoreOffer.get(fromUserId)) return;
+            const pc = rtc.peers.get(fromUserId);
             if (pc && pc.remoteDescription && pc.remoteDescription.type) {
               await pc.addIceCandidate(new RTCIceCandidate(payload.signalData));
             } else {
-              const list = pendingCandidatesRef.current.get(fromUserId) || [];
+              const list = rtc.pendingCandidates.get(fromUserId) || [];
               list.push(payload.signalData);
-              pendingCandidatesRef.current.set(fromUserId, list);
+              rtc.pendingCandidates.set(fromUserId, list);
             }
           }
         } catch (err) {
@@ -677,12 +727,12 @@ export function CallModal() {
         const joinedUserId = payload.userId as string;
         if (
           joinedUserId &&
-          joinedUserId !== currentUser?.id &&
-          !initiatedOffersRef.current.has(joinedUserId)
+          joinedUserId !== authUser?.id &&
+          !rtc.initiatedOffers.has(joinedUserId)
         ) {
-          initiatedOffersRef.current.add(joinedUserId);
+          rtc.initiatedOffers.add(joinedUserId);
           try {
-            makingOfferRef.current.set(joinedUserId, true);
+            rtc.makingOffer.set(joinedUserId, true);
             const pc = await getOrCreatePeerConnection(
               latestCall.callId,
               joinedUserId,
@@ -703,7 +753,7 @@ export function CallModal() {
           } catch (err) {
             console.error("Mesh offer error:", err);
           } finally {
-            makingOfferRef.current.set(joinedUserId, false);
+            rtc.makingOffer.set(joinedUserId, false);
           }
         }
       },
@@ -726,18 +776,34 @@ export function CallModal() {
       },
     );
 
+    const cleanHostMutedLocal = socketService.on<{
+      callId: string;
+      mutedBy: string;
+    }>(SocketNamespaceEnum.CHAT, SOCKET_EVENTS.CALL.HOST_MUTED, (payload) => {
+      const latestCall = useChatStore.getState().activeCall;
+      if (!latestCall || payload?.callId !== latestCall.callId) return;
+      if (rtc.localStream) {
+        rtc.localStream.getAudioTracks().forEach((track) => {
+          track.enabled = false;
+        });
+      }
+      setIsAudioMuted(true);
+    });
+
     return () => {
       cleanSignal();
       cleanParticipantJoined();
       cleanParticipantLeft();
+      cleanHostMutedLocal();
     };
   }, [
-    currentCallId,
-    currentUser?.id,
+    activeCallId,
+    authUser?.id,
     cleanupAllMediaAndPeers,
     flushPendingCandidates,
     getOrCreatePeerConnection,
     removePeerConnection,
+    rtc,
     updateActiveCall,
   ]);
 
@@ -746,18 +812,19 @@ export function CallModal() {
     if (activeCall.status !== CallStatusEnum.ONGOING) return;
 
     const partnerIds = Object.keys(activeCall.participants || {}).filter(
-      (id) => id !== currentUser?.id,
+      (id) => id !== authUser?.id,
     );
     if (partnerIds.length === 0 && conversation?.partnerId) {
       partnerIds.push(conversation.partnerId);
     }
 
     partnerIds.forEach((targetId) => {
-      if (!targetId || initiatedOffersRef.current.has(targetId)) return;
-      initiatedOffersRef.current.add(targetId);
+      if (!targetId || rtc.initiatedOffers.has(targetId)) return;
+      rtc.initiatedOffers.add(targetId);
 
       (async () => {
         try {
+          rtc.makingOffer.set(targetId, true);
           const pc = await getOrCreatePeerConnection(
             activeCall.callId,
             targetId,
@@ -772,19 +839,22 @@ export function CallModal() {
               callId: activeCall.callId,
               targetUserId: targetId,
               type: "offer",
-              signalData: offer,
+              signalData: pc.localDescription || offer,
             },
           );
         } catch (err: any) {
           toast.error(err?.message || t("mediaError"));
+        } finally {
+          rtc.makingOffer.set(targetId, false);
         }
       })();
     });
   }, [
     activeCall,
-    currentUser?.id,
+    authUser?.id,
     conversation?.partnerId,
     getOrCreatePeerConnection,
+    rtc,
     t,
   ]);
 
@@ -880,12 +950,12 @@ export function CallModal() {
     }
   };
 
-  const handleHangup = async () => {
+  const handleHangup = async (endForAll = false) => {
     try {
       await socketService.emit(
         SocketNamespaceEnum.CHAT,
         SOCKET_EVENTS.CALL.HANGUP,
-        { callId: activeCall.callId },
+        { callId: activeCall.callId, endForAll },
       );
     } finally {
       cleanupAllMediaAndPeers();
@@ -894,7 +964,7 @@ export function CallModal() {
   };
 
   const toggleAudio = () => {
-    const stream = localStreamRef.current;
+    const stream = rtc.localStream;
     if (!stream) return;
     const nextMuted = !isAudioMuted;
     stream.getAudioTracks().forEach((t) => {
@@ -912,25 +982,26 @@ export function CallModal() {
   };
 
   const toggleVideo = async () => {
-    const stream = localStreamRef.current;
+    const stream = rtc.localStream;
     if (!stream) return;
 
     const existingVideoTracks = stream.getVideoTracks();
 
     if (existingVideoTracks.length === 0) {
       try {
+        const videoConstraints = getAdaptiveVideoConstraints();
         const camStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: videoConstraints,
         });
         const newVideoTrack = camStream.getVideoTracks()[0];
         if (!newVideoTrack) return;
 
         stream.addTrack(newVideoTrack);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+        if (rtc.localVideoEl) {
+          rtc.localVideoEl.srcObject = stream;
         }
 
-        for (const [targetUserId, pc] of peersRef.current.entries()) {
+        for (const [targetUserId, pc] of rtc.peers.entries()) {
           pc.addTrack(newVideoTrack, stream);
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
@@ -983,10 +1054,10 @@ export function CallModal() {
         const displayStream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
         });
-        screenStreamRef.current = displayStream;
+        rtc.screenStream = displayStream;
         const screenTrack = displayStream.getVideoTracks()[0];
 
-        for (const [targetUserId, pc] of peersRef.current.entries()) {
+        for (const [targetUserId, pc] of rtc.peers.entries()) {
           const sender = pc.getSenders().find((s) => s.track?.kind === "video");
           if (sender) {
             await sender.replaceTrack(screenTrack);
@@ -1007,8 +1078,8 @@ export function CallModal() {
           }
         }
 
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = displayStream;
+        if (rtc.localVideoEl) {
+          rtc.localVideoEl.srcObject = displayStream;
         }
         setIsScreenSharing(true);
         updateActiveCall({ callType: CallTypeEnum.VIDEO });
@@ -1032,19 +1103,19 @@ export function CallModal() {
   };
 
   const stopScreenShare = async () => {
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((t) => t.stop());
-      screenStreamRef.current = null;
+    if (rtc.screenStream) {
+      rtc.screenStream.getTracks().forEach((t) => t.stop());
+      rtc.screenStream = null;
     }
-    const camTrack = localStreamRef.current?.getVideoTracks()[0] || null;
-    for (const pc of peersRef.current.values()) {
+    const camTrack = rtc.localStream?.getVideoTracks()[0] || null;
+    for (const pc of rtc.peers.values()) {
       const sender = pc.getSenders().find((s) => s.track?.kind === "video");
       if (sender && camTrack) {
         await sender.replaceTrack(camTrack);
       }
     }
-    if (localVideoRef.current && localStreamRef.current) {
-      localVideoRef.current.srcObject = localStreamRef.current;
+    if (rtc.localVideoEl && rtc.localStream) {
+      rtc.localVideoEl.srcObject = rtc.localStream;
     }
     setIsScreenSharing(false);
     socketService.send(
@@ -1059,7 +1130,7 @@ export function CallModal() {
 
   const remoteParticipantIds = Object.keys(
     activeCall.participants || {},
-  ).filter((id) => id !== currentUser?.id);
+  ).filter((id) => id !== authUser?.id);
 
   const displayTitle =
     conversation?.name || activeCall.callerName || t("defaultTitle");
@@ -1125,7 +1196,7 @@ export function CallModal() {
               color="danger"
               rounded="full"
               className="h-8 w-8"
-              onClick={handleHangup}
+              onClick={() => handleHangup(false)}
             >
               <PhoneOff className="h-4 w-4" />
             </PatternButton>
@@ -1149,21 +1220,26 @@ export function CallModal() {
               </div>
 
               {isGroupCall && (
-                <div className="flex items-center gap-1.5 text-xs text-indigo-200 bg-indigo-500/20 border border-indigo-400/30 px-3 py-1 rounded-full">
+                <button
+                  type="button"
+                  onClick={() => setShowParticipantsPanel((v) => !v)}
+                  className="flex items-center gap-1.5 text-xs text-indigo-200 bg-indigo-500/20 hover:bg-indigo-500/35 border border-indigo-400/30 px-3 py-1 rounded-full transition-colors cursor-pointer"
+                >
                   <Users className="w-3.5 h-3.5" />
                   <span>
                     {t("membersCount", {
                       count: Object.keys(activeCall.participants || {}).length,
                     })}
                   </span>
-                </div>
+                </button>
               )}
             </div>
 
             <div className="flex items-center gap-2.5 sm:gap-3">
               {activeCall.status === CallStatusEnum.ONGOING && (
                 <>
-                  <span className="text-xs font-mono bg-white/10 px-3 py-1 rounded-full border border-white/15">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-mono bg-white/10 px-3 py-1 rounded-full border border-white/15">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     {formatTimer(durationSec)}
                   </span>
                   <PatternButton
@@ -1181,8 +1257,8 @@ export function CallModal() {
             </div>
           </div>
 
-          {/* Khu vực hiển thị Video / Avatar */}
-          <div className="relative flex-1 flex flex-col items-center justify-center overflow-hidden px-3 sm:px-6">
+          {/* Khu vực hiển thị Video / Avatar / Spotlight */}
+          <div className="relative flex-1 min-h-0 flex flex-col items-center justify-center overflow-hidden px-3 sm:px-6">
             {activeCall.status === CallStatusEnum.RINGING ? (
               <div className="relative z-10 flex flex-col items-center gap-5">
                 <div className="relative">
@@ -1223,43 +1299,215 @@ export function CallModal() {
                         activeCall.callType === CallTypeEnum.AUDIO
                       }
                       isScreenSharing={pState?.isScreenSharing}
+                      isHandRaised={pState?.isHandRaised}
+                      isPinned={effectivePinnedPeerId === pid}
+                      isHost={isMeHost}
                       isSingleRemote
                       connectingLabel={t("connectingAudio")}
+                      onTogglePin={handleTogglePinPeer}
+                      onHostMute={handleHostMuteMember}
                     />
                   );
                 })}
               </div>
+            ) : effectivePinnedPeerId &&
+              remoteParticipantIds.includes(effectivePinnedPeerId) ? (
+              <div className="flex flex-col md:flex-row gap-3 w-full h-full min-h-0 py-1">
+                <div className="flex-1 min-h-0 h-full rounded-2xl overflow-hidden">
+                  {(() => {
+                    const pid = effectivePinnedPeerId;
+                    const meta = getMemberMeta(pid);
+                    const pState = activeCall.participants?.[pid];
+                    return (
+                      <RemotePeerTile
+                        key={pid}
+                        userId={pid}
+                        name={meta.name}
+                        avatar={meta.avatar}
+                        stream={remoteStreams[pid]}
+                        isAudioMuted={pState?.isAudioMuted}
+                        isVideoOff={
+                          pState?.isVideoOff ??
+                          activeCall.callType === CallTypeEnum.AUDIO
+                        }
+                        isScreenSharing={pState?.isScreenSharing}
+                        isHandRaised={pState?.isHandRaised}
+                        isPinned
+                        isHost={isMeHost}
+                        connectingLabel={t("connectingAudio")}
+                        onTogglePin={handleTogglePinPeer}
+                        onHostMute={handleHostMuteMember}
+                      />
+                    );
+                  })()}
+                </div>
+
+                <ScrollArea className="w-full md:w-56 h-32 md:h-full shrink-0">
+                  <div className="flex md:flex-col gap-2.5 pr-1">
+                    {remoteParticipantIds
+                      .filter((pid) => pid !== effectivePinnedPeerId)
+                      .map((pid) => {
+                        const meta = getMemberMeta(pid);
+                        const pState = activeCall.participants?.[pid];
+                        return (
+                          <div
+                            key={pid}
+                            className="w-40 md:w-full h-28 md:h-36 shrink-0"
+                          >
+                            <RemotePeerTile
+                              userId={pid}
+                              name={meta.name}
+                              avatar={meta.avatar}
+                              stream={remoteStreams[pid]}
+                              isAudioMuted={pState?.isAudioMuted}
+                              isVideoOff={
+                                pState?.isVideoOff ??
+                                activeCall.callType === CallTypeEnum.AUDIO
+                              }
+                              isScreenSharing={pState?.isScreenSharing}
+                              isHandRaised={pState?.isHandRaised}
+                              isPinned={false}
+                              isHost={isMeHost}
+                              connectingLabel={t("connectingAudio")}
+                              onTogglePin={handleTogglePinPeer}
+                              onHostMute={handleHostMuteMember}
+                            />
+                          </div>
+                        );
+                      })}
+                  </div>
+                </ScrollArea>
+              </div>
             ) : (
-              <div
-                className={cn(
-                  "grid gap-2.5 sm:gap-3 w-full h-full py-1",
-                  remoteParticipantIds.length === 2
-                    ? "grid-cols-1 md:grid-cols-2"
-                    : remoteParticipantIds.length <= 4
-                      ? "grid-cols-2"
-                      : "grid-cols-2 md:grid-cols-3",
-                )}
-              >
-                {remoteParticipantIds.map((pid) => {
-                  const meta = getMemberMeta(pid);
-                  const pState = activeCall.participants?.[pid];
-                  return (
-                    <RemotePeerTile
-                      key={pid}
-                      userId={pid}
-                      name={meta.name}
-                      avatar={meta.avatar}
-                      stream={remoteStreams[pid]}
-                      isAudioMuted={pState?.isAudioMuted}
-                      isVideoOff={
-                        pState?.isVideoOff ??
-                        activeCall.callType === CallTypeEnum.AUDIO
-                      }
-                      isScreenSharing={pState?.isScreenSharing}
-                      connectingLabel={t("connectingAudio")}
-                    />
-                  );
-                })}
+              <ScrollArea className="w-full h-full py-1">
+                <div
+                  className={cn(
+                    "grid gap-2.5 sm:gap-3 w-full min-h-full",
+                    remoteParticipantIds.length === 2
+                      ? "grid-cols-1 md:grid-cols-2"
+                      : remoteParticipantIds.length <= 4
+                        ? "grid-cols-2"
+                        : "grid-cols-2 md:grid-cols-3",
+                  )}
+                >
+                  {remoteParticipantIds.map((pid) => {
+                    const meta = getMemberMeta(pid);
+                    const pState = activeCall.participants?.[pid];
+                    return (
+                      <RemotePeerTile
+                        key={pid}
+                        userId={pid}
+                        name={meta.name}
+                        avatar={meta.avatar}
+                        stream={remoteStreams[pid]}
+                        isAudioMuted={pState?.isAudioMuted}
+                        isVideoOff={
+                          pState?.isVideoOff ??
+                          activeCall.callType === CallTypeEnum.AUDIO
+                        }
+                        isScreenSharing={pState?.isScreenSharing}
+                        isHandRaised={pState?.isHandRaised}
+                        isPinned={effectivePinnedPeerId === pid}
+                        isHost={isMeHost}
+                        connectingLabel={t("connectingAudio")}
+                        onTogglePin={handleTogglePinPeer}
+                        onHostMute={handleHostMuteMember}
+                      />
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            )}
+
+            {/* Ngăn kéo quản lý thành viên & Gọi lại (Ring User) trong Cuộc gọi nhóm */}
+            {isGroupCall && showParticipantsPanel && (
+              <div className="absolute top-2 right-3 sm:right-6 z-30 w-72 max-w-[calc(100vw-2rem)] rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-white/20 p-3 shadow-2xl animate-in fade-in slide-in-from-right-3 duration-200">
+                <div className="flex items-center justify-between border-b border-white/15 pb-2 mb-2">
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-indigo-400" />
+                    {t("participantsListTitle")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowParticipantsPanel(false)}
+                    className="text-xs text-white/60 hover:text-white cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <ScrollArea className="h-56 pr-1">
+                  <div className="space-y-1.5">
+                    {(activeCall.membersInfo || []).map((member) => {
+                      const inCallState = activeCall.participants?.[member.id];
+                      const isJoined = Boolean(inCallState);
+                      const isMeMember = member.id === authUser?.id;
+
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between gap-2 p-1.5 rounded-xl bg-white/5 border border-white/10"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <GlassAvatar
+                              src={member.avatar}
+                              name={member.name}
+                              size="xs"
+                              isOnline={isJoined}
+                              showStatus={isJoined}
+                            />
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-white truncate">
+                                {member.name} {isMeMember ? `(${t("you")})` : ""}
+                              </p>
+                              <p className="text-[10px] text-white/60">
+                                {isJoined
+                                  ? t("inCallStatus")
+                                  : t("notJoinedStatus")}
+                              </p>
+                            </div>
+                          </div>
+
+                          {isJoined ? (
+                            <div className="flex items-center gap-1 shrink-0">
+                              {inCallState?.isHandRaised && (
+                                <Hand className="w-3.5 h-3.5 text-amber-400" />
+                              )}
+                              {isMeHost &&
+                                !isMeMember &&
+                                !inCallState?.isAudioMuted && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleHostMuteMember(member.id)
+                                    }
+                                    className="p-1 rounded-full bg-red-500/20 text-red-300 hover:bg-red-500/40 cursor-pointer"
+                                    title={t("hostMuteMember")}
+                                  >
+                                    <MicOff className="w-3 h-3" />
+                                  </button>
+                                )}
+                            </div>
+                          ) : (
+                            <PatternButton
+                              size="sm"
+                              variant="ghost"
+                              rounded="full"
+                              disabled={Boolean(ringingTargets[member.id])}
+                              onClick={() => handleRingGroupMember(member.id)}
+                              className="h-6 px-2 text-[10px] bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 shrink-0"
+                              icon={<BellRing className="w-3 h-3" />}
+                            >
+                              {ringingTargets[member.id]
+                                ? t("ringingBtn")
+                                : t("ringUserBtn")}
+                            </PatternButton>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
               </div>
             )}
 
@@ -1268,7 +1516,7 @@ export function CallModal() {
               isScreenSharing) && (
               <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-6 z-20 w-28 h-20 sm:w-40 sm:h-28 rounded-2xl overflow-hidden border border-white/35 shadow-2xl bg-slate-900/80 backdrop-blur-md">
                 <video
-                  ref={localVideoRef}
+                  ref={bindLocalVideoElement}
                   autoPlay
                   muted
                   playsInline
@@ -1299,7 +1547,7 @@ export function CallModal() {
               border="highlight"
               fluid={false}
               isolate={false}
-              contentClassName="px-3 py-1.5 flex items-center justify-center gap-2.5 sm:gap-4"
+              contentClassName="px-3 py-1.5 flex items-center justify-center gap-2 sm:gap-3.5"
               className="shadow-2xl max-w-full"
             >
               {activeCall.status === CallStatusEnum.RINGING &&
@@ -1332,7 +1580,7 @@ export function CallModal() {
                     variant={isAudioMuted ? "solid" : "glass"}
                     size="icon"
                     rounded="full"
-                    className="h-11 w-11 sm:h-13 sm:w-13"
+                    className="h-11 w-11 sm:h-12 sm:w-12"
                     onClick={toggleAudio}
                     title={isAudioMuted ? t("unmuteMic") : t("muteMic")}
                   >
@@ -1347,7 +1595,7 @@ export function CallModal() {
                     variant={isVideoOff ? "solid" : "glass"}
                     size="icon"
                     rounded="full"
-                    className="h-11 w-11 sm:h-13 sm:w-13"
+                    className="h-11 w-11 sm:h-12 sm:w-12"
                     onClick={toggleVideo}
                     title={isVideoOff ? t("turnOnCamera") : t("turnOffCamera")}
                   >
@@ -1363,7 +1611,7 @@ export function CallModal() {
                       variant={isScreenSharing ? "solid" : "glass"}
                       size="icon"
                       rounded="full"
-                      className="h-11 w-11 sm:h-13 sm:w-13 hidden sm:inline-flex"
+                      className="h-11 w-11 sm:h-12 sm:w-12 hidden sm:inline-flex"
                       onClick={toggleScreenShare}
                       title={
                         isScreenSharing
@@ -1375,17 +1623,64 @@ export function CallModal() {
                     </PatternButton>
                   )}
 
+                  {activeCall.status === CallStatusEnum.ONGOING &&
+                    isGroupCall && (
+                      <>
+                        <PatternButton
+                          variant={isHandRaised ? "solid" : "glass"}
+                          color={isHandRaised ? "warning" : "primary"}
+                          size="icon"
+                          rounded="full"
+                          className="h-11 w-11 sm:h-12 sm:w-12"
+                          onClick={toggleRaiseHand}
+                          title={
+                            isHandRaised ? t("lowerHand") : t("raiseHand")
+                          }
+                        >
+                          <Hand className="w-5 h-5" />
+                        </PatternButton>
+
+                        <PatternButton
+                          variant={showParticipantsPanel ? "solid" : "glass"}
+                          size="icon"
+                          rounded="full"
+                          className="h-11 w-11 sm:h-12 sm:w-12"
+                          onClick={() =>
+                            setShowParticipantsPanel((prev) => !prev)
+                          }
+                          title={t("participantsListTitle")}
+                        >
+                          <UserPlus className="w-5 h-5" />
+                        </PatternButton>
+                      </>
+                    )}
+
                   <PatternButton
                     variant="solid"
                     color="danger"
                     size="icon"
                     rounded="full"
-                    className="h-11 w-11 sm:h-13 sm:w-13"
-                    onClick={handleHangup}
+                    className="h-11 w-11 sm:h-12 sm:w-12"
+                    onClick={() => handleHangup(false)}
                     title={t("endCall")}
                   >
                     <PhoneOff className="w-5 h-5" />
                   </PatternButton>
+
+                  {isGroupCall &&
+                    isMeHost &&
+                    activeCall.status === CallStatusEnum.ONGOING && (
+                      <PatternButton
+                        variant="outline"
+                        color="danger"
+                        size="sm"
+                        rounded="full"
+                        onClick={() => handleHangup(true)}
+                        className="h-10 px-3 text-[11px] font-semibold border-red-400/50 text-red-200 hover:bg-red-600/30 hidden md:inline-flex"
+                      >
+                        {t("endCallForAll")}
+                      </PatternButton>
+                    )}
                 </>
               )}
             </LiquidGlass>

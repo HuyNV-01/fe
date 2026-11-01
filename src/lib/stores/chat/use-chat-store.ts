@@ -50,6 +50,7 @@ import {
   createPollApi,
   votePollApi,
   closePollApi,
+  getConversationActiveCallApi,
 } from "./api";
 import { blockUserApi, unblockUserApi } from "../contact/api";
 import type { IConversationDetails, ISharedAssetsResponse } from "@/types/chat";
@@ -168,6 +169,8 @@ interface ChatState {
     conversationId: string;
     targetUserId: string;
     nickname: string | null;
+    originalName?: string | null;
+    displayName?: string | null;
   }) => void;
   handleConversationSettingsUpdated: (payload: {
     conversationId: string;
@@ -295,6 +298,13 @@ interface ChatState {
   }) => Promise<void>;
   handlePollUpdated: (payload: IPollUpdatedPayload) => void;
   handleLinkPreviewReady: (payload: ILinkPreviewReadyPayload) => void;
+  ongoingCallsByConv: Record<string, IActiveCallState | null>;
+  purgeExpiredMessages: () => void;
+  fetchConversationActiveCall: (conversationId: string) => Promise<void>;
+  setOngoingCallForConv: (
+    conversationId: string,
+    call: IActiveCallState | null,
+  ) => void;
 }
 
 export const useChatStore = createPersistedStore<ChatState>(
@@ -317,6 +327,7 @@ export const useChatStore = createPersistedStore<ChatState>(
     pinnedMessagesByConv: {},
     conversationDetails: {},
     sharedAssets: {},
+    ongoingCallsByConv: {},
 
     setSocketConnected: (status) => {
       set({ isSocketConnected: status });
@@ -543,7 +554,11 @@ export const useChatStore = createPersistedStore<ChatState>(
       const { activeConversationId } = get();
       const currentUser = useAuthStore.getState().currentAccount?.user;
       const isMe = message.senderId === currentUser?.id;
-      const isViewing = activeConversationId === message.conversationId;
+      const isTabVisible =
+        typeof document === "undefined" ||
+        document.visibilityState === "visible";
+      const isViewing =
+        activeConversationId === message.conversationId && isTabVisible;
 
       if (isViewing || isMe) {
         const msgTime =
@@ -589,10 +604,16 @@ export const useChatStore = createPersistedStore<ChatState>(
           const updatedConv = { ...state.conversations[convIndex] };
           updatedConv.lastMessage =
             message.type === MessageTypeEnum.TEXT ||
-            message.type === MessageTypeEnum.CALL
+            message.type === MessageTypeEnum.CALL ||
+            message.type === MessageTypeEnum.POLL
               ? message.content
-              : `[${message.type}] ${message.content || ""}`;
+              : `[${message.type}] ${message.content || ""}`.trim();
           updatedConv.lastMessageAt = message.createdAt;
+          updatedConv.lastMessageType = message.type;
+          updatedConv.lastMessageSenderId = message.senderId;
+          updatedConv.lastMessageStatus = initialStatus;
+          updatedConv.lastMessageExpiresAt =
+            message.expiresAt || message.metadata?.expiresAt || null;
 
           const currentUnread = Number(updatedConv.unreadCount || 0);
 
@@ -1562,17 +1583,34 @@ export const useChatStore = createPersistedStore<ChatState>(
         const res: any = await getConversationDetailsApi(conversationId);
         const data = res?.data ?? res;
         if (data?.conversationId) {
+          const currentUserId =
+            useAuthStore.getState().currentAccount?.user?.id;
           set((state) => {
             state.conversationDetails[conversationId] = data;
             const conv = state.conversations.find(
               (c) => c.id === conversationId,
             );
-            if (conv && data.mySettings) {
-              conv.isMuted = data.mySettings.isMuted;
-              conv.soundEnabled = data.mySettings.soundEnabled;
-              conv.readReceiptsEnabled = data.mySettings.readReceiptsEnabled;
-              conv.isRestricted = data.mySettings.isRestricted;
-              conv.disappearingTtl = data.disappearingTtl;
+            if (conv) {
+              if (data.mySettings) {
+                conv.isMuted = data.mySettings.isMuted;
+                conv.soundEnabled = data.mySettings.soundEnabled;
+                conv.readReceiptsEnabled = data.mySettings.readReceiptsEnabled;
+                conv.isRestricted = data.mySettings.isRestricted;
+                conv.disappearingTtl = data.disappearingTtl;
+              }
+              if (
+                conv.type === ConversationTypeEnum.DIRECT &&
+                Array.isArray(data.members)
+              ) {
+                const partnerMember = data.members.find(
+                  (m: any) => m.userId !== currentUserId,
+                );
+                if (partnerMember) {
+                  conv.originalName = partnerMember.name;
+                  conv.partnerNickname = partnerMember.nickname || null;
+                  conv.name = partnerMember.nickname || partnerMember.name;
+                }
+              }
             }
           });
         }
@@ -1617,43 +1655,87 @@ export const useChatStore = createPersistedStore<ChatState>(
 
     updateNickname: async ({ conversationId, targetUserId, nickname }) => {
       try {
-        await updateParticipantNicknameApi({
+        const res: any = await updateParticipantNicknameApi({
           conversationId,
           targetUserId,
           nickname,
         });
-        get().handleNicknameUpdated({ conversationId, targetUserId, nickname });
+        const data = res?.data ?? res;
+        get().handleNicknameUpdated({
+          conversationId,
+          targetUserId,
+          nickname,
+          originalName: data?.originalName,
+          displayName: data?.displayName,
+        });
         toast.success("Đã cập nhật biệt danh");
         return true;
-      } catch {
-        toast.error("Không thể cập nhật biệt danh");
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể cập nhật biệt danh",
+        );
         return false;
       }
     },
 
-    handleNicknameUpdated: ({ conversationId, targetUserId, nickname }) => {
+    handleNicknameUpdated: ({
+      conversationId,
+      targetUserId,
+      nickname,
+      originalName,
+      displayName,
+    }) => {
+      const currentUserId = useAuthStore.getState().currentAccount?.user?.id;
       set((state) => {
+        let fallbackOriginalName = originalName || null;
         const details = state.conversationDetails[conversationId];
         if (details?.members) {
           const member = details.members.find((m) => m.userId === targetUserId);
           if (member) {
             member.nickname = nickname;
+            fallbackOriginalName = fallbackOriginalName || member.name;
+          }
+          if (
+            details.type === ConversationTypeEnum.DIRECT &&
+            targetUserId !== currentUserId
+          ) {
+            details.name =
+              nickname || displayName || fallbackOriginalName || details.name;
           }
         }
+
+        const updateDirectConvName = (conv?: IConversation) => {
+          if (!conv || conv.type !== ConversationTypeEnum.DIRECT) return;
+          const isPartnerTarget =
+            conv.partnerId === targetUserId ||
+            (!conv.isSavedMessages && targetUserId !== currentUserId);
+          if (isPartnerTarget) {
+            const resolvedOriginal =
+              fallbackOriginalName || conv.originalName || conv.name;
+            conv.originalName = resolvedOriginal;
+            conv.partnerNickname = nickname;
+            conv.name = nickname || displayName || resolvedOriginal;
+          }
+        };
+
         const conv = state.conversations.find((c) => c.id === conversationId);
-        if (
-          conv &&
-          conv.type === ConversationTypeEnum.DIRECT &&
-          conv.partnerId === targetUserId &&
-          nickname
-        ) {
-          conv.name = nickname;
-        }
+        updateDirectConvName(conv);
+
+        const tempConv = state.tempConversations.find(
+          (c) => c.id === conversationId,
+        );
+        updateDirectConvName(tempConv);
+
         const msgs = state.messages[conversationId];
         if (msgs) {
           msgs.forEach((m) => {
             if (m.senderId === targetUserId && m.sender) {
-              m.sender.name = nickname || m.sender.name;
+              const orig =
+                (m.sender as any).originalName ||
+                fallbackOriginalName ||
+                m.sender.name;
+              (m.sender as any).originalName = orig;
+              m.sender.name = nickname || displayName || orig;
             }
           });
         }
@@ -1675,6 +1757,15 @@ export const useChatStore = createPersistedStore<ChatState>(
             Object.assign(details.mySettings, updated);
           }
         });
+
+        if (
+          (payload.readReceiptsEnabled === true ||
+            payload.isRestricted === false) &&
+          get().activeConversationId === conversationId
+        ) {
+          get().markConversationReadOptimistic(conversationId);
+        }
+
         toast.success("Đã cập nhật cài đặt cuộc trò chuyện");
       } catch {
         toast.error("Không thể cập nhật cài đặt");
@@ -1838,13 +1929,24 @@ export const useChatStore = createPersistedStore<ChatState>(
     handlePollUpdated: ({ conversationId, messageId, poll }) => {
       set((state) => {
         const msgs = state.messages[conversationId];
-        if (!msgs) return;
-        const msg = msgs.find((m) => m.id === messageId);
-        if (msg) {
-          msg.metadata = {
-            ...(msg.metadata || {}),
-            poll,
-          };
+        if (msgs) {
+          const msg = msgs.find((m) => m.id === messageId);
+          if (msg) {
+            msg.metadata = {
+              ...(msg.metadata || {}),
+              poll,
+            };
+          }
+        }
+        const pinnedList = state.pinnedMessagesByConv[conversationId];
+        if (pinnedList) {
+          const pinnedMsg = pinnedList.find((m) => m.id === messageId);
+          if (pinnedMsg) {
+            pinnedMsg.metadata = {
+              ...(pinnedMsg.metadata || {}),
+              poll,
+            };
+          }
         }
       });
     },
@@ -1860,6 +1962,121 @@ export const useChatStore = createPersistedStore<ChatState>(
             linkPreview,
           };
         }
+      });
+    },
+
+    purgeExpiredMessages: () => {
+      const nowMs = Date.now();
+      set((state) => {
+        for (const [convId, msgList] of Object.entries(state.messages)) {
+          if (!Array.isArray(msgList) || msgList.length === 0) continue;
+          const hasExpired = msgList.some((m) => {
+            const exp = m.expiresAt || m.metadata?.expiresAt;
+            if (!exp) return false;
+            const expMs = parseSafeDate(exp)?.getTime();
+            return Boolean(expMs && expMs <= nowMs);
+          });
+
+          if (hasExpired) {
+            const validMsgs = msgList.filter((m) => {
+              const exp = m.expiresAt || m.metadata?.expiresAt;
+              if (!exp) return true;
+              const expMs = parseSafeDate(exp)?.getTime();
+              return !expMs || expMs > nowMs;
+            });
+            state.messages[convId] = validMsgs;
+
+            const lastValid = validMsgs[validMsgs.length - 1];
+            const syncConvPreview = (c?: IConversation) => {
+              if (!c) return;
+              if (lastValid) {
+                c.lastMessage =
+                  lastValid.status === "removed"
+                    ? tChatToast("recalledPlaceholder")
+                    : lastValid.type === MessageTypeEnum.TEXT ||
+                        lastValid.type === MessageTypeEnum.CALL ||
+                        lastValid.type === MessageTypeEnum.POLL
+                      ? lastValid.content
+                      : `[${lastValid.type}] ${lastValid.content || ""}`.trim();
+                c.lastMessageAt = lastValid.createdAt;
+                c.lastMessageType = lastValid.type;
+                c.lastMessageSenderId = lastValid.senderId;
+                c.lastMessageStatus = lastValid.status || "sent";
+                c.lastMessageExpiresAt =
+                  lastValid.expiresAt || lastValid.metadata?.expiresAt || null;
+              } else {
+                c.lastMessage = null;
+                c.lastMessageExpiresAt = null;
+                c.lastMessageStatus = null;
+              }
+            };
+
+            syncConvPreview(state.conversations.find((c) => c.id === convId));
+            syncConvPreview(
+              state.tempConversations.find((c) => c.id === convId),
+            );
+          }
+        }
+
+        const checkConvListExpiration = (list: IConversation[]) => {
+          list.forEach((c) => {
+            if (!c.lastMessageExpiresAt) return;
+            const expMs = parseSafeDate(c.lastMessageExpiresAt)?.getTime();
+            if (expMs && expMs <= nowMs) {
+              const loadedMsgs = state.messages[c.id];
+              const lastValid = loadedMsgs?.[loadedMsgs.length - 1];
+              if (lastValid) {
+                c.lastMessage = lastValid.content;
+                c.lastMessageAt = lastValid.createdAt;
+                c.lastMessageExpiresAt =
+                  lastValid.expiresAt || lastValid.metadata?.expiresAt || null;
+              } else {
+                c.lastMessage = null;
+                c.lastMessageExpiresAt = null;
+                c.lastMessageStatus = null;
+              }
+            }
+          });
+        };
+
+        checkConvListExpiration(state.conversations);
+        checkConvListExpiration(state.tempConversations);
+      });
+    },
+
+    fetchConversationActiveCall: async (conversationId) => {
+      if (!conversationId) return;
+      try {
+        const res: any = await getConversationActiveCallApi(conversationId);
+        const session = res?.data ?? null;
+        set((state) => {
+          if (session?.callId) {
+            state.ongoingCallsByConv[conversationId] = {
+              callId: session.callId,
+              conversationId: session.conversationId || conversationId,
+              callType: session.callType,
+              isGroupCall: session.isGroupCall,
+              initiatorId: session.initiatorId,
+              status: session.status,
+              isIncoming: false,
+              startedAt: session.createdAt,
+              answeredAt: session.answeredAt,
+              participants: session.participants || {},
+              membersInfo: session.membersInfo || [],
+            };
+          } else {
+            state.ongoingCallsByConv[conversationId] = null;
+          }
+        });
+      } catch {
+        // Ignore
+      }
+    },
+
+    setOngoingCallForConv: (conversationId, call) => {
+      if (!conversationId) return;
+      set((state) => {
+        state.ongoingCallsByConv[conversationId] = call;
       });
     },
 

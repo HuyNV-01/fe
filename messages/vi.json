@@ -534,11 +534,27 @@
             "viewImage": "Xem ảnh lớn",
             "download": "Tải xuống"
           },
+          "disappearingBadge": "Tin nhắn tự hủy",
+          "status": {
+            "sending": "Đang gửi...",
+            "sent": "Đã gửi",
+            "delivered": "Đã nhận",
+            "read": "Đã xem",
+            "failed": "Gửi thất bại"
+          },
           "poll": {
             "closed": "Đã kết thúc",
             "multipleChoice": "Chọn nhiều phương án",
             "singleChoice": "Chọn 1 phương án",
-            "closeBtn": "Khóa bình chọn"
+            "closeBtn": "Khóa bình chọn",
+            "anonymousTag": "Ẩn danh",
+            "viewVotersBtn": "Xem chi tiết bình chọn",
+            "votersModalTitle": "Chi tiết kết quả bình chọn",
+            "votersSummary": "{voters} người đã tham gia • {votes} lượt chọn",
+            "noVotesYet": "Chưa có thành viên nào tham gia bình chọn.",
+            "noOneChosenOption": "Chưa có ai chọn phương án này",
+            "anonymousNoticeTitle": "Bình chọn ẩn danh",
+            "anonymousNoticeDesc": "Danh tính của những người tham gia cuộc bình chọn này được bảo mật."
           }
         },
         "input": {
@@ -631,7 +647,13 @@
         "noCameraFallback": "Không tìm thấy Camera, đã chuyển sang chế độ âm thanh",
         "mediaError": "Không thể truy cập Microphone/Camera trên thiết bị",
         "acceptError": "Không thể nhận cuộc gọi",
-        "cameraToggleError": "Không thể bật Camera trên thiết bị này"
+        "cameraToggleError": "Không thể bật Camera trên thiết bị này",
+        "participantsListTitle": "Thành viên cuộc gọi",
+        "inCallStatus": "Đang trong cuộc gọi",
+        "notJoinedStatus": "Chưa tham gia",
+        "ringUserBtn": "Gọi vào",
+        "ringingBtn": "Đang gọi...",
+        "ringSentToast": "Đã gửi tín hiệu mời vào cuộc gọi nhóm"
       },
       "contact": {
         "header": {
@@ -731,7 +753,8 @@
       "infoDrawer": {
         "title": "Thông tin & Tùy chỉnh hội thoại",
         "description": "Quản lý biệt danh, phân quyền thành viên, quyền riêng tư và kho lưu trữ phương tiện.",
-        "nicknamesTitle": "Thành viên & Biệt danh",
+        "groupMembersTitle": "Danh sách thành viên nhóm",
+        "nicknamesTitle": "Đặt biệt danh hội thoại",
         "originalName": "Tên gốc",
         "noNickname": "Chưa đặt biệt danh",
         "editBtn": "Đặt tên",

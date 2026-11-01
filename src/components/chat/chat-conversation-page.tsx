@@ -46,6 +46,7 @@ import { ConversationInfoDrawer } from "@/components/chat/conversation-info-draw
 import type { IMessage } from "@/types/chat";
 import { ForwardMessageModal } from "./forward-message-modal";
 import { OngoingCallBanner } from "./ongoing-call-banner";
+import { ScrollArea } from "../ui/scroll-area";
 
 interface ChatConversationPageProps {
   params: { id: string };
@@ -93,6 +94,8 @@ export default function ChatConversationPage({
     fetchConversationDetails,
     deleteConversation,
     toggleBlockUser,
+    purgeExpiredMessages,
+    ongoingCallsByConv
   } = useChatStore();
 
   const [isInfoDrawerOpen, setIsInfoDrawerOpen] = useState(false);
@@ -126,7 +129,35 @@ export default function ChatConversationPage({
     [conversations, conversationId],
   );
 
-  const isGroupChat = currentConversation?.type === ConversationTypeEnum.GROUP;
+  const isGroupChat =
+    currentConversation?.type === ConversationTypeEnum.GROUP ||
+    currentDetails?.type === ConversationTypeEnum.GROUP;
+
+  const resolvedHeaderName = useMemo(() => {
+    if (isGroupChat) {
+      return (
+        currentConversation?.name ||
+        currentDetails?.name ||
+        tHeader("defaultUser")
+      );
+    }
+    const partnerMember = currentDetails?.members?.find(
+      (m) => m.userId !== currentUser?.user?.id,
+    );
+    return (
+      partnerMember?.nickname ||
+      currentConversation?.name ||
+      partnerMember?.name ||
+      tHeader("defaultUser")
+    );
+  }, [
+    isGroupChat,
+    currentConversation?.name,
+    currentDetails?.name,
+    currentDetails?.members,
+    currentUser?.user?.id,
+    tHeader,
+  ]);
 
   const rawMessages = useMemo(
     () => (conversationId ? messages[conversationId] || [] : []),
@@ -250,6 +281,18 @@ export default function ChatConversationPage({
     }
   };
 
+  useEffect(() => {
+    const hasExpiringMessages = rawMessages.some(
+      (m) => m.expiresAt || m.metadata?.expiresAt,
+    );
+    if (!hasExpiringMessages && !currentConversation?.disappearingTtl) return;
+
+    const timer = setInterval(() => {
+      purgeExpiredMessages();
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [rawMessages, currentConversation?.disappearingTtl, purgeExpiredMessages]);
+
   const readReceiptsMap = useMemo(() => {
     const map: Record<
       string,
@@ -365,7 +408,7 @@ export default function ChatConversationPage({
       {/* Header */}
       <div className="flex-none z-20 bg-background/95 backdrop-blur border-b">
         <ChatHeader
-          displayName={currentConversation?.name || tHeader("defaultUser")}
+          displayName={resolvedHeaderName}
           avatarUrl={currentConversation?.avatar}
           isOnline={currentConversation?.isOnline}
           isTyping={isPartnerTyping}
@@ -462,9 +505,7 @@ export default function ChatConversationPage({
 
         {isGroupChat && (
           <OngoingCallBanner
-            ongoingCall={
-              activeCall?.conversationId === conversationId ? activeCall : null
-            }
+            ongoingCall={ongoingCallsByConv[conversationId] || null}
             currentActiveCallId={activeCall?.callId}
             onJoinCall={(callType) => initiateCall(conversationId, callType)}
           />
@@ -473,10 +514,11 @@ export default function ChatConversationPage({
 
       {/* Message Area */}
       <div className="flex-1 min-h-0 relative bg-slate-50/50 dark:bg-background/50">
-        <div
-          ref={scrollRef}
-          onScroll={onContainerScroll}
-          className="h-full overflow-y-auto overflow-x-hidden px-2 md:px-4 pt-4 pb-2 scroll-smooth [overflow-anchor:none]"
+        <ScrollArea
+          className="h-full w-full"
+          viewportRef={scrollRef}
+          onViewportScroll={onContainerScroll}
+          viewportClassName="px-2 md:px-4 pt-4 pb-2 scroll-smooth [overflow-anchor:none]"
         >
           <div
             ref={contentRef}
@@ -566,6 +608,7 @@ export default function ChatConversationPage({
                             initiateCall(conversationId, callType)
                           }
                           onScrollToMessage={scrollToMessage}
+                          members={currentDetails?.members}
                         />
 
                         {isMe && msg.status === "failed" && (
@@ -608,8 +651,7 @@ export default function ChatConversationPage({
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-px w-full shrink-0" />
           </div>
-        </div>
-
+        </ScrollArea>
         {/* Scroll Button */}
         {showScrollButton && (
           <div className="absolute bottom-4 right-1/2 translate-x-1/2 z-30 animate-in slide-in-from-bottom-2 fade-in">

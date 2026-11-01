@@ -11,11 +11,15 @@ import type { IUserRes } from "./common";
 export interface IConversation {
   id: string;
   name?: string;
+  originalName?: string;
+  partnerNickname?: string | null;
   avatar?: string | null;
   lastMessage?: string | null;
   lastMessageAt?: string;
   lastMessageType?: string;
   lastMessageSenderId?: string;
+  lastMessageStatus?: MessageStatus | null;
+  lastMessageExpiresAt?: string | null;
   unreadCount?: number;
   type: ConversationTypeEnum;
   isOnline?: boolean;
@@ -199,6 +203,7 @@ export interface IMessageRecalledPayload {
   messageId: string;
   recalledBy: string;
   recalledAt: string;
+  isLastMessage?: boolean;
 }
 
 export interface IMessageReactionPayload {
@@ -234,6 +239,7 @@ export interface IMessage {
   readBy?: string[];
   readByUsers?: IUserRes[];
   expiresAt?: string | null;
+  isLastMessage?: boolean;
 }
 
 export interface IUserStatusPayload {
@@ -248,6 +254,8 @@ export interface ICallParticipantState {
   isAudioMuted: boolean;
   isVideoOff: boolean;
   isScreenSharing: boolean;
+  isHandRaised?: boolean;
+  raisedHandAt?: string | null;
 }
 
 export interface ICallMemberInfo {

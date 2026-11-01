@@ -8,7 +8,10 @@ import {
   BarChart3,
   CheckCircle2,
   ExternalLink,
+  Users,
 } from "lucide-react";
+import { PollVotersModal } from "./poll-voters-modal";
+import type { IPollMetadata } from "@/types/chat";
 import {
   GlassSheet,
   GlassTabs,
@@ -42,12 +45,17 @@ export function PinnedMessagesBar({
   const tBubble = useTranslations("Chat.Detail.conversation.bubble");
   const { toFullDateTime } = useDateFormat();
   const currentUserId = useAuthStore((s) => s.currentAccount?.user?.id);
-  const { votePoll } = useChatStore();
+  const { votePoll, conversationDetails } = useChatStore();
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [filterTab, setFilterTab] = useState<"ALL" | "POLLS">("ALL");
   const [unpinTarget, setUnpinTarget] = useState<IMessage | null>(null);
+  const [selectedPollDetail, setSelectedPollDetail] = useState<{
+    poll: IPollMetadata;
+    conversationId: string;
+    optionId?: string;
+  } | null>(null);
 
   const pinnedPolls = useMemo(
     () =>
@@ -343,6 +351,21 @@ export function PinnedMessagesBar({
                         );
                       })}
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedPollDetail({
+                          poll,
+                          conversationId: msg.conversationId,
+                          optionId: "ALL",
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-primary underline hover:opacity-90 cursor-pointer pt-0.5"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{tBubble("poll.viewVotersBtn")}</span>
+                    </button>
                   </div>
                 ) : (
                   <p className="text-xs text-foreground/90 whitespace-pre-wrap break-words [overflow-wrap:anywhere] pl-9">
@@ -354,6 +377,20 @@ export function PinnedMessagesBar({
           })}
         </div>
       </GlassSheet>
+
+      {/* Modal xem chi tiết kết quả bình chọn */}
+      <PollVotersModal
+        open={Boolean(selectedPollDetail)}
+        onOpenChange={(open) => !open && setSelectedPollDetail(null)}
+        poll={selectedPollDetail?.poll || null}
+        members={
+          selectedPollDetail?.conversationId
+            ? conversationDetails[selectedPollDetail.conversationId]?.members
+            : []
+        }
+        currentUserId={currentUserId}
+        initialOptionId={selectedPollDetail?.optionId || "ALL"}
+      />
 
       {/* Modal xác nhận bỏ ghim / xoá ghim */}
       <GlassConfirmDialog

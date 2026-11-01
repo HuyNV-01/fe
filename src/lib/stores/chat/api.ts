@@ -265,3 +265,7 @@ export const closePollApi = async (payload: {
 export const getLinkPreviewApi = async (url: string) => {
   return apiClient.get("/chat/link-preview", { params: { url } });
 };
+
+export const getConversationActiveCallApi = async (conversationId: string) => {
+  return apiClient.get(`/chat/conversations/${conversationId}/active-call`);
+};

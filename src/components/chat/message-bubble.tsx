@@ -27,9 +27,12 @@ import {
   ExternalLink,
   BarChart3,
   Lock,
+  Timer,
+  Users,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
-import type { IMessage } from "@/types/chat";
+import type { IConversationMemberDetail, IMessage } from "@/types/chat";
+import { PollVotersModal } from "./poll-voters-modal";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
 import {
   downloadMediaFile,
@@ -58,6 +61,7 @@ interface MessageBubbleProps {
   avatarUrl?: string;
   displayName?: string;
   displayReaders?: { id: string; name: string; avatar: string | null }[];
+  members?: IConversationMemberDetail[];
   uploadPercent?: number;
   onReply?: (message: IMessage) => void;
   onEdit?: (message: IMessage) => void;
@@ -105,6 +109,7 @@ export const MessageBubble = memo(
     avatarUrl,
     displayName,
     displayReaders,
+    members = [],
     uploadPercent,
     onReply,
     onEdit,
@@ -121,6 +126,15 @@ export const MessageBubble = memo(
     const { toMessageTime, toFullDateTime } = useDateFormat();
     const [showReactionPicker, setShowReactionPicker] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+    const [pollModalOptionId, setPollModalOptionId] = useState<string | null>(
+      null,
+    );
+
+    const memberMap = useMemo(() => {
+      const map = new Map<string, IConversationMemberDetail>();
+      members.forEach((m) => map.set(m.userId, m));
+      return map;
+    }, [members]);
 
     const isRecalled = message.status === "removed";
     const attachments = message.metadata?.attachments || [];
@@ -175,20 +189,50 @@ export const MessageBubble = memo(
       switch (message.status) {
         case "sending":
           return (
-            <Clock className="w-3 h-3 text-muted-foreground/70 animate-pulse" />
+            <span className="inline-flex items-center gap-0.5" title={t("status.sending")}>
+              <Clock className="w-3 h-3 text-current opacity-75 animate-pulse" />
+              {isLastInGroup && <span>{t("status.sending")}</span>}
+            </span>
           );
         case "sent":
-          return <Check className="w-3 h-3 text-current opacity-70" />;
+          return (
+            <span className="inline-flex items-center gap-0.5" title={t("status.sent")}>
+              <Check className="w-3 h-3 text-current opacity-80" />
+              {isLastInGroup && <span>{t("status.sent")}</span>}
+            </span>
+          );
         case "delivered":
-          return <CheckCheck className="w-3 h-3 text-current opacity-80" />;
+          return (
+            <span className="inline-flex items-center gap-0.5" title={t("status.delivered")}>
+              <CheckCheck className="w-3.5 h-3.5 text-current opacity-90" />
+              {isLastInGroup && <span>{t("status.delivered")}</span>}
+            </span>
+          );
         case "read":
-          return <CheckCheck className="w-3 h-3 text-emerald-300" />;
+          return (
+            <span
+              className="inline-flex items-center gap-0.5 text-emerald-300 font-medium"
+              title={t("status.read")}
+            >
+              <CheckCheck className="w-3.5 h-3.5 text-emerald-300" />
+              {isLastInGroup && <span>{t("status.read")}</span>}
+            </span>
+          );
         case "failed":
-          return <AlertCircle className="w-3 h-3 text-destructive" />;
+          return (
+            <span className="inline-flex items-center gap-0.5 text-red-200" title={t("status.failed")}>
+              <AlertCircle className="w-3 h-3 text-red-200" />
+            </span>
+          );
         default:
-          return <Check className="w-3 h-3 text-current opacity-70" />;
+          return (
+            <span className="inline-flex items-center gap-0.5" title={t("status.sent")}>
+              <Check className="w-3 h-3 text-current opacity-75" />
+              {isLastInGroup && <span>{t("status.sent")}</span>}
+            </span>
+          );
       }
-    }, [isMe, isRecalled, message.status]);
+    }, [isMe, isRecalled, isLastInGroup, message.status, t]);
 
     const formatReplyPreviewContent = () => {
       if (!replyPreview) return "";
@@ -467,7 +511,7 @@ export const MessageBubble = memo(
                 )}
 
                 {message.type === MessageTypeEnum.POLL && pollInfo && (
-                  <div className="my-1 min-w-[230px] sm:min-w-[280px] space-y-2.5">
+                  <div className="my-1 min-w-[240px] sm:min-w-[290px] space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm">
                         <BarChart3 className="w-4 h-4 shrink-0" />
@@ -491,6 +535,7 @@ export const MessageBubble = memo(
                       {pollInfo.allowMultipleAnswers
                         ? t("poll.multipleChoice")
                         : t("poll.singleChoice")}
+                      {pollInfo.isAnonymous ? ` • ${t("poll.anonymousTag")}` : ""}
                     </p>
 
                     <div className="space-y-1.5">
@@ -508,7 +553,8 @@ export const MessageBubble = memo(
                           .map((o) => o.id);
 
                         return pollInfo.options.map((opt) => {
-                          const count = opt.voterIds?.length || 0;
+                          const voterIds = opt.voterIds || [];
+                          const count = voterIds.length;
                           const percent =
                             totalVotes > 0
                               ? Math.round((count * 100) / totalVotes)
@@ -516,24 +562,10 @@ export const MessageBubble = memo(
                           const isSelected = myVotedIds.includes(opt.id);
 
                           return (
-                            <button
+                            <div
                               key={opt.id}
-                              type="button"
-                              disabled={pollInfo.isClosed}
-                              onClick={() => {
-                                if (pollInfo.isClosed || !onVotePoll) return;
-                                let nextIds: string[];
-                                if (pollInfo.allowMultipleAnswers) {
-                                  nextIds = isSelected
-                                    ? myVotedIds.filter((id) => id !== opt.id)
-                                    : [...myVotedIds, opt.id];
-                                } else {
-                                  nextIds = isSelected ? [] : [opt.id];
-                                }
-                                onVotePoll(message.id, nextIds);
-                              }}
                               className={cn(
-                                "w-full text-left p-2 rounded-xl border transition-all space-y-1.5 cursor-pointer disabled:cursor-default",
+                                "w-full text-left p-2 rounded-xl border transition-all space-y-1.5",
                                 isMe
                                   ? isSelected
                                     ? "bg-white/25 border-white"
@@ -544,29 +576,104 @@ export const MessageBubble = memo(
                               )}
                             >
                               <div className="flex items-center justify-between gap-2 text-xs">
-                                <span className="font-medium break-words [overflow-wrap:anywhere]">
+                                <button
+                                  type="button"
+                                  disabled={pollInfo.isClosed}
+                                  onClick={() => {
+                                    if (pollInfo.isClosed || !onVotePoll) return;
+                                    let nextIds: string[];
+                                    if (pollInfo.allowMultipleAnswers) {
+                                      nextIds = isSelected
+                                        ? myVotedIds.filter((id) => id !== opt.id)
+                                        : [...myVotedIds, opt.id];
+                                    } else {
+                                      nextIds = isSelected ? [] : [opt.id];
+                                    }
+                                    onVotePoll(message.id, nextIds);
+                                  }}
+                                  className="flex-1 text-left font-medium break-words [overflow-wrap:anywhere] cursor-pointer disabled:cursor-default"
+                                >
                                   {opt.text}
-                                </span>
-                                <span className="text-[10px] font-semibold shrink-0 tabular-nums">
-                                  {count} ({percent}%)
-                                </span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPollModalOptionId(opt.id);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 shrink-0 hover:opacity-100 opacity-90 cursor-pointer"
+                                  title={t("poll.viewVotersBtn")}
+                                >
+                                  {!pollInfo.isAnonymous && count > 0 && (
+                                    <span className="flex items-center -space-x-1.5">
+                                      {voterIds.slice(0, 3).map((vid) => {
+                                        const mInfo = memberMap.get(vid);
+                                        const vName =
+                                          mInfo?.nickname || mInfo?.name || "U";
+                                        return (
+                                          <GlassAvatar
+                                            key={vid}
+                                            src={mInfo?.avatar}
+                                            name={vName}
+                                            size="xs"
+                                            className="w-4 h-4 border border-background"
+                                          />
+                                        );
+                                      })}
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] font-semibold tabular-nums underline decoration-dotted">
+                                    {count} ({percent}%)
+                                  </span>
+                                </button>
                               </div>
-                              <Progress value={percent} className="h-1.5" />
-                            </button>
+
+                              <button
+                                type="button"
+                                disabled={pollInfo.isClosed}
+                                onClick={() => {
+                                  if (pollInfo.isClosed || !onVotePoll) return;
+                                  let nextIds: string[];
+                                  if (pollInfo.allowMultipleAnswers) {
+                                    nextIds = isSelected
+                                      ? myVotedIds.filter((id) => id !== opt.id)
+                                      : [...myVotedIds, opt.id];
+                                  } else {
+                                    nextIds = isSelected ? [] : [opt.id];
+                                  }
+                                  onVotePoll(message.id, nextIds);
+                                }}
+                                className="block w-full cursor-pointer disabled:cursor-default"
+                              >
+                                <Progress value={percent} className="h-1.5" />
+                              </button>
+                            </div>
                           );
                         });
                       })()}
                     </div>
 
-                    {isMe && !pollInfo.isClosed && onClosePoll && (
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-current/15 text-[11px]">
                       <button
                         type="button"
-                        onClick={() => onClosePoll(message.id)}
-                        className="text-[11px] underline opacity-85 hover:opacity-100 cursor-pointer"
+                        onClick={() => setPollModalOptionId("ALL")}
+                        className="inline-flex items-center gap-1 font-medium underline opacity-90 hover:opacity-100 cursor-pointer"
                       >
-                        {t("poll.closeBtn")}
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{t("poll.viewVotersBtn")}</span>
                       </button>
-                    )}
+
+                      {isMe && !pollInfo.isClosed && onClosePoll && (
+                        <button
+                          type="button"
+                          onClick={() => onClosePoll(message.id)}
+                          className="underline opacity-85 hover:opacity-100 cursor-pointer"
+                        >
+                          {t("poll.closeBtn")}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -644,6 +751,15 @@ export const MessageBubble = memo(
                   : "justify-start text-muted-foreground",
               )}
             >
+              {!isRecalled &&
+                (message.expiresAt || message.metadata?.expiresAt) && (
+                  <span
+                    className="inline-flex items-center gap-0.5 text-amber-300"
+                    title={t("disappearingBadge")}
+                  >
+                    <Timer className="w-3 h-3" />
+                  </span>
+                )}
               {!isRecalled && message.metadata?.isEdited && (
                 <span className="italic">{t("editedLabel")}</span>
               )}
@@ -819,6 +935,17 @@ export const MessageBubble = memo(
           images={imageGallery}
           initialIndex={lightboxIndex ?? 0}
         />
+
+        {pollInfo && (
+          <PollVotersModal
+            open={pollModalOptionId !== null}
+            onOpenChange={(open) => !open && setPollModalOptionId(null)}
+            poll={pollInfo}
+            members={members}
+            currentUserId={currentUserId}
+            initialOptionId={pollModalOptionId || "ALL"}
+          />
+        )}
       </div>
     );
   },

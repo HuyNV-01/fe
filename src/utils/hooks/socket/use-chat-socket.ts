@@ -40,6 +40,8 @@ export const useChatSocket = () => {
     updateActiveCall,
     handlePollUpdated,
     handleLinkPreviewReady,
+    setOngoingCallForConv, 
+    markConversationReadOptimistic
   } = useChatStore();
   const currentUser = useAuthStore((s) => s.currentAccount);
   const isAuthenticated = !!currentUser?.accessToken;
@@ -309,6 +311,55 @@ export const useChatSocket = () => {
       },
     );
 
+    const cleanSessionStarted = socketService.on<any>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CALL.SESSION_STARTED,
+      (payload) => {
+        if (!payload?.conversationId || !payload?.callId) return;
+        setOngoingCallForConv(payload.conversationId, {
+          callId: payload.callId,
+          conversationId: payload.conversationId,
+          callType: payload.callType,
+          isGroupCall: payload.isGroupCall,
+          initiatorId: payload.initiatorId,
+          status: payload.status || CallStatusEnum.ONGOING,
+          isIncoming: false,
+          participants: payload.participants || {},
+          membersInfo: payload.membersInfo || [],
+        });
+      },
+    );
+
+    const cleanSessionEnded = socketService.on<{
+      callId: string;
+      conversationId: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CALL.SESSION_ENDED,
+      (payload) => {
+        if (payload?.conversationId) {
+          setOngoingCallForConv(payload.conversationId, null);
+        }
+      },
+    );
+
+    const handleVisibilityOrFocus = () => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "visible"
+      ) {
+        const activeConvId = useChatStore.getState().activeConversationId;
+        if (activeConvId) {
+          markConversationReadOptimistic(activeConvId);
+        }
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", handleVisibilityOrFocus);
+      document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    }
+
     return () => {
       cleanNewMessage();
       cleanEdited();
@@ -333,6 +384,15 @@ export const useChatSocket = () => {
       cleanLinkPreview();
       cleanCallHandledElsewhere();
       cleanHostMuted();
+      cleanSessionStarted();
+      cleanSessionEnded();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", handleVisibilityOrFocus);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityOrFocus,
+        );
+      }
     };
   }, [
     isAuthenticated,

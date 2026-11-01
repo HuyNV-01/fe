@@ -57,6 +57,7 @@ import {
 import { ConversationTypeEnum, GroupRoleEnum } from "@/common/enum";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "../ui/scroll-area";
 
 interface ConversationInfoDrawerProps {
   open: boolean;
@@ -205,7 +206,7 @@ export function ConversationInfoDrawer({
               <span className="flex items-center gap-2 min-w-0">
                 <Pencil className="w-3.5 h-3.5 text-primary shrink-0" />
                 <span className="text-xs font-bold uppercase tracking-wider text-foreground truncate">
-                  {t("nicknamesTitle")}
+                  {isGroup ? t("groupMembersTitle") : t("nicknamesTitle")}
                 </span>
               </span>
 
@@ -316,20 +317,22 @@ export function ConversationInfoDrawer({
                         </div>
                       ) : (
                         <div className="flex items-center gap-0.5 shrink-0">
-                          <PatternButton
-                            size="sm"
-                            variant="ghost"
-                            color="primary"
-                            rounded="full"
-                            className="h-7 px-2 text-xs text-primary shrink-0"
-                            icon={<Pencil className="w-3.5 h-3.5" />}
-                            onClick={() => {
-                              setEditingMemberId(member.userId);
-                              setNicknameDraft(member.nickname || "");
-                            }}
-                          >
-                            {t("editBtn")}
-                          </PatternButton>
+                          {!isGroup && (
+                            <PatternButton
+                              size="sm"
+                              variant="ghost"
+                              color="primary"
+                              rounded="full"
+                              className="h-7 px-2 text-xs text-primary shrink-0"
+                              icon={<Pencil className="w-3.5 h-3.5" />}
+                              onClick={() => {
+                                setEditingMemberId(member.userId);
+                                setNicknameDraft(member.nickname || "");
+                              }}
+                            >
+                              {t("editBtn")}
+                            </PatternButton>
+                          )}
 
                           {canManageMember && (
                             <DropdownMenu>
@@ -575,7 +578,7 @@ export function ConversationInfoDrawer({
             />
 
             {activeVaultTab === "MEDIA" && (
-              <div className="max-h-60 overflow-y-auto pr-1">
+              <ScrollArea className="max-h-60 pr-2">
                 {assets.media.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-6">
                     {t("emptyMedia")}
@@ -625,11 +628,11 @@ export function ConversationInfoDrawer({
                     })}
                   </div>
                 )}
-              </div>
+              </ScrollArea>
             )}
 
             {activeVaultTab === "FILES" && (
-              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+              <ScrollArea className="max-h-60 pr-2">
                 {assets.files.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-6">
                     {t("emptyFiles")}
@@ -659,11 +662,11 @@ export function ConversationInfoDrawer({
                     </button>
                   ))
                 )}
-              </div>
+              </ScrollArea>
             )}
 
             {activeVaultTab === "LINKS" && (
-              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+              <ScrollArea className="max-h-60 pr-2">
                 {assets.links.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-6">
                     {t("emptyLinks")}
@@ -694,7 +697,7 @@ export function ConversationInfoDrawer({
                     </a>
                   ))
                 )}
-              </div>
+              </ScrollArea>
             )}
           </div>
 

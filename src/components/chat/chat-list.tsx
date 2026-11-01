@@ -10,7 +10,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import config from "@/config";
 import { useRouter } from "@/i18n/navigation";
-import { Bell, BellOff, Trash2, EllipsisVertical } from "lucide-react";
+import { Bell, BellOff, Trash2, EllipsisVertical, CheckCheck, Check } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -23,6 +23,8 @@ import {
 } from "@/components/toolkit";
 import type { IConversation } from "@/types/chat";
 import { useTranslations } from "next-intl";
+import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
+import { parseSafeDate } from "@/utils/date-helper";
 
 export default function ChatList() {
   const router = useRouter();
@@ -47,7 +49,24 @@ export default function ChatList() {
   );
   const tHeader = useTranslations("Chat.Detail.header.actions");
   const [deleteTarget, setDeleteTarget] = useState<IConversation | null>(null);
-  const { toggleMuteConversation, deleteConversation } = useChatStore();
+
+  const tConv = useTranslations("Chat.Detail.conversation");
+  const tSidebar = useTranslations("Chat.Sidebar");
+  const currentUserId = useAuthStore((s) => s.currentAccount?.user?.id);
+  const { toggleMuteConversation, deleteConversation, purgeExpiredMessages } =
+    useChatStore();
+
+  useEffect(() => {
+    const hasExpiringPreview = conversations.some(
+      (c) => Boolean(c.lastMessageExpiresAt || c.disappearingTtl),
+    );
+    if (!hasExpiringPreview) return;
+
+    const timer = setInterval(() => {
+      purgeExpiredMessages();
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [conversations, purgeExpiredMessages]);
 
   useEffect(() => {
     fetchInbox({ page: 1 });
@@ -94,6 +113,39 @@ export default function ChatList() {
             ? 0
             : Math.max(0, Number(chat.unreadCount || 0));
 
+          const isLastMsgExpired = Boolean(
+            chat.lastMessageExpiresAt &&
+              (parseSafeDate(chat.lastMessageExpiresAt)?.getTime() ?? 0) <=
+                Date.now(),
+          );
+          const safeLastMessage = isLastMsgExpired ? null : chat.lastMessage;
+          const isMyLastMsg = Boolean(
+            safeLastMessage &&
+              currentUserId &&
+              chat.lastMessageSenderId === currentUserId,
+          );
+
+          const formattedSubtitle = safeLastMessage ? (
+            isMyLastMsg ? (
+              <span className="inline-flex items-center gap-1 truncate w-full">
+                {chat.lastMessageStatus === "read" ? (
+                  <CheckCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                ) : chat.lastMessageStatus === "delivered" ? (
+                  <CheckCheck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                ) : (
+                  <Check className="w-3 h-3 text-muted-foreground/80 shrink-0" />
+                )}
+                <span className="truncate">
+                  {tConv("me")}: {safeLastMessage}
+                </span>
+              </span>
+            ) : (
+              safeLastMessage
+            )
+          ) : (
+            tSidebar("item.noMessages")
+          );
+
           return (
             <ChatItem
               key={chat.id}
@@ -105,7 +157,7 @@ export default function ChatList() {
               avatarUrl={chat.avatar}
               timestamp={chat.lastMessageAt}
               badge={unreadBadge}
-              subtitle={chat.lastMessage}
+              subtitle={formattedSubtitle}
               isSelected={isSelected}
               isOnline={chat.isOnline}
               isMuted={chat.isMuted}

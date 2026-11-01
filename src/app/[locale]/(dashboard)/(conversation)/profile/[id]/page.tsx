@@ -21,6 +21,7 @@ import {
 } from "@/components/toolkit";
 import { ContactStatusEnum } from "@/common/enum";
 import { useTranslations } from "next-intl";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -56,12 +57,12 @@ export default function UserProfilePage() {
   };
 
   return (
-    <div className="h-full w-full relative overflow-hidden">
+    <ScrollArea className="relative z-20 h-full w-full">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.35 }}
-        className="relative z-20 h-full w-full overflow-y-auto custom-scrollbar"
+        className="w-full"
       >
         {/* Back Button */}
         <div className="absolute top-4 left-4 z-30 md:hidden">
@@ -147,6 +148,6 @@ export default function UserProfilePage() {
           </div>
         </div>
       </motion.div>
-    </div>
+    </ScrollArea>
   );
 }

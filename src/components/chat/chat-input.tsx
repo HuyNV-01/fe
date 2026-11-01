@@ -626,53 +626,55 @@ export const ChatInput = ({
           isolate={false}
           className="absolute bottom-full left-0 mb-2 w-72 max-w-[calc(100vw-2rem)] p-1.5 border shadow-xl z-40"
         >
-          <div className="max-h-48 overflow-y-auto space-y-0.5">
-            <button
-              type="button"
-              onClick={() =>
-                handleSelectMention({
-                  userId: "ALL",
-                  displayName: "All",
-                  isAll: true,
-                })
-              }
-              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-primary/10 text-left text-xs font-semibold text-primary cursor-pointer"
-            >
-              <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                <AtSign className="w-3.5 h-3.5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate">@All</p>
-                <p className="text-[10px] text-muted-foreground font-normal truncate">
-                  {t("mentionAllDesc")}
-                </p>
-              </div>
-            </button>
+          <ScrollArea className="max-h-48 pr-1">
+            <div className="space-y-0.5">
+              <button
+                type="button"
+                onClick={() =>
+                  handleSelectMention({
+                    userId: "ALL",
+                    displayName: "All",
+                    isAll: true,
+                  })
+                }
+                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-primary/10 text-left text-xs font-semibold text-primary cursor-pointer"
+              >
+                <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <AtSign className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate">@All</p>
+                  <p className="text-[10px] text-muted-foreground font-normal truncate">
+                    {t("mentionAllDesc")}
+                  </p>
+                </div>
+              </button>
 
-            {mentionCandidates.map((member) => {
-              const label = member.nickname || member.name;
-              return (
-                <button
-                  key={member.userId}
-                  type="button"
-                  onClick={() =>
-                    handleSelectMention({
-                      userId: member.userId,
-                      displayName: label,
-                    })
-                  }
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-muted text-left text-xs cursor-pointer"
-                >
-                  <GlassAvatar
-                    src={member.avatar}
-                    name={label}
-                    size="xs"
-                  />
-                  <span className="font-medium truncate">{label}</span>
-                </button>
-              );
-            })}
-          </div>
+              {mentionCandidates.map((member) => {
+                const label = member.nickname || member.name;
+                return (
+                  <button
+                    key={member.userId}
+                    type="button"
+                    onClick={() =>
+                      handleSelectMention({
+                        userId: member.userId,
+                        displayName: label,
+                      })
+                    }
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-muted text-left text-xs cursor-pointer"
+                  >
+                    <GlassAvatar
+                      src={member.avatar}
+                      name={label}
+                      size="xs"
+                    />
+                    <span className="font-medium truncate">{label}</span>
+                  </button>
+                );
+              })}
+            </div>  
+          </ScrollArea>
         </LiquidGlass>
       )}
 
