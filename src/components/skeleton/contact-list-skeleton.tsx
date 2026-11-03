@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/toolkit";
 
 export const ContactListSkeleton = () => {
   const dummyGroups = Array.from({ length: 2 }, (_, i) => i);

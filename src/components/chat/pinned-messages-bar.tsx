@@ -4,28 +4,31 @@ import { useState, useMemo } from "react";
 import {
   Pin,
   ChevronDown,
-  ChevronUp,
   Trash2,
-  MessageSquare,
+  BarChart3,
+  CheckCircle2,
+  ExternalLink,
+  Users,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { PollVotersModal } from "./poll-voters-modal";
+import type { IPollMetadata } from "@/types/chat";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
+  GlassSheet,
+  GlassTabs,
+  GlassBadge,
+  GlassAvatar,
+  GlassConfirmDialog,
+  GlassIconButton,
+  PatternButton,
+} from "@/components/toolkit";
 import type { IMessage } from "@/types/chat";
 import { MessageTypeEnum } from "@/common/enum";
-import { getInitials } from "@/utils/helper";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
+import { useChatStore } from "@/lib/stores/chat/use-chat-store";
+import { Progress } from "../ui/progress";
 
 interface PinnedMessagesBarProps {
   pinnedMessages: IMessage[];
@@ -39,11 +42,31 @@ export function PinnedMessagesBar({
   onUnpinMessage,
 }: PinnedMessagesBarProps) {
   const t = useTranslations("Chat.Detail.conversation");
+  const tBubble = useTranslations("Chat.Detail.conversation.bubble");
   const { toFullDateTime } = useDateFormat();
+  const currentUserId = useAuthStore((s) => s.currentAccount?.user?.id);
+  const { votePoll, conversationDetails } = useChatStore();
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [filterTab, setFilterTab] = useState<"ALL" | "POLLS">("ALL");
   const [unpinTarget, setUnpinTarget] = useState<IMessage | null>(null);
+  const [selectedPollDetail, setSelectedPollDetail] = useState<{
+    poll: IPollMetadata;
+    conversationId: string;
+    optionId?: string;
+  } | null>(null);
+
+  const pinnedPolls = useMemo(
+    () =>
+      pinnedMessages.filter(
+        (m) => m.type === MessageTypeEnum.POLL || Boolean(m.metadata?.poll),
+      ),
+    [pinnedMessages],
+  );
+
+  const filteredDrawerList =
+    filterTab === "POLLS" ? pinnedPolls : pinnedMessages;
 
   const safeIndex = useMemo(() => {
     if (!pinnedMessages.length) return 0;
@@ -56,11 +79,23 @@ export function PinnedMessagesBar({
   const totalPinned = pinnedMessages.length;
 
   const formatPinnedPreview = (msg: IMessage) => {
-    if (msg.type === MessageTypeEnum.IMAGE) return "📷 [Hình ảnh]";
-    if (msg.type === MessageTypeEnum.VIDEO) return "🎬 [Video]";
-    if (msg.type === MessageTypeEnum.AUDIO) return "🎤 [Tin nhắn thoại]";
-    if (msg.type === MessageTypeEnum.FILE)
-      return `📎 ${msg.content || "[Tệp đính kèm]"}`;
+    if (msg.type === MessageTypeEnum.POLL || msg.metadata?.poll) {
+      const poll = msg.metadata?.poll;
+      const totalVotes = (poll?.options || []).reduce(
+        (sum, o) => sum + (o.voterIds?.length || 0),
+        0,
+      );
+      return `📊 ${poll?.question || msg.content} (${totalVotes} ${t("pollVotesCount")})`;
+    }
+    if (msg.type === MessageTypeEnum.IMAGE)
+      return tBubble("mediaPreview.image");
+    if (msg.type === MessageTypeEnum.VIDEO)
+      return tBubble("mediaPreview.video");
+    if (msg.type === MessageTypeEnum.AUDIO)
+      return tBubble("mediaPreview.audio");
+    if (msg.type === MessageTypeEnum.FILE) {
+      return msg.content ? `📎 ${msg.content}` : tBubble("mediaPreview.file");
+    }
     return msg.content;
   };
 
@@ -105,12 +140,13 @@ export function PinnedMessagesBar({
                 {t("pinnedMessage")}
               </span>
               {totalPinned > 1 && (
-                <Badge
-                  variant="secondary"
-                  className="h-4 px-1.5 text-[10px] font-bold rounded-full bg-primary/15 text-primary"
+                <GlassBadge
+                  variant="primary"
+                  size="sm"
+                  className="h-4 px-1.5 text-[10px] font-bold"
                 >
                   #{safeIndex + 1}/{totalPinned}
-                </Badge>
+                </GlassBadge>
               )}
               {currentPinned.sender?.name && (
                 <span className="text-[11px] text-muted-foreground truncate">
@@ -126,118 +162,243 @@ export function PinnedMessagesBar({
 
         <div className="flex items-center gap-1 shrink-0">
           {totalPinned > 1 && (
-            <Button
+            <PatternButton
               type="button"
               variant="ghost"
+              color="primary"
               size="sm"
-              className="h-7 px-2 text-[11px] font-medium text-primary hover:bg-primary/10 rounded-full"
+              rounded="full"
+              className="h-7 px-2 text-[11px] font-medium text-primary hover:bg-primary/10"
+              icon={<ChevronDown className="w-3.5 h-3.5" />}
+              iconPosition="right"
               onClick={() => setIsDrawerOpen(true)}
             >
               <span>{t("viewAllPinned", { count: totalPinned })}</span>
-              <ChevronDown className="w-3.5 h-3.5 ml-1" />
-            </Button>
+            </PatternButton>
           )}
 
-          <Button
+          <GlassIconButton
             type="button"
             variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-            title={t("unpin")}
+            color="danger"
+            size="sm"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+            tooltip={t("unpin")}
+            icon={<Trash2 className="w-3.5 h-3.5" />}
             onClick={() => setUnpinTarget(currentPinned)}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
+          />
         </div>
       </div>
 
       {/* Ngăn kéo xem toàn bộ danh sách tin nhắn đã ghim */}
-      <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-md p-0 flex flex-col"
-        >
-          <SheetHeader className="px-5 py-4 border-b">
-            <SheetTitle className="flex items-center gap-2 text-base">
-              <Pin className="w-4 h-4 text-primary rotate-45" />
-              <span>
-                {t("pinnedListTitle")} ({totalPinned})
-              </span>
-            </SheetTitle>
-            <SheetDescription className="text-xs">
-              {t("pinnedListDesc")}
-            </SheetDescription>
-          </SheetHeader>
+      <GlassSheet
+        open={isDrawerOpen}
+        onOpenChange={setIsDrawerOpen}
+        side="right"
+        title={
+          <span className="flex items-center gap-2">
+            <Pin className="w-4 h-4 text-primary rotate-45 shrink-0" />
+            <span className="truncate">
+              {t("pinnedListTitle")} ({totalPinned})
+            </span>
+          </span>
+        }
+        description={t("pinnedListDesc")}
+        headerExtra={
+          pinnedPolls.length > 0 ? (
+            <div className="pt-2">
+              <GlassTabs
+                fullWidth
+                size="sm"
+                value={filterTab}
+                onValueChange={setFilterTab}
+                items={[
+                  {
+                    key: "ALL",
+                    label: t("pinnedFilterAll"),
+                    badge: pinnedMessages.length,
+                  },
+                  {
+                    key: "POLLS",
+                    label: t("pinnedFilterPolls"),
+                    icon: <BarChart3 className="w-3.5 h-3.5" />,
+                    badge: pinnedPolls.length,
+                  },
+                ]}
+              />
+            </div>
+          ) : undefined
+        }
+      >
+        <div className="space-y-3">
+          {filteredDrawerList.map((msg) => {
+            const poll = msg.metadata?.poll;
+            const totalVotes = (poll?.options || []).reduce(
+              (sum, o) => sum + (o.voterIds?.length || 0),
+              0,
+            );
+            const myVotedIds = (poll?.options || [])
+              .filter(
+                (o) => currentUserId && o.voterIds?.includes(currentUserId),
+              )
+              .map((o) => o.id);
 
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-3">
-              {pinnedMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className="group p-3 rounded-2xl border border-border/60 bg-muted/30 hover:bg-muted/60 transition-all space-y-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Avatar className="h-7 w-7 border">
-                        <AvatarImage src={msg.sender?.avatar || undefined} />
-                        <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                          {getInitials(msg.sender?.name || "U")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold truncate">
-                          {msg.sender?.name || t("unknownUser")}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {toFullDateTime(msg.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-primary"
-                        onClick={() => {
-                          setIsDrawerOpen(false);
-                          onScrollToMessage(msg.id);
-                        }}
-                      >
-                        <MessageSquare className="w-3.5 h-3.5 mr-1" />
-                        {t("jumpToMessage")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => setUnpinTarget(msg)}
-                        title={t("unpin")}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+            return (
+              <div
+                key={msg.id}
+                className="group p-3 rounded-2xl border border-border/60 bg-muted/30 hover:bg-muted/50 transition-all space-y-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <GlassAvatar
+                      src={msg.sender?.avatar}
+                      name={msg.sender?.name || "U"}
+                      size="xs"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold truncate">
+                        {msg.sender?.name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {toFullDateTime(msg.createdAt)}
+                      </p>
                     </div>
                   </div>
 
-                  <p className="text-xs text-foreground/90 whitespace-pre-wrap break-words pl-9">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <GlassIconButton
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      icon={<ExternalLink className="w-3.5 h-3.5" />}
+                      onClick={() => {
+                        setIsDrawerOpen(false);
+                        onScrollToMessage(msg.id);
+                      }}
+                    />
+                    <GlassIconButton
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      color="danger"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      tooltip={t("unpin")}
+                      icon={<Trash2 className="w-3.5 h-3.5" />}
+                      onClick={() => setUnpinTarget(msg)}
+                    />
+                  </div>
+                </div>
+
+                {poll ? (
+                  <div className="pl-9 space-y-2">
+                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <BarChart3 className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span className="break-words [overflow-wrap:anywhere]">
+                        {poll.question}
+                      </span>
+                    </p>
+
+                    <div className="space-y-1.5">
+                      {poll.options.map((opt) => {
+                        const count = opt.voterIds?.length || 0;
+                        const percent =
+                          totalVotes > 0
+                            ? Math.round((count * 100) / totalVotes)
+                            : 0;
+                        const isSelected = myVotedIds.includes(opt.id);
+
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            disabled={poll.isClosed}
+                            onClick={() => {
+                              if (poll.isClosed) return;
+                              const nextIds = poll.allowMultipleAnswers
+                                ? isSelected
+                                  ? myVotedIds.filter((id) => id !== opt.id)
+                                  : [...myVotedIds, opt.id]
+                                : isSelected
+                                  ? []
+                                  : [opt.id];
+                              votePoll({
+                                conversationId: msg.conversationId,
+                                messageId: msg.id,
+                                optionIds: nextIds,
+                              });
+                            }}
+                            className={cn(
+                              "w-full text-left p-2 rounded-xl border text-xs transition-all space-y-1 cursor-pointer disabled:cursor-default",
+                              isSelected
+                                ? "bg-primary/10 border-primary/50"
+                                : "bg-background/80 border-border/60 hover:bg-background",
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium flex items-center gap-1.5 break-words [overflow-wrap:anywhere]">
+                                {isSelected && (
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                                )}
+                                {opt.text}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                                {count} ({percent}%)
+                              </span>
+                            </div>
+                            <Progress value={percent} className="h-1" />
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedPollDetail({
+                          poll,
+                          conversationId: msg.conversationId,
+                          optionId: "ALL",
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-primary underline hover:opacity-90 cursor-pointer pt-0.5"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{tBubble("poll.viewVotersBtn")}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-foreground/90 whitespace-pre-wrap break-words [overflow-wrap:anywhere] pl-9">
                     {formatPinnedPreview(msg)}
                   </p>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </SheetContent>
-      </Sheet>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </GlassSheet>
+
+      {/* Modal xem chi tiết kết quả bình chọn */}
+      <PollVotersModal
+        open={Boolean(selectedPollDetail)}
+        onOpenChange={(open) => !open && setSelectedPollDetail(null)}
+        poll={selectedPollDetail?.poll || null}
+        members={
+          selectedPollDetail?.conversationId
+            ? conversationDetails[selectedPollDetail.conversationId]?.members
+            : []
+        }
+        currentUserId={currentUserId}
+        initialOptionId={selectedPollDetail?.optionId || "ALL"}
+      />
 
       {/* Modal xác nhận bỏ ghim / xoá ghim */}
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(unpinTarget)}
         onOpenChange={(open) => !open && setUnpinTarget(null)}
         title={t("unpinConfirmTitle")}
         description={t("unpinConfirmDesc")}
-        confirmText={t("unpin")}
+        confirmLabel={t("unpin")}
         onConfirm={async () => {
           if (unpinTarget) {
             await onUnpinMessage(unpinTarget.id);

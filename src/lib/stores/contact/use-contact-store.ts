@@ -3,25 +3,31 @@ import type {
   IAcceptFriendPayload,
   IBaseResponse,
   IContactRes,
+  IContactsDataRes,
   IGetContactsResponse,
   IGetListContactsResponse,
   IPaginationContacts,
   IRemoveContactPayload,
   IRequestContactPayload,
   IUpdateContactAliasPayload,
+  IUserRes,
 } from "@/types/common";
 import {
   acceptFriendApi,
+  blockUserApi,
   findContactUsersApi,
   getContactsApi,
   removeContactApi,
   requestContactApi,
+  unblockUserApi,
   updateContactAliasApi,
 } from "./api";
 import { createPersistedStore } from "../create-persisted-store";
 import type { IContactState } from "@/types/state";
 import type { IPaginationOptions } from "@/types";
 import { ContactStatusEnum } from "@/common/enum";
+import { useAuthStore } from "../auth/use-auth-store";
+import { useUserStore } from "../user/use-user-store";
 
 interface ContactActions {
   requestContact: (
@@ -54,12 +60,22 @@ interface ContactActions {
     cb?: ActionCallbacks,
   ) => Promise<void>;
   resetListContacts: () => void;
+  fetchBlockedUsers: (
+    params?: IPaginationOptions,
+    cb?: ActionCallbacks<IContactsDataRes[]>,
+  ) => Promise<void>;
+  blockUser: (
+    targetId: string,
+    targetUserInfo?: IUserRes,
+    cb?: ActionCallbacks,
+  ) => Promise<boolean>;
+  unblockUser: (targetId: string, cb?: ActionCallbacks) => Promise<boolean>;
 }
 
 export const useContactStore = createPersistedStore<
   IContactState & ContactActions
 >(
-  (set) => ({
+  (set, get) => ({
     contacts: {
       data: [],
       meta: { page: 0, limit: 0, total: 0, totalPages: 0 },
@@ -68,6 +84,8 @@ export const useContactStore = createPersistedStore<
       data: [],
       meta: { page: 0, limit: 0, total: 0, totalPages: 0 },
     },
+    blockedUsers: [],
+    isLoadingBlocked: false,
     status: "idle",
     isRequest: false,
 
@@ -79,8 +97,22 @@ export const useContactStore = createPersistedStore<
           params,
         })) as unknown as IGetListContactsResponse;
         if (res.status === 200) {
+          const blockedSet = new Set(
+            get().blockedUsers.map(
+              (item) => item.contactUser?.id || item.contactId,
+            ),
+          );
+          const filteredData = (res.data?.data || []).filter(
+            (u) =>
+              u.id &&
+              !blockedSet.has(u.id) &&
+              u.contactStatus !== ContactStatusEnum.BLOCKED,
+          );
           set((state) => {
-            state.contacts = res.data;
+            state.contacts = {
+              ...res.data,
+              data: filteredData,
+            };
             state.status = "idle";
           });
           cb?.onSuccess?.(res.data);
@@ -236,6 +268,17 @@ export const useContactStore = createPersistedStore<
 
     handleSocketUpdate: (userId, status) => {
       set((state) => {
+        if (status === ContactStatusEnum.BLOCKED) {
+          state.contacts.data = state.contacts.data.filter(
+            (u) => u.id !== userId,
+          );
+          state.listContacts.data = state.listContacts.data.filter(
+            (item) =>
+              item.contactId !== userId && item.contactUser?.id !== userId,
+          );
+          return;
+        }
+
         state.contacts.data = state.contacts.data.map((user) => {
           if (user.id === userId) {
             return { ...user, contactStatus: status ?? null };
@@ -245,6 +288,10 @@ export const useContactStore = createPersistedStore<
 
         if (status === null) {
           state.listContacts.data = state.listContacts.data.filter(
+            (item) =>
+              item.contactId !== userId && item.contactUser?.id !== userId,
+          );
+          state.blockedUsers = state.blockedUsers.filter(
             (item) =>
               item.contactId !== userId && item.contactUser?.id !== userId,
           );
@@ -270,6 +317,9 @@ export const useContactStore = createPersistedStore<
         if (res.status === 200) {
           set((state) => {
             state.listContacts = res.data;
+            if (params.type === ContactStatusEnum.BLOCKED) {
+              state.blockedUsers = res.data.data || [];
+            }
             state.status = "idle";
           });
           cb?.onSuccess?.(res.data);
@@ -288,6 +338,132 @@ export const useContactStore = createPersistedStore<
         };
         state.status = "idle";
       });
+    },
+
+    fetchBlockedUsers: async (params, cb) => {
+      set({ isLoadingBlocked: true });
+      try {
+        const res = (await getContactsApi({
+          params: {
+            page: params?.page || 1,
+            limit: params?.limit || 100,
+            search: params?.search,
+            type: ContactStatusEnum.BLOCKED,
+          },
+        })) as unknown as IGetContactsResponse;
+        if (res.status === 200) {
+          const list = res.data?.data || [];
+          set((state) => {
+            state.blockedUsers = list;
+            state.isLoadingBlocked = false;
+          });
+          cb?.onSuccess?.(list);
+        }
+      } catch (error: any) {
+        set({ isLoadingBlocked: false });
+        cb?.onError?.(error.response?.data?.code || error.status);
+      }
+    },
+
+    blockUser: async (targetId, targetUserInfo, cb) => {
+      if (!targetId) return false;
+      set({ isRequest: true });
+      try {
+        await blockUserApi(targetId);
+        const currentUserId =
+          useAuthStore.getState().currentAccount?.user?.id || "";
+
+        set((state) => {
+          const existingContact = state.listContacts.data.find(
+            (item) =>
+              item.contactId === targetId || item.contactUser?.id === targetId,
+          );
+          const resolvedUser: IUserRes = targetUserInfo ||
+            existingContact?.contactUser || {
+              id: targetId,
+              name: "Người dùng",
+            };
+
+          const alreadyInBlocked = state.blockedUsers.some(
+            (item) =>
+              item.contactId === targetId || item.contactUser?.id === targetId,
+          );
+          if (!alreadyInBlocked) {
+            state.blockedUsers.unshift({
+              id: existingContact?.id || `blocked-${targetId}`,
+              userId: currentUserId,
+              contactId: targetId,
+              status: ContactStatusEnum.BLOCKED,
+              contactUser: resolvedUser,
+              alias: null,
+            });
+          }
+
+          state.listContacts.data = state.listContacts.data.filter(
+            (item) =>
+              item.contactId !== targetId && item.contactUser?.id !== targetId,
+          );
+          state.contacts.data = state.contacts.data.filter(
+            (item) => item.id !== targetId,
+          );
+          state.isRequest = false;
+        });
+
+        useUserStore.getState().syncProfileBlockState(targetId, {
+          isBlocked: true,
+          blockedByMe: true,
+        });
+
+        cb?.onSuccess?.();
+        return true;
+      } catch (error: any) {
+        set({ isRequest: false });
+        cb?.onError?.(
+          error.response?.data?.message ||
+            error.response?.data?.code ||
+            error.status,
+        );
+        return false;
+      }
+    },
+
+    unblockUser: async (targetId, cb) => {
+      if (!targetId) return false;
+      set({ isRequest: true });
+      try {
+        await unblockUserApi(targetId);
+        set((state) => {
+          state.blockedUsers = state.blockedUsers.filter(
+            (item) =>
+              item.contactId !== targetId && item.contactUser?.id !== targetId,
+          );
+          state.listContacts.data = state.listContacts.data.filter(
+            (item) =>
+              !(
+                (item.contactId === targetId ||
+                  item.contactUser?.id === targetId) &&
+                item.status === ContactStatusEnum.BLOCKED
+              ),
+          );
+          state.isRequest = false;
+        });
+
+        useUserStore.getState().syncProfileBlockState(targetId, {
+          isBlocked: false,
+          blockedByMe: false,
+        });
+
+        cb?.onSuccess?.();
+        return true;
+      } catch (error: any) {
+        set({ isRequest: false });
+        cb?.onError?.(
+          error.response?.data?.message ||
+            error.response?.data?.code ||
+            error.status,
+        );
+        return false;
+      }
     },
   }),
   "contact-storage",

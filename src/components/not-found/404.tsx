@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import { PatternButton } from "../button/button-patterns";
+import { GlassEmptyState, PatternButton } from "@/components/toolkit";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import config from "@/config";
@@ -17,12 +10,10 @@ export default function BaseNotFound() {
   const router = useRouter();
 
   return (
-    <Empty className="min-h-[60dvh]">
-      <EmptyHeader>
-        <EmptyTitle>{t("title")}</EmptyTitle>
-        <EmptyDescription>{t("description")}</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
+    <GlassEmptyState
+      title={t("title")}
+      description={t("description")}
+      action={
         <PatternButton
           variant="glass"
           color="primary"
@@ -32,7 +23,8 @@ export default function BaseNotFound() {
         >
           {t("backHome")}
         </PatternButton>
-      </EmptyContent>
-    </Empty>
+      }
+      className="min-h-[60dvh]"
+    />
   );
 }

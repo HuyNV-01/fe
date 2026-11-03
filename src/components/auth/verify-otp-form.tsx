@@ -13,7 +13,7 @@ import {
   EMPTY_STRING,
   KEY_TIMEOUT_OTP,
 } from "@/constant";
-import { PatternButton } from "../button/button-patterns";
+import { PatternButton } from "@/components/toolkit";
 import { useTranslations } from "next-intl";
 import { Spinner } from "../ui/spinner";
 import { useStoreWait } from "@/utils/hooks/use-store-wait";
@@ -25,7 +25,6 @@ import {
   InputOTPSlot,
 } from "../ui/input-otp";
 import { REGEX_PATTERN } from "@/constant/regex-pattern";
-import { Button } from "../ui/button";
 import { usePersistentCountdown } from "@/utils/hooks/use-persistent-countdown";
 import { useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
@@ -146,15 +145,16 @@ export function VerifyOtpForm({ handleStep }: VerifyOtpFormProps) {
                       </InputOTP>
                     </div>
                     <div className="w-full flex items-center justify-between px-1">
-                      <Button
+                      <PatternButton
                         type="button"
                         variant="link"
+                        size="sm"
                         disabled={!isFinished || isWait}
-                        className="hover:text-sky-600 px-0"
+                        className="hover:text-sky-600 px-0 h-auto"
                         onClick={handleReSendOtp}
                       >
                         {tForm("button.reSend")}
-                      </Button>
+                      </PatternButton>
                       <span className="font-mono font-bold text-sky-600 text-sm">
                         {formatTime()}
                       </span>

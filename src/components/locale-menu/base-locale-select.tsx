@@ -4,9 +4,9 @@ import {
   DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuSub,
-  DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "../ui/dropdown-menu";
+import { DropdownMenuSubContentCus } from "@/components/toolkit";
 
 export default function BaseLocaleSelect({
   children,
@@ -19,13 +19,13 @@ export default function BaseLocaleSelect({
         {label}
       </DropdownMenuSubTrigger>
       <DropdownMenuPortal>
-        <DropdownMenuSubContent>
+        <DropdownMenuSubContentCus>
           <DropdownMenuLabel className="font-extrabold">
             {label}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {children}
-        </DropdownMenuSubContent>
+        </DropdownMenuSubContentCus>
       </DropdownMenuPortal>
     </DropdownMenuSub>
   );

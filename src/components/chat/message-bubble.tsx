@@ -4,7 +4,7 @@
 
 import { memo, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { GlassAvatar, GlassBadge } from "@/components/toolkit";
 import {
   AlertCircle,
   Check,
@@ -21,13 +21,32 @@ import {
   Video,
   SmilePlus,
   CornerUpLeft,
+  Forward,
+  Copy,
+  ZoomIn,
+  ExternalLink,
+  BarChart3,
+  Lock,
+  Timer,
+  Users,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
-import type { IMessage } from "@/types/chat";
+import type { IConversationMemberDetail, IMessage } from "@/types/chat";
+import { PollVotersModal } from "./poll-voters-modal";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
-import { formatFileSize, sanitizeMediaUrl } from "@/utils/crypto-e2ee";
+import {
+  downloadMediaFile,
+  formatFileSize,
+  sanitizeMediaUrl,
+} from "@/utils/crypto-e2ee";
+import {
+  ImageLightboxModal,
+  type LightboxImageItem,
+} from "./image-lightbox-modal";
 import { MessageReadList } from "./message-read-list";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
+import { Progress } from "../ui/progress";
 
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "😡"];
 
@@ -42,14 +61,40 @@ interface MessageBubbleProps {
   avatarUrl?: string;
   displayName?: string;
   displayReaders?: { id: string; name: string; avatar: string | null }[];
+  members?: IConversationMemberDetail[];
   uploadPercent?: number;
   onReply?: (message: IMessage) => void;
   onEdit?: (message: IMessage) => void;
   onRecall?: (message: IMessage) => void;
   onReact?: (message: IMessage, emoji: string) => void;
   onTogglePin?: (message: IMessage) => void;
+  onForward?: (message: IMessage) => void;
   onCallbackCall?: (callType: CallTypeEnum) => void;
   onScrollToMessage?: (messageId: string) => void;
+  onVotePoll?: (messageId: string, optionIds: string[]) => void;
+  onClosePoll?: (messageId: string) => void;
+}
+
+function renderTextWithMentions(text: string, isMe: boolean) {
+  const parts = text.split(/(@All|@[A-Za-zÀ-ỹ0-9_.-]+)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith("@") && part.length > 1) {
+      return (
+        <span
+          key={idx}
+          className={cn(
+            "font-semibold px-1 py-0.2 rounded-md",
+            isMe
+              ? "bg-white/25 text-white underline decoration-white/60"
+              : "bg-primary/15 text-primary",
+          )}
+        >
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
 }
 
 export const MessageBubble = memo(
@@ -64,24 +109,61 @@ export const MessageBubble = memo(
     avatarUrl,
     displayName,
     displayReaders,
+    members = [],
     uploadPercent,
     onReply,
     onEdit,
     onRecall,
     onReact,
     onTogglePin,
+    onForward,
     onCallbackCall,
     onScrollToMessage,
+    onVotePoll,
+    onClosePoll,
   }: MessageBubbleProps) => {
     const t = useTranslations("Chat.Detail.conversation.bubble");
     const { toMessageTime, toFullDateTime } = useDateFormat();
     const [showReactionPicker, setShowReactionPicker] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+    const [pollModalOptionId, setPollModalOptionId] = useState<string | null>(
+      null,
+    );
+
+    const memberMap = useMemo(() => {
+      const map = new Map<string, IConversationMemberDetail>();
+      members.forEach((m) => map.set(m.userId, m));
+      return map;
+    }, [members]);
 
     const isRecalled = message.status === "removed";
     const attachments = message.metadata?.attachments || [];
     const replyPreview = message.metadata?.replyPreview;
+    const forwardedFrom = message.metadata?.forwardedFrom;
     const reactions = message.metadata?.reactions || {};
     const callInfo = message.metadata?.callInfo;
+
+    const pollInfo = message.metadata?.poll;
+    const linkPreview = message.metadata?.linkPreview;
+
+    const imageGallery: LightboxImageItem[] = useMemo(() => {
+      if (message.type !== MessageTypeEnum.IMAGE) return [];
+      if (attachments.length > 0) {
+        return attachments.map((att) => ({
+          url: att.url,
+          thumbnailUrl: att.thumbnailUrl || att.url,
+          fileName: att.fileName,
+          size: att.size,
+        }));
+      }
+      return [{ url: message.content, fileName: t("attachmentAlt") }];
+    }, [message.type, message.content, attachments, t]);
+
+    const handleCopyText = async () => {
+      if (!message.content) return;
+      await navigator.clipboard.writeText(message.content);
+      toast.success(t("copiedToast"));
+    };
 
     const timeString = useMemo(
       () => toMessageTime(message.createdAt),
@@ -107,20 +189,50 @@ export const MessageBubble = memo(
       switch (message.status) {
         case "sending":
           return (
-            <Clock className="w-3 h-3 text-muted-foreground/70 animate-pulse" />
+            <span className="inline-flex items-center gap-0.5" title={t("status.sending")}>
+              <Clock className="w-3 h-3 text-current opacity-75 animate-pulse" />
+              {isLastInGroup && <span>{t("status.sending")}</span>}
+            </span>
           );
         case "sent":
-          return <Check className="w-3 h-3 text-current opacity-70" />;
+          return (
+            <span className="inline-flex items-center gap-0.5" title={t("status.sent")}>
+              <Check className="w-3 h-3 text-current opacity-80" />
+              {isLastInGroup && <span>{t("status.sent")}</span>}
+            </span>
+          );
         case "delivered":
-          return <CheckCheck className="w-3 h-3 text-current opacity-80" />;
+          return (
+            <span className="inline-flex items-center gap-0.5" title={t("status.delivered")}>
+              <CheckCheck className="w-3.5 h-3.5 text-current opacity-90" />
+              {isLastInGroup && <span>{t("status.delivered")}</span>}
+            </span>
+          );
         case "read":
-          return <CheckCheck className="w-3 h-3 text-emerald-300" />;
+          return (
+            <span
+              className="inline-flex items-center gap-0.5 text-emerald-300 font-medium"
+              title={t("status.read")}
+            >
+              <CheckCheck className="w-3.5 h-3.5 text-emerald-300" />
+              {isLastInGroup && <span>{t("status.read")}</span>}
+            </span>
+          );
         case "failed":
-          return <AlertCircle className="w-3 h-3 text-destructive" />;
+          return (
+            <span className="inline-flex items-center gap-0.5 text-red-200" title={t("status.failed")}>
+              <AlertCircle className="w-3 h-3 text-red-200" />
+            </span>
+          );
         default:
-          return <Check className="w-3 h-3 text-current opacity-70" />;
+          return (
+            <span className="inline-flex items-center gap-0.5" title={t("status.sent")}>
+              <Check className="w-3 h-3 text-current opacity-75" />
+              {isLastInGroup && <span>{t("status.sent")}</span>}
+            </span>
+          );
       }
-    }, [isMe, isRecalled, message.status]);
+    }, [isMe, isRecalled, isLastInGroup, message.status, t]);
 
     const formatReplyPreviewContent = () => {
       if (!replyPreview) return "";
@@ -163,12 +275,11 @@ export const MessageBubble = memo(
           {!isMe && (
             <div className="w-7 sm:w-8 shrink-0 flex flex-col justify-end">
               {isLastInGroup ? (
-                <Avatar className="w-7 h-7 sm:w-8 sm:h-8 border border-border/50 shadow-xs">
-                  <AvatarImage src={avatarUrl} alt={displayName} />
-                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                    {displayName?.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <GlassAvatar
+                  src={avatarUrl}
+                  name={displayName || "U"}
+                  size="xs"
+                />
               ) : (
                 <div className="w-7 sm:w-8" />
               )}
@@ -237,46 +348,65 @@ export const MessageBubble = memo(
               </button>
             )}
 
-            {/* Nội dung khi đã thu hồi */}
             {isRecalled ? (
               <p className="text-xs py-0.5 select-none">
                 {t("recalledMessage")}
               </p>
             ) : (
               <>
-                {/* 1. Hiển thị Hình ảnh */}
+                {/* 1. Hiển thị Hình ảnh ngay trong Web + Nút Tải xuống nhanh */}
                 {message.type === MessageTypeEnum.IMAGE && (
                   <div
                     className={cn(
                       "mb-1.5 grid gap-1.5 overflow-hidden rounded-xl",
-                      attachments.length > 1 ? "grid-cols-2" : "grid-cols-1",
+                      imageGallery.length > 1 ? "grid-cols-2" : "grid-cols-1",
                     )}
                   >
-                    {attachments.length > 0 ? (
-                      attachments.map((att) => (
-                        <a
-                          key={att.fileId}
-                          href={sanitizeMediaUrl(att.url)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block overflow-hidden rounded-lg bg-black/5"
+                    {imageGallery.map((img, idx) => (
+                      <div
+                        key={`${img.url}-${idx}`}
+                        className="group/img relative overflow-hidden rounded-lg bg-black/5"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setLightboxIndex(idx)}
+                          className="block w-full text-left cursor-zoom-in"
                         >
                           <img
-                            src={sanitizeMediaUrl(att.thumbnailUrl || att.url)}
-                            alt={att.fileName}
-                            className="max-h-72 w-full object-cover hover:scale-105 transition-transform"
+                            src={sanitizeMediaUrl(img.thumbnailUrl || img.url)}
+                            alt={img.fileName || t("attachmentAlt")}
+                            className="max-h-72 w-full object-cover group-hover/img:scale-105 transition-transform duration-200"
                             loading="lazy"
                           />
-                        </a>
-                      ))
-                    ) : (
-                      <img
-                        src={sanitizeMediaUrl(message.content)}
-                        alt={t("attachmentAlt")}
-                        className="max-h-72 w-full object-cover rounded-lg"
-                        loading="lazy"
-                      />
-                    )}
+                        </button>
+
+                        {/* Nút Xem lớn & Tải xuống trực tiếp không nhảy trang */}
+                        <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => setLightboxIndex(idx)}
+                            className="p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 cursor-pointer"
+                            title={t("actions.viewImage")}
+                          >
+                            <ZoomIn className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadMediaFile(
+                                img.url,
+                                img.fileName || `image-${idx + 1}.webp`,
+                              );
+                            }}
+                            className="p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 cursor-pointer"
+                            title={t("actions.download")}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -314,14 +444,12 @@ export const MessageBubble = memo(
                 {/* 4. Hiển thị Tệp tài liệu (FILE) */}
                 {message.type === MessageTypeEnum.FILE &&
                   attachments.map((att) => (
-                    <a
+                    <button
                       key={att.fileId}
-                      href={sanitizeMediaUrl(att.url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      download={att.fileName}
+                      type="button"
+                      onClick={() => downloadMediaFile(att.url, att.fileName)}
                       className={cn(
-                        "flex items-center gap-3 p-2.5 my-1 rounded-xl border transition-colors",
+                        "w-full text-left flex items-center gap-3 p-2.5 my-1 rounded-xl border transition-colors cursor-pointer",
                         isMe
                           ? "bg-white/10 border-white/20 hover:bg-white/20"
                           : "bg-muted/60 border-border hover:bg-muted",
@@ -339,7 +467,7 @@ export const MessageBubble = memo(
                         </p>
                       </div>
                       <Download className="w-4 h-4 shrink-0 opacity-80" />
-                    </a>
+                    </button>
                   ))}
 
                 {/* 5. Hiển thị Thẻ Lịch sử Cuộc gọi (CALL) */}
@@ -382,14 +510,224 @@ export const MessageBubble = memo(
                   </div>
                 )}
 
-                {/* 6. Nội dung văn bản */}
+                {message.type === MessageTypeEnum.POLL && pollInfo && (
+                  <div className="my-1 min-w-[240px] sm:min-w-[290px] space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm">
+                        <BarChart3 className="w-4 h-4 shrink-0" />
+                        <span className="break-words [overflow-wrap:anywhere]">
+                          {pollInfo.question}
+                        </span>
+                      </div>
+                      {pollInfo.isClosed && (
+                        <GlassBadge
+                          variant="secondary"
+                          size="sm"
+                          className="text-[9px] shrink-0 gap-0.5"
+                        >
+                          <Lock className="w-2.5 h-2.5" />
+                          {t("poll.closed")}
+                        </GlassBadge>
+                      )}
+                    </div>
+
+                    <p className="text-[10px] opacity-80">
+                      {pollInfo.allowMultipleAnswers
+                        ? t("poll.multipleChoice")
+                        : t("poll.singleChoice")}
+                      {pollInfo.isAnonymous ? ` • ${t("poll.anonymousTag")}` : ""}
+                    </p>
+
+                    <div className="space-y-1.5">
+                      {(() => {
+                        const totalVotes = pollInfo.options.reduce(
+                          (acc, o) => acc + (o.voterIds?.length || 0),
+                          0,
+                        );
+                        const myVotedIds = pollInfo.options
+                          .filter(
+                            (o) =>
+                              currentUserId &&
+                              o.voterIds?.includes(currentUserId),
+                          )
+                          .map((o) => o.id);
+
+                        return pollInfo.options.map((opt) => {
+                          const voterIds = opt.voterIds || [];
+                          const count = voterIds.length;
+                          const percent =
+                            totalVotes > 0
+                              ? Math.round((count * 100) / totalVotes)
+                              : 0;
+                          const isSelected = myVotedIds.includes(opt.id);
+
+                          return (
+                            <div
+                              key={opt.id}
+                              className={cn(
+                                "w-full text-left p-2 rounded-xl border transition-all space-y-1.5",
+                                isMe
+                                  ? isSelected
+                                    ? "bg-white/25 border-white"
+                                    : "bg-black/15 border-white/20 hover:bg-black/25"
+                                  : isSelected
+                                    ? "bg-primary/10 border-primary"
+                                    : "bg-muted/50 border-border/60 hover:bg-muted",
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <button
+                                  type="button"
+                                  disabled={pollInfo.isClosed}
+                                  onClick={() => {
+                                    if (pollInfo.isClosed || !onVotePoll) return;
+                                    let nextIds: string[];
+                                    if (pollInfo.allowMultipleAnswers) {
+                                      nextIds = isSelected
+                                        ? myVotedIds.filter((id) => id !== opt.id)
+                                        : [...myVotedIds, opt.id];
+                                    } else {
+                                      nextIds = isSelected ? [] : [opt.id];
+                                    }
+                                    onVotePoll(message.id, nextIds);
+                                  }}
+                                  className="flex-1 text-left font-medium break-words [overflow-wrap:anywhere] cursor-pointer disabled:cursor-default"
+                                >
+                                  {opt.text}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPollModalOptionId(opt.id);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 shrink-0 hover:opacity-100 opacity-90 cursor-pointer"
+                                  title={t("poll.viewVotersBtn")}
+                                >
+                                  {!pollInfo.isAnonymous && count > 0 && (
+                                    <span className="flex items-center -space-x-1.5">
+                                      {voterIds.slice(0, 3).map((vid) => {
+                                        const mInfo = memberMap.get(vid);
+                                        const vName =
+                                          mInfo?.nickname || mInfo?.name || "U";
+                                        return (
+                                          <GlassAvatar
+                                            key={vid}
+                                            src={mInfo?.avatar}
+                                            name={vName}
+                                            size="xs"
+                                            className="w-4 h-4 border border-background"
+                                          />
+                                        );
+                                      })}
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] font-semibold tabular-nums underline decoration-dotted">
+                                    {count} ({percent}%)
+                                  </span>
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                disabled={pollInfo.isClosed}
+                                onClick={() => {
+                                  if (pollInfo.isClosed || !onVotePoll) return;
+                                  let nextIds: string[];
+                                  if (pollInfo.allowMultipleAnswers) {
+                                    nextIds = isSelected
+                                      ? myVotedIds.filter((id) => id !== opt.id)
+                                      : [...myVotedIds, opt.id];
+                                  } else {
+                                    nextIds = isSelected ? [] : [opt.id];
+                                  }
+                                  onVotePoll(message.id, nextIds);
+                                }}
+                                className="block w-full cursor-pointer disabled:cursor-default"
+                              >
+                                <Progress value={percent} className="h-1.5" />
+                              </button>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-current/15 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setPollModalOptionId("ALL")}
+                        className="inline-flex items-center gap-1 font-medium underline opacity-90 hover:opacity-100 cursor-pointer"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{t("poll.viewVotersBtn")}</span>
+                      </button>
+
+                      {isMe && !pollInfo.isClosed && onClosePoll && (
+                        <button
+                          type="button"
+                          onClick={() => onClosePoll(message.id)}
+                          className="underline opacity-85 hover:opacity-100 cursor-pointer"
+                        >
+                          {t("poll.closeBtn")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. Nội dung văn bản có Highlight @Mention */}
                 {(message.type === MessageTypeEnum.TEXT ||
                   (message.content &&
                     message.type !== MessageTypeEnum.CALL &&
+                    message.type !== MessageTypeEnum.POLL &&
                     message.type !== MessageTypeEnum.IMAGE)) && (
-                  <p className="whitespace-pre-wrap leading-relaxed break-words">
-                    {message.content}
+                  <p className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere] max-w-full">
+                    {renderTextWithMentions(message.content, isMe)}
                   </p>
+                )}
+
+                {/* 7. Thẻ Xem trước Liên kết (Rich OpenGraph Link Preview) */}
+                {linkPreview && (
+                  <a
+                    href={sanitizeMediaUrl(linkPreview.url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      "mt-2 block rounded-xl overflow-hidden border transition-opacity hover:opacity-95 max-w-xs sm:max-w-sm",
+                      isMe
+                        ? "bg-black/20 border-white/20 text-primary-foreground"
+                        : "bg-muted/60 border-border text-foreground",
+                    )}
+                  >
+                    {linkPreview.image && (
+                      <img
+                        src={sanitizeMediaUrl(linkPreview.image)}
+                        alt={linkPreview.title || linkPreview.hostname}
+                        className="w-full h-36 object-cover border-b border-border/20"
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="p-2.5 space-y-1">
+                      <div className="flex items-center justify-between gap-1 text-[10px] uppercase tracking-wider opacity-75">
+                        <span className="truncate">
+                          {linkPreview.siteName || linkPreview.hostname}
+                        </span>
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </div>
+                      {linkPreview.title && (
+                        <p className="text-xs font-bold line-clamp-2 break-words">
+                          {linkPreview.title}
+                        </p>
+                      )}
+                      {linkPreview.description && (
+                        <p className="text-[11px] opacity-85 line-clamp-2 break-words">
+                          {linkPreview.description}
+                        </p>
+                      )}
+                    </div>
+                  </a>
                 )}
 
                 {/* Thanh tiến trình tải lên (Upload Progress) */}
@@ -413,12 +751,31 @@ export const MessageBubble = memo(
                   : "justify-start text-muted-foreground",
               )}
             >
+              {!isRecalled &&
+                (message.expiresAt || message.metadata?.expiresAt) && (
+                  <span
+                    className="inline-flex items-center gap-0.5 text-amber-300"
+                    title={t("disappearingBadge")}
+                  >
+                    <Timer className="w-3 h-3" />
+                  </span>
+                )}
               {!isRecalled && message.metadata?.isEdited && (
                 <span className="italic">{t("editedLabel")}</span>
               )}
               <span title={fullTimeTitle}>{timeString}</span>
               {StatusIcon}
             </div>
+
+            {/* Nhãn Tin nhắn được chuyển tiếp */}
+            {!isRecalled && forwardedFrom && (
+              <div className="flex items-center gap-1 text-[10px] opacity-80 mb-1 italic">
+                <Forward className="w-3 h-3 shrink-0" />
+                <span className="truncate">
+                  {t("forwardedFrom", { name: forwardedFrom.senderName })}
+                </span>
+              </div>
+            )}
 
             {/* Huy hiệu Cảm xúc (Reactions) dưới chân bong bóng */}
             {!isRecalled && reactionEntries.length > 0 && (
@@ -540,6 +897,28 @@ export const MessageBubble = memo(
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                 )}
+
+                {message.type === MessageTypeEnum.TEXT && (
+                  <button
+                    type="button"
+                    onClick={handleCopyText}
+                    className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                    title={t("actions.copy")}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {onForward && (
+                  <button
+                    type="button"
+                    onClick={() => onForward(message)}
+                    className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                    title={t("actions.forward")}
+                  >
+                    <Forward className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
         </div>
@@ -548,6 +927,24 @@ export const MessageBubble = memo(
           <div className="mr-2">
             <MessageReadList readers={displayReaders} isMe={isMe} />
           </div>
+        )}
+
+        <ImageLightboxModal
+          open={lightboxIndex !== null}
+          onOpenChange={(open) => !open && setLightboxIndex(null)}
+          images={imageGallery}
+          initialIndex={lightboxIndex ?? 0}
+        />
+
+        {pollInfo && (
+          <PollVotersModal
+            open={pollModalOptionId !== null}
+            onOpenChange={(open) => !open && setPollModalOptionId(null)}
+            poll={pollInfo}
+            members={members}
+            currentUserId={currentUserId}
+            initialOptionId={pollModalOptionId || "ALL"}
+          />
         )}
       </div>
     );

@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { PatternButton } from "../button/button-patterns";
+import { PatternButton } from "@/components/toolkit";
 import { GoogleIcon } from "../icon/google-icon";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import { showErrorToast } from "@/utils/toast";

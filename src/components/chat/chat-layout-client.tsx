@@ -8,7 +8,7 @@ import { usePathname } from "@/i18n/navigation";
 import type { TSidebarViewMode } from "@/types/common";
 import { VIEW_CONFIG } from "@/constant/chat";
 import config from "@/config";
-import { LiquidGlassCard } from "../liquid-glass/liquid-glass";
+import { LiquidGlassCard } from "@/components/toolkit";
 import { STATIC_DETAIL_ROUTES } from "@/constant";
 
 export default function ChatLayoutClient({

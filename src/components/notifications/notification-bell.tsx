@@ -22,20 +22,24 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenuContentCus,
+  GlassAvatar,
+  GlassBadge,
+  GlassTabs,
+  GlassEmptyState,
+  PatternButton,
+  Badge,
+} from "@/components/toolkit";
 import { cn } from "@/lib/utils";
 import { useNotificationStore } from "@/lib/stores/notification/use-notification-store";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { type INotification, NotificationTypeEnum } from "@/types/notification";
 import { calculateRelativeTime } from "@/utils/date-helper";
-import { getInitials } from "@/utils/helper";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
-import { Badge } from "../ui/badge";
 import { resolveNotificationI18n } from "@/utils/notification-i18n";
 
 export function NotificationBell() {
@@ -179,10 +183,11 @@ export function NotificationBell() {
   return (
     <DropdownMenu open={open} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
-        <Button
+        <PatternButton
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 rounded-full text-slate-700 dark:text-slate-200 hover:bg-white/25 dark:hover:bg-white/10 transition-transform hover:scale-105 cursor-pointer"
+          rounded="full"
+          className="relative h-9 w-9 text-slate-700 dark:text-slate-200 hover:bg-white/25 dark:hover:bg-white/10 transition-transform hover:scale-105 cursor-pointer"
           aria-label={t("ariaLabel")}
         >
           <Bell className="w-5 h-5" />
@@ -191,7 +196,7 @@ export function NotificationBell() {
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
-        </Button>
+        </PatternButton>
       </DropdownMenuTrigger>
 
       <DropdownMenuContentCus
@@ -204,9 +209,9 @@ export function NotificationBell() {
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-foreground">{t("title")}</h3>
             {unreadCount > 0 && (
-              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              <GlassBadge variant="primary" size="sm">
                 {t("newBadge", { count: unreadCount })}
-              </span>
+              </GlassBadge>
             )}
           </div>
 
@@ -223,50 +228,32 @@ export function NotificationBell() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 px-4 py-2 bg-muted/30 border-b border-border/40">
-          <button
-            type="button"
-            onClick={() => setFilterMode("ALL")}
-            className={cn(
-              "px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer",
-              filterMode === "ALL"
-                ? "bg-primary text-primary-foreground shadow-2xs"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            {t("tabs.all")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterMode("UNREAD")}
-            className={cn(
-              "px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer",
-              filterMode === "UNREAD"
-                ? "bg-primary text-primary-foreground shadow-2xs"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            {t("tabs.unread")}
-          </button>
+        <div className="px-4 py-2 bg-muted/30 border-b border-border/40">
+          <GlassTabs
+            size="sm"
+            value={filterMode}
+            onValueChange={setFilterMode}
+            items={[
+              { key: "ALL", label: t("tabs.all") },
+              { key: "UNREAD", label: t("tabs.unread"), badge: unreadCount },
+            ]}
+          />
         </div>
 
         {/* Notification List */}
         <ScrollArea className="h-[min(360px,65dvh)] w-full">
           <div className="flex flex-col divide-y divide-border/30">
             {notifications.length === 0 && !isLoading && (
-              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                <div className="p-3 rounded-full bg-muted/60 text-muted-foreground mb-2.5">
-                  <Bell className="w-6 h-6 opacity-60" />
-                </div>
-                <p className="text-sm font-medium text-foreground/80">
-                  {filterMode === "UNREAD"
+              <GlassEmptyState
+                icon={<Bell className="w-6 h-6 opacity-70" />}
+                title={
+                  filterMode === "UNREAD"
                     ? t("empty.unreadTitle")
-                    : t("empty.allTitle")}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {t("empty.description")}
-                </p>
-              </div>
+                    : t("empty.allTitle")
+                }
+                description={t("empty.description")}
+                className="py-10"
+              />
             )}
 
             {notifications.map((item) => {
@@ -286,16 +273,11 @@ export function NotificationBell() {
                   )}
                 >
                   <div className="relative shrink-0 mt-0.5">
-                    <Avatar className="h-10 w-10 border border-border/50">
-                      <AvatarImage
-                        src={item.actor?.avatar || undefined}
-                        alt={actorName}
-                        className="object-cover"
-                      />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                        {getInitials(actorName)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <GlassAvatar
+                      src={item.actor?.avatar}
+                      name={actorName}
+                      size="md"
+                    />
                     <div className="absolute -bottom-1 -right-1">
                       {renderTypeBadgeIcon(item.type)}
                     </div>
@@ -314,9 +296,13 @@ export function NotificationBell() {
                         {localized.title}
                       </p>
                       {unreadMsgCount > 1 && !item.isRead && (
-                        <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.2 text-[10px] font-bold text-primary">
+                        <GlassBadge
+                          variant="primary"
+                          size="sm"
+                          className="px-1.5 py-0.2 text-[10px]"
+                        >
                           +{unreadMsgCount}
-                        </span>
+                        </GlassBadge>
                       )}
                     </div>
 
@@ -355,14 +341,17 @@ export function NotificationBell() {
 
             {hasMore && !isLoading && (
               <div className="p-2 text-center">
-                <Button
+                <PatternButton
                   variant="ghost"
+                  color="primary"
                   size="sm"
+                  fullWidth
+                  rounded="full"
                   onClick={handleLoadMore}
-                  className="w-full text-xs text-primary"
+                  className="text-xs text-primary"
                 >
                   {t("loadMore")}
-                </Button>
+                </PatternButton>
               </div>
             )}
           </div>

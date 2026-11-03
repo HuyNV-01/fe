@@ -4,7 +4,7 @@ import { CheckCircle2, Mail, ShieldCheck, UserRoundPen } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { ForgotPasswordForm } from "./forgot-password-form";
-import { BaseSteps, type StepConfig } from "../steps/base-steps";
+import { BaseSteps, type StepConfig } from "@/components/toolkit";
 import { VerifyOtpForm } from "./verify-otp-form";
 import { ResetPasswordForm } from "./reset-password-form";
 import { SuccessOtp } from "../common/success-otp";

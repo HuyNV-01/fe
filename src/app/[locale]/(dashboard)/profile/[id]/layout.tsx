@@ -11,5 +11,9 @@ export async function generateMetadata({ params }: Omit<IProps, "children">) {
 }
 
 export default function ProfileLayout({ children }: IProps) {
-  return children;
+  return (
+    <div className="h-full w-full overflow-hidden bg-background/40">
+      {children}
+    </div>
+  );
 }

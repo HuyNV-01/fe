@@ -4,8 +4,20 @@
 
 import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  LiquidGlass,
+  LiquidGlassCard,
+  GlassAvatar,
+  GlassBadge,
+  GlassIconButton,
+  PatternButton,
+} from "@/components/toolkit";
+import {
+  ImageLightboxModal,
+  type LightboxImageItem,
+} from "@/components/chat/image-lightbox-modal";
 import {
   SendHorizontal,
   Paperclip,
@@ -18,8 +30,13 @@ import {
   Reply,
   Pencil,
   FileText,
-  Film,
   Volume2,
+  Eye,
+  Plus,
+  Ban,
+  BarChart3,
+  Link2,
+  AtSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
@@ -29,6 +46,9 @@ import { socketService } from "@/services/socket/socket-client";
 import { formatFileSize } from "@/utils/crypto-e2ee";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { getLinkPreviewApi } from "@/lib/stores/chat/api";
+import type { ILinkPreviewMetadata } from "@/types/chat";
+import { CreatePollModal } from "./create-poll-modal";
 
 const COMMON_EMOJIS = [
   "😀",
@@ -55,7 +75,10 @@ interface SelectedFilePreview {
 }
 
 export interface IChatInputProps {
-  onSendMessage: (content: string) => Promise<void> | void;
+  onSendMessage: (
+    content: string,
+    options?: { mentionedUserIds?: string[]; mentionAll?: boolean },
+  ) => Promise<void> | void;
   onSendAttachments?: (files: File[], content?: string) => Promise<void> | void;
   onConfirmEdit?: (
     messageId: string,
@@ -63,6 +86,13 @@ export interface IChatInputProps {
   ) => Promise<void> | void;
   onScrollToMessage?: (messageId: string) => void;
   disabled?: boolean;
+  blockState?: {
+    isBlocked: boolean;
+    blockedByMe: boolean;
+    blockedByPartner: boolean;
+    partnerId: string | null;
+  };
+  onUnblockPartner?: () => void;
 }
 
 export const ChatInput = ({
@@ -71,12 +101,20 @@ export const ChatInput = ({
   onConfirmEdit,
   onScrollToMessage,
   disabled,
+  blockState,
+  onUnblockPartner,
 }: IChatInputProps) => {
   const [message, setMessage] = useState("");
   const [selectedItems, setSelectedItems] = useState<SelectedFilePreview[]>([]);
+  const [previewLightboxIndex, setPreviewLightboxIndex] = useState<
+    number | null
+  >(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
+
+  const selectedItemsRef = useRef<SelectedFilePreview[]>([]);
+  selectedItemsRef.current = selectedItems;
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,9 +130,18 @@ export const ChatInput = ({
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastTypingTimeRef = useRef<number>(0);
+  const [isPollModalOpen, setIsPollModalOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+  const [mentionAll, setMentionAll] = useState(false);
+  const [draftLinkPreview, setDraftLinkPreview] =
+    useState<ILinkPreviewMetadata | null>(null);
+  const lastPreviewedUrlRef = useRef<string | null>(null);
 
   const {
     activeConversationId,
+    conversations,
+    conversationDetails,
     replyingTo,
     editingMessage,
     setReplyingTo,
@@ -110,6 +157,88 @@ export const ChatInput = ({
   const activeEdit = activeConversationId
     ? editingMessage[activeConversationId]
     : null;
+
+  const currentConv = conversations.find((c) => c.id === activeConversationId);
+  const isGroupChat = currentConv?.type === "GROUP";
+  const groupMembers = activeConversationId
+    ? conversationDetails[activeConversationId]?.members || []
+    : [];
+
+  // Lọc danh sách thành viên khi gõ @
+  const mentionCandidates =
+    isGroupChat && mentionQuery !== null
+      ? groupMembers.filter((m) =>
+          (m.nickname || m.name || "")
+            .toLowerCase()
+            .includes(mentionQuery.toLowerCase()),
+        )
+      : [];
+
+  // Tự động phát hiện thay đổi @mention trong ô nhập
+  const detectMentionTrigger = (text: string, cursorPosition: number) => {
+    if (!isGroupChat) {
+      setMentionQuery(null);
+      return;
+    }
+    const textBeforeCursor = text.slice(0, cursorPosition);
+    const match = /(?:^|\s)@([^\s@]*)$/.exec(textBeforeCursor);
+    if (match) {
+      setMentionQuery(match[1]);
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const handleSelectMention = (target: {
+    userId: string;
+    displayName: string;
+    isAll?: boolean;
+  }) => {
+    const textarea = textareaRef.current;
+    const cursor = textarea?.selectionStart ?? message.length;
+    const before = message.slice(0, cursor);
+    const after = message.slice(cursor);
+    const replacedBefore = before.replace(
+      /(?:^|\s)@([^\s@]*)$/,
+      (full) => `${full.startsWith(" ") ? " " : ""}@${target.displayName} `,
+    );
+
+    setMessage(`${replacedBefore}${after}`);
+    setMentionQuery(null);
+
+    if (target.isAll) {
+      setMentionAll(true);
+    } else if (!mentionedUserIds.includes(target.userId)) {
+      setMentionedUserIds((prev) => [...prev, target.userId]);
+    }
+
+    setTimeout(() => textarea?.focus(), 10);
+  };
+
+  // Tự động lấy bản xem trước liên kết khi người dùng nhập/dán URL
+  useEffect(() => {
+    const match = message.match(/https?:\/\/[^\s<>"'`]+/i);
+    const url = match ? match[0] : null;
+    if (!url) {
+      setDraftLinkPreview(null);
+      lastPreviewedUrlRef.current = null;
+      return;
+    }
+    if (url === lastPreviewedUrlRef.current) return;
+
+    const timer = setTimeout(async () => {
+      lastPreviewedUrlRef.current = url;
+      try {
+        const res: any = await getLinkPreviewApi(url);
+        const data = res?.data ?? res;
+        if (data?.url) setDraftLinkPreview(data);
+      } catch {
+        // Ignore preview error
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [message]);
 
   useEffect(() => {
     if (activeEdit) {
@@ -164,7 +293,7 @@ export const ChatInput = ({
 
   useEffect(() => {
     return () => {
-      selectedItems.forEach((item) => {
+      selectedItemsRef.current.forEach((item) => {
         if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
       });
     };
@@ -258,6 +387,7 @@ export const ChatInput = ({
 
     setMessage("");
     setShowEmojiPicker(false);
+    setMentionQuery(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -275,13 +405,21 @@ export const ChatInput = ({
     if (activeEdit && onConfirmEdit) {
       onConfirmEdit(activeEdit.id, trimmedMessage);
     } else if (trimmedMessage) {
-      onSendMessage(trimmedMessage);
+      onSendMessage(trimmedMessage, {
+        mentionedUserIds:
+          mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
+        mentionAll: mentionAll || undefined,
+      });
+      setMentionedUserIds([]);
+      setMentionAll(false);
     }
   }, [
     disabled,
     message,
     selectedItems,
     activeEdit,
+    mentionedUserIds,
+    mentionAll,
     onSendAttachments,
     onConfirmEdit,
     onSendMessage,
@@ -373,6 +511,7 @@ export const ChatInput = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setMessage(value);
+    detectMentionTrigger(value, e.target.selectionStart ?? value.length);
 
     if (!activeConversationId) return;
 
@@ -419,8 +558,159 @@ export const ChatInput = ({
     return activeReply.content;
   };
 
+  const clearAllSelectedFiles = useCallback(() => {
+    setSelectedItems((prev) => {
+      prev.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      return [];
+    });
+  }, []);
+
+  const previewableImages: LightboxImageItem[] = selectedItems
+    .filter((i) => i.previewUrl && i.file.type.startsWith("image/"))
+    .map((i) => ({
+      url: i.previewUrl!,
+      fileName: i.file.name,
+      size: i.file.size,
+    }));
+
+  const totalSelectedSize = selectedItems.reduce(
+    (sum, item) => sum + item.file.size,
+    0,
+  );
+
+  if (blockState?.isBlocked) {
+    return (
+      <LiquidGlass
+        variant="danger"
+        opacity="10"
+        blur="md"
+        rounded="2xl"
+        isolate={false}
+        className="p-3"
+        contentClassName="flex items-center justify-between gap-3 flex-wrap"
+      >
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <Ban className="w-4 h-4 text-destructive shrink-0" />
+          <p className="text-xs font-medium text-foreground break-words">
+            {blockState.blockedByMe
+              ? t("blockedByMeBanner")
+              : t("blockedByPartnerBanner")}
+          </p>
+        </div>
+        {blockState.blockedByMe && onUnblockPartner && (
+          <PatternButton
+            type="button"
+            size="sm"
+            variant="outline"
+            rounded="full"
+            onClick={onUnblockPartner}
+            className="h-7 px-3 text-xs shrink-0"
+          >
+            {t("unblockBtn")}
+          </PatternButton>
+        )}
+      </LiquidGlass>
+    );
+  }
+
   return (
     <div className="bg-background relative">
+      {isGroupChat && mentionQuery !== null && (
+        <LiquidGlass
+          variant="primary"
+          blur="xl"
+          opacity="95"
+          rounded="2xl"
+          isolate={false}
+          className="absolute bottom-full left-0 mb-2 w-72 max-w-[calc(100vw-2rem)] p-1.5 border shadow-xl z-40"
+        >
+          <ScrollArea className="max-h-48 pr-1">
+            <div className="space-y-0.5">
+              <button
+                type="button"
+                onClick={() =>
+                  handleSelectMention({
+                    userId: "ALL",
+                    displayName: "All",
+                    isAll: true,
+                  })
+                }
+                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-primary/10 text-left text-xs font-semibold text-primary cursor-pointer"
+              >
+                <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <AtSign className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate">@All</p>
+                  <p className="text-[10px] text-muted-foreground font-normal truncate">
+                    {t("mentionAllDesc")}
+                  </p>
+                </div>
+              </button>
+
+              {mentionCandidates.map((member) => {
+                const label = member.nickname || member.name;
+                return (
+                  <button
+                    key={member.userId}
+                    type="button"
+                    onClick={() =>
+                      handleSelectMention({
+                        userId: member.userId,
+                        displayName: label,
+                      })
+                    }
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-muted text-left text-xs cursor-pointer"
+                  >
+                    <GlassAvatar
+                      src={member.avatar}
+                      name={label}
+                      size="xs"
+                    />
+                    <span className="font-medium truncate">{label}</span>
+                  </button>
+                );
+              })}
+            </div>  
+          </ScrollArea>
+        </LiquidGlass>
+      )}
+
+      {/* Khung xem trước Liên kết (Link Preview) ngay khi đang gõ */}
+      {draftLinkPreview && (
+        <div className="flex items-center justify-between gap-2.5 px-3 py-2 mb-2 rounded-xl bg-muted/60 border border-border/60 text-xs">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <Link2 className="w-4 h-4 text-primary shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold truncate">
+                {draftLinkPreview.title || draftLinkPreview.hostname}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {draftLinkPreview.description || draftLinkPreview.url}
+              </p>
+            </div>
+          </div>
+          <GlassIconButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 shrink-0"
+            icon={<X className="w-3.5 h-3.5" />}
+            onClick={() => setDraftLinkPreview(null)}
+          />
+        </div>
+      )}
+
+      {isGroupChat && activeConversationId && (
+        <CreatePollModal
+          open={isPollModalOpen}
+          onOpenChange={setIsPollModalOpen}
+          conversationId={activeConversationId}
+        />
+      )}
+
       {/* Thanh hiển thị Trả lời / Chỉnh sửa tin nhắn */}
       {(activeReply || activeEdit) && activeConversationId && (
         <div className="flex items-center justify-between gap-2.5 sm:gap-3 px-3 sm:px-3.5 py-2 mb-2 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -455,68 +745,202 @@ export const ChatInput = ({
             </div>
           </button>
 
-          <Button
+          <GlassIconButton
             type="button"
             variant="ghost"
-            size="icon"
-            className="h-7 w-7 rounded-full shrink-0 hover:bg-destructive/10 hover:text-destructive"
+            color="danger"
+            size="sm"
+            className="h-7 w-7 shrink-0 hover:bg-destructive/10 hover:text-destructive"
+            icon={<X className="w-4 h-4" />}
             onClick={() => {
               setReplyingTo(activeConversationId, null);
               setEditingMessage(activeConversationId, null);
               if (activeEdit) setMessage("");
             }}
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          />
         </div>
       )}
 
       {/* Thanh xem trước tệp đính kèm đã chọn */}
       {selectedItems.length > 0 && (
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-2.5 mb-2 scrollbar-thin">
-          {selectedItems.map((item, idx) => (
-            <div
-              key={`${item.file.name}-${idx}`}
-              className="relative group flex items-center gap-2.5 p-2 rounded-xl bg-muted/80 border border-border/60 text-xs shrink-0 shadow-2xs"
-            >
-              {item.previewUrl && item.file.type.startsWith("image/") ? (
-                <img
-                  src={item.previewUrl}
-                  alt={item.file.name}
-                  className="w-11 h-11 rounded-lg object-cover border"
-                />
-              ) : item.file.type.startsWith("video/") ? (
-                <div className="w-11 h-11 rounded-lg bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
-                  <Film className="w-5 h-5" />
-                </div>
-              ) : item.file.type.startsWith("audio/") ? (
-                <div className="w-11 h-11 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
-                  <Volume2 className="w-5 h-5" />
-                </div>
-              ) : (
-                <div className="w-11 h-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                  <FileText className="w-5 h-5" />
-                </div>
-              )}
-
-              <div className="flex flex-col min-w-0 max-w-[130px] pr-4">
-                <span className="font-medium truncate">{item.file.name}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {formatFileSize(item.file.size)}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => removeSelectedFile(idx)}
-                className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
+        <LiquidGlassCard
+          isolate={false}
+          rounded="2xl"
+          className="mb-2.5 p-2.5 sm:p-3 border border-border/60"
+          contentClassName="space-y-2.5"
+        >
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <div className="flex items-center gap-2 min-w-0">
+              <GlassBadge
+                variant="secondary"
+                size="sm"
+                className="font-semibold px-2.5 py-0.5"
               >
-                <X className="w-3 h-3" />
-              </button>
+                {t("previewCount", { count: selectedItems.length })}
+              </GlassBadge>
+              <span className="text-[11px] text-muted-foreground truncate">
+                {formatFileSize(totalSelectedSize)}
+              </span>
             </div>
-          ))}
-        </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <PatternButton
+                type="button"
+                variant="ghost"
+                color="primary"
+                size="sm"
+                rounded="full"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
+                icon={<Plus className="w-3.5 h-3.5" />}
+              >
+                {t("addMoreFiles")}
+              </PatternButton>
+              <PatternButton
+                type="button"
+                variant="ghost"
+                color="danger"
+                size="sm"
+                rounded="full"
+                onClick={clearAllSelectedFiles}
+                className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
+                icon={<Trash2 className="w-3.5 h-3.5" />}
+              >
+                {t("clearAllFiles")}
+              </PatternButton>
+            </div>
+          </div>
+
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex items-center gap-2.5 pb-2 pt-1 px-0.5">
+              {selectedItems.map((item, idx) => {
+                const isImage =
+                  Boolean(item.previewUrl) &&
+                  item.file.type.startsWith("image/");
+                const isVideo =
+                  Boolean(item.previewUrl) &&
+                  item.file.type.startsWith("video/");
+                const ext =
+                  item.file.name.split(".").pop()?.toUpperCase() || "FILE";
+
+                if (isImage || isVideo) {
+                  return (
+                    <div
+                      key={`${item.file.name}-${idx}`}
+                      className="relative group/preview w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-border/60 bg-muted shrink-0 shadow-xs"
+                    >
+                      {isImage ? (
+                        <img
+                          src={item.previewUrl!}
+                          alt={item.file.name}
+                          className="w-full h-full object-cover transition-transform duration-200 group-hover/preview:scale-105"
+                        />
+                      ) : (
+                        <video
+                          src={item.previewUrl!}
+                          className="w-full h-full object-cover"
+                          muted
+                        />
+                      )}
+
+                      {/* Lớp phủ xem ảnh ngay trong web */}
+                      {isImage && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const imgIdx = previewableImages.findIndex(
+                              (img) => img.url === item.previewUrl,
+                            );
+                            if (imgIdx !== -1) setPreviewLightboxIndex(imgIdx);
+                          }}
+                          className="absolute inset-0 bg-black/35 opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
+                          title={t("clickToPreview")}
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                      )}
+
+                      <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-1 pointer-events-none">
+                        <span className="px-1.5 py-0.2 rounded bg-black/65 text-[9px] font-semibold text-white truncate">
+                          {formatFileSize(item.file.size)}
+                        </span>
+                      </div>
+
+                      <PatternButton
+                        type="button"
+                        variant="solid"
+                        color="danger"
+                        size="icon"
+                        rounded="full"
+                        onClick={() => removeSelectedFile(idx)}
+                        className="absolute top-1 right-1 h-5 w-5 shadow-md opacity-95 hover:scale-110 transition-transform"
+                      >
+                        <X className="w-3 h-3" />
+                      </PatternButton>
+                    </div>
+                  );
+                }
+
+                return (
+                  <LiquidGlass
+                    key={`${item.file.name}-${idx}`}
+                    variant="secondary"
+                    blur="md"
+                    opacity="70"
+                    rounded="xl"
+                    fluid={false}
+                    isolate={false}
+                    className="p-2.5 pr-8 border border-border/60 shrink-0 w-52"
+                    contentClassName="flex items-center gap-2.5"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex flex-col items-center justify-center shrink-0">
+                      {item.file.type.startsWith("audio/") ? (
+                        <Volume2 className="w-4 h-4" />
+                      ) : (
+                        <FileText className="w-4 h-4" />
+                      )}
+                      <span className="text-[8px] font-bold mt-0.5 truncate max-w-[34px]">
+                        {ext}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span
+                        title={item.file.name}
+                        className="text-xs font-semibold truncate text-foreground"
+                      >
+                        {item.file.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {formatFileSize(item.file.size)}
+                      </span>
+                    </div>
+
+                    <PatternButton
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      rounded="full"
+                      onClick={() => removeSelectedFile(idx)}
+                      className="absolute top-1.5 right-1.5 h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </PatternButton>
+                  </LiquidGlass>
+                );
+              })}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </LiquidGlassCard>
       )}
+
+      <ImageLightboxModal
+        open={previewLightboxIndex !== null}
+        onOpenChange={(open) => !open && setPreviewLightboxIndex(null)}
+        images={previewableImages}
+        initialIndex={previewLightboxIndex ?? 0}
+      />
 
       {/* Bộ chọn Emoji nổi */}
       {showEmojiPicker && (
@@ -560,36 +984,42 @@ export const ChatInput = ({
       <div className="flex items-end gap-1.5 sm:gap-2 bg-muted/50 p-1.5 sm:p-2 rounded-2xl border focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all">
         {!isRecording && (
           <div className="flex gap-0.5 pb-0.5 shrink-0">
-            <Button
+            {isGroupChat && activeConversationId && (
+              <GlassIconButton
+                type="button"
+                variant="ghost"
+                onClick={() => setIsPollModalOpen(true)}
+                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary"
+                tooltip={t("createPoll")}
+                icon={<BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />}
+              />
+            )}
+            <GlassIconButton
               type="button"
               variant="ghost"
-              size="icon"
               onClick={() => fileInputRef.current?.click()}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
-              title={t("attachFile")}
-            >
-              <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-            <Button
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
+              tooltip={t("attachFile")}
+              icon={<Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />}
+            />
+            <div className="hidden sm:inline-flex">
+              <GlassIconButton
+                type="button"
+                variant="ghost"
+                onClick={() => imageInputRef.current?.click()}
+                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
+                tooltip={t("attachMedia")}
+                icon={<ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />}
+              />
+            </div>
+            <GlassIconButton
               type="button"
               variant="ghost"
-              size="icon"
-              onClick={() => imageInputRef.current?.click()}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
-              title={t("attachMedia")}
-            >
-              <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
               onClick={startVoiceRecording}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full"
-              title={t("recordVoice")}
-            >
-              <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
+              tooltip={t("recordVoice")}
+              icon={<Mic className="w-4 h-4 sm:w-5 sm:h-5" />}
+            />
           </div>
         )}
 
@@ -603,26 +1033,30 @@ export const ChatInput = ({
               </span>
             </div>
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              <Button
+              <PatternButton
                 type="button"
                 variant="ghost"
+                color="danger"
                 size="sm"
+                rounded="md"
                 onClick={cancelVoiceRecording}
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive rounded-lg"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                icon={<Trash2 className="w-3.5 h-3.5" />}
               >
-                <Trash2 className="w-3.5 h-3.5 mr-1" />
                 {t("cancel")}
-              </Button>
-              <Button
+              </PatternButton>
+              <PatternButton
                 type="button"
-                variant="destructive"
+                variant="solid"
+                color="danger"
                 size="sm"
+                rounded="md"
                 onClick={stopAndSendVoiceRecording}
-                className="h-7 px-3 text-xs rounded-lg"
+                className="h-7 px-3 text-xs"
+                icon={<Square className="w-3 h-3 fill-current" />}
               >
-                <Square className="w-3 h-3 mr-1.5 fill-current" />
                 {t("send")}
-              </Button>
+              </PatternButton>
             </div>
           </div>
         ) : (
@@ -648,32 +1082,37 @@ export const ChatInput = ({
 
         {!isRecording && (
           <div className="flex gap-0.5 sm:gap-1 pb-0.5 shrink-0">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowEmojiPicker((v) => !v)}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground rounded-full hidden sm:inline-flex"
-              title={t("emoji")}
-            >
-              <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-            <Button
+            <div className="hidden sm:inline-flex">
+              <GlassIconButton
+                type="button"
+                variant="ghost"
+                onClick={() => setShowEmojiPicker((v) => !v)}
+                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-foreground"
+                tooltip={t("emoji")}
+                icon={<Smile className="w-4 h-4 sm:w-5 sm:h-5" />}
+              />
+            </div>
+            <PatternButton
               type="button"
               onClick={handleSend}
               disabled={
                 (!message.trim() && selectedItems.length === 0) || disabled
               }
               size="icon"
+              rounded="full"
+              variant={
+                message.trim() || selectedItems.length > 0 ? "solid" : "ghost"
+              }
+              color="primary"
               className={cn(
-                "h-8 w-8 sm:h-9 sm:w-9 rounded-full transition-all duration-200",
+                "h-8 w-8 sm:h-9 sm:w-9 transition-all duration-200",
                 message.trim() || selectedItems.length > 0
                   ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm scale-100"
                   : "bg-transparent text-muted-foreground hover:bg-muted scale-95",
               )}
             >
               <SendHorizontal className="w-4 h-4" />
-            </Button>
+            </PatternButton>
           </div>
         )}
       </div>

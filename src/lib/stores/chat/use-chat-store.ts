@@ -16,6 +16,8 @@ import type {
   ITypingPayload,
   IUserStatusPayload,
   MessageStatus,
+  IPollUpdatedPayload,
+  ILinkPreviewReadyPayload,
 } from "@/types/chat";
 import type { CreateDirectChatPayload, IPaginationMeta } from "@/types/common";
 import type { ActionCallbacks } from "@/types/store";
@@ -42,6 +44,13 @@ import {
   updateConversationSettingsApi,
   updateDisappearingMessagesApi,
   deleteConversationApi,
+  updateGroupMemberRoleApi,
+  forwardMessageApi,
+  getOrCreateSavedMessagesApi,
+  createPollApi,
+  votePollApi,
+  closePollApi,
+  getConversationActiveCallApi,
 } from "./api";
 import { blockUserApi, unblockUserApi } from "../contact/api";
 import type { IConversationDetails, ISharedAssetsResponse } from "@/types/chat";
@@ -51,6 +60,7 @@ import {
   CallStatusEnum,
   CallTypeEnum,
   ConversationTypeEnum,
+  GroupRoleEnum,
   MessageTypeEnum,
   SocketNamespaceEnum,
 } from "@/common/enum";
@@ -62,6 +72,12 @@ import { toast } from "sonner";
 
 import { useNotificationStore } from "../notification/use-notification-store";
 import { parseSafeDate } from "@/utils/date-helper";
+import { tStore } from "@/i18n/translate-store";
+
+const tChatToast = (
+  subKey: string,
+  params?: Record<string, string | number>,
+) => tStore(`Chat.Detail.storeToast.${subKey}`, params);
 
 const typingTimers = new Map<string, NodeJS.Timeout>();
 
@@ -100,6 +116,69 @@ const mergeAndSortMessages = (
     const timeB = parseSafeDate(b.createdAt)?.getTime() ?? 0;
     return timeA - timeB;
   });
+};
+
+/**
+ * Bộ lọc tìm kiếm cuộc trò chuyện phân tách rõ 2 trường hợp nghiệp vụ:
+ * - Trò chuyện 1-1 (DIRECT): Tìm theo 3 trường (tên hiển thị, biệt danh, email) và loại bỏ người dùng đang trong trạng thái chặn.
+ * - Trò chuyện nhóm (GROUP): Chỉ tìm theo tên nhóm (group name), bỏ qua hoàn toàn email/biệt danh của thành viên.
+ */
+export const matchConversationBySearchRule = (
+  conv: IConversation,
+  rawKeyword: string,
+  details?: IConversationDetails,
+  currentUserId?: string,
+): boolean => {
+  const keyword = rawKeyword.trim().toLowerCase();
+  if (!keyword) return false;
+
+  if (conv.type === ConversationTypeEnum.GROUP) {
+    const groupName = (conv.name || "").trim().toLowerCase();
+    return groupName.includes(keyword);
+  }
+
+  if (conv.type === ConversationTypeEnum.DIRECT) {
+    if (
+      conv.isBlocked ||
+      conv.blockedByMe ||
+      conv.blockedByPartner ||
+      details?.blockState?.isBlocked
+    ) {
+      return false;
+    }
+
+    const partnerMember = details?.members?.find(
+      (m) => m.userId !== currentUserId,
+    );
+
+    const displayName = (
+      conv.originalName ||
+      partnerMember?.name ||
+      conv.name ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+    const nickname = (
+      conv.partnerNickname ||
+      partnerMember?.nickname ||
+      conv.name ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+    const email = (conv.partnerEmail || partnerMember?.email || "")
+      .trim()
+      .toLowerCase();
+
+    return (
+      displayName.includes(keyword) ||
+      nickname.includes(keyword) ||
+      email.includes(keyword)
+    );
+  }
+
+  return false;
 };
 
 interface ChatState {
@@ -149,10 +228,19 @@ interface ChatState {
     targetUserId: string,
     shouldBlock: boolean,
   ) => Promise<boolean>;
+  syncBlockStateForUser: (
+    targetUserId: string,
+    blockPatch: {
+      blockedByMe?: boolean;
+      blockedByPartner?: boolean;
+    },
+  ) => void;
   handleNicknameUpdated: (payload: {
     conversationId: string;
     targetUserId: string;
     nickname: string | null;
+    originalName?: string | null;
+    displayName?: string | null;
   }) => void;
   handleConversationSettingsUpdated: (payload: {
     conversationId: string;
@@ -251,6 +339,42 @@ interface ChatState {
   ) => Promise<void>;
   removeFailedMessage: (tempId: string, conversationId: string) => void;
   resetTempConversations: () => void;
+  updateGroupMemberRole: (payload: {
+    conversationId: string;
+    memberId: string;
+    role: GroupRoleEnum;
+  }) => Promise<boolean>;
+  forwardMessage: (payload: {
+    messageId: string;
+    sourceConversationId: string;
+    targetConversationIds: string[];
+  }) => Promise<boolean>;
+  openSavedMessages: () => Promise<string | null>;
+  createPoll: (payload: {
+    conversationId: string;
+    question: string;
+    options: string[];
+    allowMultipleAnswers?: boolean;
+    isAnonymous?: boolean;
+  }) => Promise<boolean>;
+  votePoll: (payload: {
+    conversationId: string;
+    messageId: string;
+    optionIds: string[];
+  }) => Promise<void>;
+  closePoll: (payload: {
+    conversationId: string;
+    messageId: string;
+  }) => Promise<void>;
+  handlePollUpdated: (payload: IPollUpdatedPayload) => void;
+  handleLinkPreviewReady: (payload: ILinkPreviewReadyPayload) => void;
+  ongoingCallsByConv: Record<string, IActiveCallState | null>;
+  purgeExpiredMessages: () => void;
+  fetchConversationActiveCall: (conversationId: string) => Promise<void>;
+  setOngoingCallForConv: (
+    conversationId: string,
+    call: IActiveCallState | null,
+  ) => void;
 }
 
 export const useChatStore = createPersistedStore<ChatState>(
@@ -273,6 +397,7 @@ export const useChatStore = createPersistedStore<ChatState>(
     pinnedMessagesByConv: {},
     conversationDetails: {},
     sharedAssets: {},
+    ongoingCallsByConv: {},
 
     setSocketConnected: (status) => {
       set({ isSocketConnected: status });
@@ -409,7 +534,7 @@ export const useChatStore = createPersistedStore<ChatState>(
     initiateCall: async (conversationId, callType) => {
       const { activeCall } = get();
       if (activeCall) {
-        toast.warning("Bạn đang trong một cuộc gọi khác");
+        toast.warning(tChatToast("alreadyInAnotherCall"));
         return;
       }
 
@@ -428,7 +553,7 @@ export const useChatStore = createPersistedStore<ChatState>(
           res?.ringingUserIds?.length === 0 &&
           res?.busyUserIds?.length > 0
         ) {
-          toast.info("Người nhận hiện đang bận ở một cuộc gọi khác");
+          toast.info(tChatToast("recipientBusyInAnotherCall"));
           return;
         }
 
@@ -451,7 +576,7 @@ export const useChatStore = createPersistedStore<ChatState>(
           },
         });
       } catch (err: any) {
-        toast.error(err?.message || "Không thể khởi tạo cuộc gọi");
+        toast.error(err?.message || tChatToast("initiateCallError"));
       }
     },
 
@@ -499,7 +624,11 @@ export const useChatStore = createPersistedStore<ChatState>(
       const { activeConversationId } = get();
       const currentUser = useAuthStore.getState().currentAccount?.user;
       const isMe = message.senderId === currentUser?.id;
-      const isViewing = activeConversationId === message.conversationId;
+      const isTabVisible =
+        typeof document === "undefined" ||
+        document.visibilityState === "visible";
+      const isViewing =
+        activeConversationId === message.conversationId && isTabVisible;
 
       if (isViewing || isMe) {
         const msgTime =
@@ -545,10 +674,16 @@ export const useChatStore = createPersistedStore<ChatState>(
           const updatedConv = { ...state.conversations[convIndex] };
           updatedConv.lastMessage =
             message.type === MessageTypeEnum.TEXT ||
-            message.type === MessageTypeEnum.CALL
+            message.type === MessageTypeEnum.CALL ||
+            message.type === MessageTypeEnum.POLL
               ? message.content
-              : `[${message.type}] ${message.content || ""}`;
+              : `[${message.type}] ${message.content || ""}`.trim();
           updatedConv.lastMessageAt = message.createdAt;
+          updatedConv.lastMessageType = message.type;
+          updatedConv.lastMessageSenderId = message.senderId;
+          updatedConv.lastMessageStatus = initialStatus;
+          updatedConv.lastMessageExpiresAt =
+            message.expiresAt || message.metadata?.expiresAt || null;
 
           const currentUnread = Number(updatedConv.unreadCount || 0);
 
@@ -607,12 +742,13 @@ export const useChatStore = createPersistedStore<ChatState>(
     },
 
     handleMessageRecalled: ({ conversationId, messageId }) => {
+      const recalledText = tChatToast("recalledPlaceholder");
       set((state) => {
         const msgs = state.messages[conversationId];
         if (msgs) {
           const idx = msgs.findIndex((m) => m.id === messageId);
           if (idx !== -1) {
-            msgs[idx].content = "[Tin nhắn đã được thu hồi]";
+            msgs[idx].content = recalledText;
             msgs[idx].status = "removed";
             msgs[idx].isPinned = false;
             msgs[idx].metadata = {
@@ -625,7 +761,7 @@ export const useChatStore = createPersistedStore<ChatState>(
 
         const conv = state.conversations.find((c) => c.id === conversationId);
         if (conv && msgs && msgs[msgs.length - 1]?.id === messageId) {
-          conv.lastMessage = "[Tin nhắn đã được thu hồi]";
+          conv.lastMessage = recalledText;
         }
       });
     },
@@ -681,9 +817,46 @@ export const useChatStore = createPersistedStore<ChatState>(
             state.activeConversationId = null;
           }
         });
-        toast.info("Bạn đã rời khỏi hoặc bị xóa khỏi nhóm trò chuyện");
+        toast.info(tChatToast("removedFromGroupInfo"));
       } else {
         get().fetchInbox({ page: 1 });
+        get().fetchConversationDetails(payload.conversationId);
+      }
+    },
+
+    updateGroupMemberRole: async ({ conversationId, memberId, role }) => {
+      try {
+        await updateGroupMemberRoleApi({ conversationId, memberId, role });
+        await get().fetchConversationDetails(conversationId);
+        toast.success("Đã cập nhật phân quyền thành viên");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message ||
+            "Không thể cập nhật phân quyền thành viên",
+        );
+        return false;
+      }
+    },
+
+    forwardMessage: async ({
+      messageId,
+      sourceConversationId,
+      targetConversationIds,
+    }) => {
+      try {
+        await forwardMessageApi({
+          messageId,
+          sourceConversationId,
+          targetConversationIds,
+        });
+        toast.success("Đã chuyển tiếp tin nhắn");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể chuyển tiếp tin nhắn",
+        );
+        return false;
       }
     },
 
@@ -850,11 +1023,48 @@ export const useChatStore = createPersistedStore<ChatState>(
         );
 
         if (search) {
+          const currentUserId =
+            useAuthStore.getState().currentAccount?.user?.id;
           set((state) => {
+            const filteredServerList = normalizedList.filter(
+              (item: IConversation) =>
+                matchConversationBySearchRule(
+                  item,
+                  search,
+                  state.conversationDetails[item.id],
+                  currentUserId,
+                ),
+            );
+
+            const localMatches = state.conversations.filter((conv) =>
+              matchConversationBySearchRule(
+                conv,
+                search,
+                state.conversationDetails[conv.id],
+                currentUserId,
+              ),
+            );
+
+            const mergedMap = new Map<string, IConversation>();
+            for (const item of filteredServerList) {
+              mergedMap.set(item.id, item);
+            }
+            for (const localConv of localMatches) {
+              if (!mergedMap.has(localConv.id)) {
+                mergedMap.set(localConv.id, localConv);
+              } else {
+                mergedMap.set(localConv.id, {
+                  ...localConv,
+                  ...mergedMap.get(localConv.id)!,
+                });
+              }
+            }
+            const mergedList = Array.from(mergedMap.values());
+
             if (page === 1) {
-              state.tempConversations = normalizedList;
+              state.tempConversations = mergedList;
             } else {
-              const newConvs = normalizedList.filter(
+              const newConvs = mergedList.filter(
                 (newC: { id: string }) =>
                   !state.tempConversations.some((curr) => curr.id === newC.id),
               );
@@ -1480,17 +1690,43 @@ export const useChatStore = createPersistedStore<ChatState>(
         const res: any = await getConversationDetailsApi(conversationId);
         const data = res?.data ?? res;
         if (data?.conversationId) {
+          const currentUserId =
+            useAuthStore.getState().currentAccount?.user?.id;
           set((state) => {
             state.conversationDetails[conversationId] = data;
             const conv = state.conversations.find(
               (c) => c.id === conversationId,
             );
-            if (conv && data.mySettings) {
-              conv.isMuted = data.mySettings.isMuted;
-              conv.soundEnabled = data.mySettings.soundEnabled;
-              conv.readReceiptsEnabled = data.mySettings.readReceiptsEnabled;
-              conv.isRestricted = data.mySettings.isRestricted;
-              conv.disappearingTtl = data.disappearingTtl;
+            if (conv) {
+              if (data.mySettings) {
+                conv.isMuted = data.mySettings.isMuted;
+                conv.soundEnabled = data.mySettings.soundEnabled;
+                conv.readReceiptsEnabled = data.mySettings.readReceiptsEnabled;
+                conv.isRestricted = data.mySettings.isRestricted;
+                conv.disappearingTtl = data.disappearingTtl;
+              }
+              if (
+                conv.type === ConversationTypeEnum.DIRECT &&
+                Array.isArray(data.members)
+              ) {
+                const partnerMember = data.members.find(
+                  (m: any) => m.userId !== currentUserId,
+                );
+                if (partnerMember) {
+                  conv.originalName = partnerMember.name;
+                  conv.partnerNickname = partnerMember.nickname || null;
+                  conv.partnerEmail = partnerMember.email || conv.partnerEmail || null;
+                  conv.name = partnerMember.nickname || partnerMember.name;
+                }
+                if (data.blockState) {
+                  conv.isBlocked = data.blockState.isBlocked;
+                  conv.blockedByMe = data.blockState.blockedByMe;
+                  conv.blockedByPartner = data.blockState.blockedByPartner;
+                  if (data.blockState.isBlocked) {
+                    conv.isOnline = false;
+                  }
+                }
+              }
             }
           });
         }
@@ -1535,43 +1771,87 @@ export const useChatStore = createPersistedStore<ChatState>(
 
     updateNickname: async ({ conversationId, targetUserId, nickname }) => {
       try {
-        await updateParticipantNicknameApi({
+        const res: any = await updateParticipantNicknameApi({
           conversationId,
           targetUserId,
           nickname,
         });
-        get().handleNicknameUpdated({ conversationId, targetUserId, nickname });
+        const data = res?.data ?? res;
+        get().handleNicknameUpdated({
+          conversationId,
+          targetUserId,
+          nickname,
+          originalName: data?.originalName,
+          displayName: data?.displayName,
+        });
         toast.success("Đã cập nhật biệt danh");
         return true;
-      } catch {
-        toast.error("Không thể cập nhật biệt danh");
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể cập nhật biệt danh",
+        );
         return false;
       }
     },
 
-    handleNicknameUpdated: ({ conversationId, targetUserId, nickname }) => {
+    handleNicknameUpdated: ({
+      conversationId,
+      targetUserId,
+      nickname,
+      originalName,
+      displayName,
+    }) => {
+      const currentUserId = useAuthStore.getState().currentAccount?.user?.id;
       set((state) => {
+        let fallbackOriginalName = originalName || null;
         const details = state.conversationDetails[conversationId];
         if (details?.members) {
           const member = details.members.find((m) => m.userId === targetUserId);
           if (member) {
             member.nickname = nickname;
+            fallbackOriginalName = fallbackOriginalName || member.name;
+          }
+          if (
+            details.type === ConversationTypeEnum.DIRECT &&
+            targetUserId !== currentUserId
+          ) {
+            details.name =
+              nickname || displayName || fallbackOriginalName || details.name;
           }
         }
+
+        const updateDirectConvName = (conv?: IConversation) => {
+          if (!conv || conv.type !== ConversationTypeEnum.DIRECT) return;
+          const isPartnerTarget =
+            conv.partnerId === targetUserId ||
+            (!conv.isSavedMessages && targetUserId !== currentUserId);
+          if (isPartnerTarget) {
+            const resolvedOriginal =
+              fallbackOriginalName || conv.originalName || conv.name;
+            conv.originalName = resolvedOriginal;
+            conv.partnerNickname = nickname;
+            conv.name = nickname || displayName || resolvedOriginal;
+          }
+        };
+
         const conv = state.conversations.find((c) => c.id === conversationId);
-        if (
-          conv &&
-          conv.type === ConversationTypeEnum.DIRECT &&
-          conv.partnerId === targetUserId &&
-          nickname
-        ) {
-          conv.name = nickname;
-        }
+        updateDirectConvName(conv);
+
+        const tempConv = state.tempConversations.find(
+          (c) => c.id === conversationId,
+        );
+        updateDirectConvName(tempConv);
+
         const msgs = state.messages[conversationId];
         if (msgs) {
           msgs.forEach((m) => {
             if (m.senderId === targetUserId && m.sender) {
-              m.sender.name = nickname || m.sender.name;
+              const orig =
+                (m.sender as any).originalName ||
+                fallbackOriginalName ||
+                m.sender.name;
+              (m.sender as any).originalName = orig;
+              m.sender.name = nickname || displayName || orig;
             }
           });
         }
@@ -1593,6 +1873,15 @@ export const useChatStore = createPersistedStore<ChatState>(
             Object.assign(details.mySettings, updated);
           }
         });
+
+        if (
+          (payload.readReceiptsEnabled === true ||
+            payload.isRestricted === false) &&
+          get().activeConversationId === conversationId
+        ) {
+          get().markConversationReadOptimistic(conversationId);
+        }
+
         toast.success("Đã cập nhật cài đặt cuộc trò chuyện");
       } catch {
         toast.error("Không thể cập nhật cài đặt");
@@ -1659,21 +1948,310 @@ export const useChatStore = createPersistedStore<ChatState>(
       }
     },
 
+    syncBlockStateForUser: (targetUserId, blockPatch) => {
+      if (!targetUserId) return;
+      set((state) => {
+        state.conversations = state.conversations.map((conv) => {
+          if (
+            conv.type === ConversationTypeEnum.DIRECT &&
+            conv.partnerId === targetUserId
+          ) {
+            const nextBlockedByMe =
+              blockPatch.blockedByMe ?? Boolean(conv.blockedByMe);
+            const nextBlockedByPartner =
+              blockPatch.blockedByPartner ?? Boolean(conv.blockedByPartner);
+            const nextIsBlocked = nextBlockedByMe || nextBlockedByPartner;
+            return {
+              ...conv,
+              blockedByMe: nextBlockedByMe,
+              blockedByPartner: nextBlockedByPartner,
+              isBlocked: nextIsBlocked,
+              isOnline: nextIsBlocked ? false : conv.isOnline,
+            };
+          }
+          return conv;
+        });
+
+        state.tempConversations = state.tempConversations.filter(
+          (conv) =>
+            !(
+              conv.type === ConversationTypeEnum.DIRECT &&
+              conv.partnerId === targetUserId &&
+              (blockPatch.blockedByMe || blockPatch.blockedByPartner)
+            ),
+        );
+
+        for (const details of Object.values(state.conversationDetails)) {
+          if (
+            details?.type === ConversationTypeEnum.DIRECT &&
+            details?.blockState?.partnerId === targetUserId
+          ) {
+            const nextBlockedByMe =
+              blockPatch.blockedByMe ?? details.blockState.blockedByMe;
+            const nextBlockedByPartner =
+              blockPatch.blockedByPartner ??
+              details.blockState.blockedByPartner;
+            details.blockState = {
+              ...details.blockState,
+              blockedByMe: nextBlockedByMe,
+              blockedByPartner: nextBlockedByPartner,
+              isBlocked: nextBlockedByMe || nextBlockedByPartner,
+            };
+          }
+        }
+      });
+    },
+
     toggleBlockUser: async (conversationId, targetUserId, shouldBlock) => {
       try {
         if (shouldBlock) {
           await blockUserApi(targetUserId);
+          get().syncBlockStateForUser(targetUserId, { blockedByMe: true });
           toast.success("Đã chặn người dùng này");
         } else {
           await unblockUserApi(targetUserId);
+          get().syncBlockStateForUser(targetUserId, { blockedByMe: false });
           toast.success("Đã bỏ chặn người dùng này");
         }
-        await get().fetchConversationDetails(conversationId);
+        if (conversationId) {
+          await get().fetchConversationDetails(conversationId);
+        }
         return true;
       } catch {
         toast.error("Không thể thực hiện thao tác chặn");
         return false;
       }
+    },
+
+    openSavedMessages: async () => {
+      try {
+        const res: any = await getOrCreateSavedMessagesApi();
+        const conv = res?.data ?? res;
+        if (!conv?.id) return null;
+
+        set((state) => {
+          state.activeConversationId = conv.id;
+          const exists = state.conversations.some((c) => c.id === conv.id);
+          if (!exists) {
+            state.conversations.unshift({
+              ...conv,
+              isSavedMessages: true,
+            });
+          }
+        });
+
+        if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
+          socketService
+            .emit(SocketNamespaceEnum.CHAT, SOCKET_EVENTS.CHAT.JOIN_ROOM, {
+              conversationId: conv.id,
+            })
+            .catch(() => {});
+        }
+        return conv.id;
+      } catch {
+        toast.error("Không thể mở Cloud của tôi");
+        return null;
+      }
+    },
+
+    createPoll: async (payload) => {
+      try {
+        await createPollApi(payload);
+        toast.success("Đã tạo cuộc bình chọn");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể tạo cuộc bình chọn",
+        );
+        return false;
+      }
+    },
+
+    votePoll: async ({ conversationId, messageId, optionIds }) => {
+      try {
+        if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
+          await socketService.emit(
+            SocketNamespaceEnum.CHAT,
+            SOCKET_EVENTS.CHAT.VOTE_POLL,
+            { conversationId, messageId, optionIds },
+          );
+        } else {
+          await votePollApi({ conversationId, messageId, optionIds });
+        }
+      } catch {
+        toast.error("Không thể gửi bình chọn");
+      }
+    },
+
+    closePoll: async ({ conversationId, messageId }) => {
+      try {
+        if (socketService.isConnected(SocketNamespaceEnum.CHAT)) {
+          await socketService.emit(
+            SocketNamespaceEnum.CHAT,
+            SOCKET_EVENTS.CHAT.CLOSE_POLL,
+            { conversationId, messageId },
+          );
+        } else {
+          await closePollApi({ conversationId, messageId });
+        }
+        toast.success("Đã khóa cuộc bình chọn");
+      } catch {
+        toast.error("Không thể khóa cuộc bình chọn");
+      }
+    },
+
+    handlePollUpdated: ({ conversationId, messageId, poll }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (msgs) {
+          const msg = msgs.find((m) => m.id === messageId);
+          if (msg) {
+            msg.metadata = {
+              ...(msg.metadata || {}),
+              poll,
+            };
+          }
+        }
+        const pinnedList = state.pinnedMessagesByConv[conversationId];
+        if (pinnedList) {
+          const pinnedMsg = pinnedList.find((m) => m.id === messageId);
+          if (pinnedMsg) {
+            pinnedMsg.metadata = {
+              ...(pinnedMsg.metadata || {}),
+              poll,
+            };
+          }
+        }
+      });
+    },
+
+    handleLinkPreviewReady: ({ conversationId, messageId, linkPreview }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        const msg = msgs.find((m) => m.id === messageId);
+        if (msg) {
+          msg.metadata = {
+            ...(msg.metadata || {}),
+            linkPreview,
+          };
+        }
+      });
+    },
+
+    purgeExpiredMessages: () => {
+      const nowMs = Date.now();
+      set((state) => {
+        for (const [convId, msgList] of Object.entries(state.messages)) {
+          if (!Array.isArray(msgList) || msgList.length === 0) continue;
+          const hasExpired = msgList.some((m) => {
+            const exp = m.expiresAt || m.metadata?.expiresAt;
+            if (!exp) return false;
+            const expMs = parseSafeDate(exp)?.getTime();
+            return Boolean(expMs && expMs <= nowMs);
+          });
+
+          if (hasExpired) {
+            const validMsgs = msgList.filter((m) => {
+              const exp = m.expiresAt || m.metadata?.expiresAt;
+              if (!exp) return true;
+              const expMs = parseSafeDate(exp)?.getTime();
+              return !expMs || expMs > nowMs;
+            });
+            state.messages[convId] = validMsgs;
+
+            const lastValid = validMsgs[validMsgs.length - 1];
+            const syncConvPreview = (c?: IConversation) => {
+              if (!c) return;
+              if (lastValid) {
+                c.lastMessage =
+                  lastValid.status === "removed"
+                    ? tChatToast("recalledPlaceholder")
+                    : lastValid.type === MessageTypeEnum.TEXT ||
+                        lastValid.type === MessageTypeEnum.CALL ||
+                        lastValid.type === MessageTypeEnum.POLL
+                      ? lastValid.content
+                      : `[${lastValid.type}] ${lastValid.content || ""}`.trim();
+                c.lastMessageAt = lastValid.createdAt;
+                c.lastMessageType = lastValid.type;
+                c.lastMessageSenderId = lastValid.senderId;
+                c.lastMessageStatus = lastValid.status || "sent";
+                c.lastMessageExpiresAt =
+                  lastValid.expiresAt || lastValid.metadata?.expiresAt || null;
+              } else {
+                c.lastMessage = null;
+                c.lastMessageExpiresAt = null;
+                c.lastMessageStatus = null;
+              }
+            };
+
+            syncConvPreview(state.conversations.find((c) => c.id === convId));
+            syncConvPreview(
+              state.tempConversations.find((c) => c.id === convId),
+            );
+          }
+        }
+
+        const checkConvListExpiration = (list: IConversation[]) => {
+          list.forEach((c) => {
+            if (!c.lastMessageExpiresAt) return;
+            const expMs = parseSafeDate(c.lastMessageExpiresAt)?.getTime();
+            if (expMs && expMs <= nowMs) {
+              const loadedMsgs = state.messages[c.id];
+              const lastValid = loadedMsgs?.[loadedMsgs.length - 1];
+              if (lastValid) {
+                c.lastMessage = lastValid.content;
+                c.lastMessageAt = lastValid.createdAt;
+                c.lastMessageExpiresAt =
+                  lastValid.expiresAt || lastValid.metadata?.expiresAt || null;
+              } else {
+                c.lastMessage = null;
+                c.lastMessageExpiresAt = null;
+                c.lastMessageStatus = null;
+              }
+            }
+          });
+        };
+
+        checkConvListExpiration(state.conversations);
+        checkConvListExpiration(state.tempConversations);
+      });
+    },
+
+    fetchConversationActiveCall: async (conversationId) => {
+      if (!conversationId) return;
+      try {
+        const res: any = await getConversationActiveCallApi(conversationId);
+        const session = res?.data ?? null;
+        set((state) => {
+          if (session?.callId) {
+            state.ongoingCallsByConv[conversationId] = {
+              callId: session.callId,
+              conversationId: session.conversationId || conversationId,
+              callType: session.callType,
+              isGroupCall: session.isGroupCall,
+              initiatorId: session.initiatorId,
+              status: session.status,
+              isIncoming: false,
+              startedAt: session.createdAt,
+              answeredAt: session.answeredAt,
+              participants: session.participants || {},
+              membersInfo: session.membersInfo || [],
+            };
+          } else {
+            state.ongoingCallsByConv[conversationId] = null;
+          }
+        });
+      } catch {
+        // Ignore
+      }
+    },
+
+    setOngoingCallForConv: (conversationId, call) => {
+      if (!conversationId) return;
+      set((state) => {
+        state.ongoingCallsByConv[conversationId] = call;
+      });
     },
 
     resetTempConversations: () => {

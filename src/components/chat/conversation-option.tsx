@@ -3,7 +3,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { PatternButton } from "@/components/button/button-patterns";
+import { PatternButton, GlassBadge } from "@/components/toolkit";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { MENU_GROUPS } from "@/constant/chat";
@@ -73,9 +73,13 @@ export default function ConversationOption({
                     icon={
                       <div className="flex items-center">
                         {badgeCount && badgeCount > 0 ? (
-                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-xs animate-in zoom-in duration-300">
+                          <GlassBadge
+                            variant="danger"
+                            size="sm"
+                            className="bg-red-500 text-white border-none"
+                          >
                             {badgeCount > 99 ? "99+" : badgeCount}
-                          </span>
+                          </GlassBadge>
                         ) : (
                           active && (
                             <ChevronRight className="size-3.5 text-primary/70 animate-in slide-in-from-left-1" />

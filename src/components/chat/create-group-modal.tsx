@@ -2,23 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, Search, UsersRound, UserPlus } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PatternButton } from "@/components/button/button-patterns";
-import { LiquidGlassModal } from "@/components/liquid-glass/liquid-glass";
+import {
+  GlassModal,
+  GlassAvatar,
+  PatternButton,
+} from "@/components/toolkit";
 import { useContactStore } from "@/lib/stores/contact/use-contact-store";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { KeyContactsEnum } from "@/common/enum";
-import { getInitials } from "@/utils/helper";
 import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -133,162 +126,158 @@ export function CreateGroupModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 bg-transparent border-none shadow-none max-w-[calc(100vw-1.5rem)] sm:max-w-md">
-        <LiquidGlassModal className="p-5 sm:p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold">
-                {mode === "create" ? (
-                  <>
-                    <UsersRound className="w-5 h-5 text-primary shrink-0" />
-                    <span>{t("createTitle")}</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-5 h-5 text-primary shrink-0" />
-                    <span>{t("addMembersTitle")}</span>
-                  </>
-                )}
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                {mode === "create"
-                  ? t("createDesc")
-                  : t("addMembersDesc", {
-                      name: existingGroupName || t("defaultGroupName"),
-                    })}
-              </DialogDescription>
-            </DialogHeader>
+    <GlassModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="md"
+      title={
+        <span className="flex items-center gap-2">
+          {mode === "create" ? (
+            <>
+              <UsersRound className="w-5 h-5 text-primary shrink-0" />
+              <span>{t("createTitle")}</span>
+            </>
+          ) : (
+            <>
+              <UserPlus className="w-5 h-5 text-primary shrink-0" />
+              <span>{t("addMembersTitle")}</span>
+            </>
+          )}
+        </span>
+      }
+      description={
+        mode === "create"
+          ? t("createDesc")
+          : t("addMembersDesc", {
+              name: existingGroupName || t("defaultGroupName"),
+            })
+      }
+      footer={
+        <>
+          <PatternButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            rounded="full"
+            onClick={() => onOpenChange(false)}
+          >
+            {t("cancel")}
+          </PatternButton>
+          <PatternButton
+            type="submit"
+            form="create-group-form"
+            variant="solid"
+            size="sm"
+            rounded="full"
+            isLoading={isSubmitting}
+            disabled={
+              isSubmitting ||
+              selectedIds.length === 0 ||
+              (mode === "create" && !name.trim())
+            }
+          >
+            {mode === "create" ? t("submitCreate") : t("submitAdd")}
+          </PatternButton>
+        </>
+      }
+    >
+      <form id="create-group-form" onSubmit={handleSubmit} className="space-y-4">
+        {mode === "create" && (
+          <div className="space-y-1.5">
+            <label
+              htmlFor="group-name-input"
+              className="text-xs font-semibold text-foreground/90"
+            >
+              {t("groupNameLabel")} <span className="text-destructive">*</span>
+            </label>
+            <Input
+              id="group-name-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("groupNamePlaceholder")}
+              maxLength={120}
+              className="rounded-xl bg-background/60"
+            />
+          </div>
+        )}
 
-            {mode === "create" && (
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="group-name-input"
-                  className="text-xs font-semibold text-foreground/90"
-                >
-                  {t("groupNameLabel")}{" "}
-                  <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  id="group-name-input"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t("groupNamePlaceholder")}
-                  maxLength={120}
-                  className="rounded-xl bg-background/60"
-                />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-foreground/90">
+              {t("selectMembersLabel", { count: selectedIds.length })}
+            </span>
+          </div>
+
+          <div className="relative">
+            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("searchFriendsPlaceholder")}
+              className="pl-9 rounded-xl bg-background/60 h-9 text-xs"
+            />
+          </div>
+
+          <ScrollArea className="h-52 sm:h-56 rounded-xl border border-border/50 bg-background/40 p-2">
+            {friends.length === 0 ? (
+              <div className="h-44 flex flex-col items-center justify-center text-center p-4 text-xs text-muted-foreground">
+                {t("emptyFriends")}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {friends.map((contact) => {
+                  const user = contact.contactUser;
+                  const userId = user.id || contact.contactId;
+                  const displayName =
+                    contact.alias || user.name || tHeader("defaultUser");
+                  const isSelected = selectedIds.includes(userId);
+
+                  return (
+                    <button
+                      key={contact.id}
+                      type="button"
+                      onClick={() => toggleMember(userId)}
+                      className={cn(
+                        "w-full flex items-center justify-between gap-3 p-2 rounded-xl text-left transition-colors cursor-pointer",
+                        isSelected
+                          ? "bg-primary/10 border border-primary/30"
+                          : "hover:bg-muted/60 border border-transparent",
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <GlassAvatar
+                          src={user.avatar}
+                          name={displayName}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold truncate">
+                            {displayName}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {user.email}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div
+                        className={cn(
+                          "w-5 h-5 rounded-full flex items-center justify-center border transition-colors shrink-0",
+                          isSelected
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-muted-foreground/40",
+                        )}
+                      >
+                        {isSelected && <Check className="w-3 h-3" />}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-foreground/90">
-                  {t("selectMembersLabel", { count: selectedIds.length })}
-                </span>
-              </div>
-
-              <div className="relative">
-                <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={t("searchFriendsPlaceholder")}
-                  className="pl-9 rounded-xl bg-background/60 h-9 text-xs"
-                />
-              </div>
-
-              <ScrollArea className="h-52 sm:h-56 rounded-xl border border-border/50 bg-background/40 p-2">
-                {friends.length === 0 ? (
-                  <div className="h-44 flex flex-col items-center justify-center text-center p-4 text-xs text-muted-foreground">
-                    {t("emptyFriends")}
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {friends.map((contact) => {
-                      const user = contact.contactUser;
-                      const userId = user.id || contact.contactId;
-                      const displayName =
-                        contact.alias || user.name || tHeader("defaultUser");
-                      const isSelected = selectedIds.includes(userId);
-
-                      return (
-                        <button
-                          key={contact.id}
-                          type="button"
-                          onClick={() => toggleMember(userId)}
-                          className={cn(
-                            "w-full flex items-center justify-between gap-3 p-2 rounded-xl text-left transition-colors cursor-pointer",
-                            isSelected
-                              ? "bg-primary/10 border border-primary/30"
-                              : "hover:bg-muted/60 border border-transparent",
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <Avatar className="h-8 w-8 border shrink-0">
-                              <AvatarImage
-                                src={user.avatar || undefined}
-                                alt={displayName}
-                              />
-                              <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
-                                {getInitials(displayName)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold truncate">
-                                {displayName}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground truncate">
-                                {user.email}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div
-                            className={cn(
-                              "w-5 h-5 rounded-full flex items-center justify-center border transition-colors shrink-0",
-                              isSelected
-                                ? "bg-primary border-primary text-primary-foreground"
-                                : "border-muted-foreground/40",
-                            )}
-                          >
-                            {isSelected && <Check className="w-3 h-3" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-2">
-              <PatternButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                rounded="full"
-                onClick={() => onOpenChange(false)}
-              >
-                {t("cancel")}
-              </PatternButton>
-              <PatternButton
-                type="submit"
-                variant="solid"
-                size="sm"
-                rounded="full"
-                isLoading={isSubmitting}
-                disabled={
-                  isSubmitting ||
-                  selectedIds.length === 0 ||
-                  (mode === "create" && !name.trim())
-                }
-              >
-                {mode === "create" ? t("submitCreate") : t("submitAdd")}
-              </PatternButton>
-            </DialogFooter>
-          </form>
-        </LiquidGlassModal>
-      </DialogContent>
-    </Dialog>
+          </ScrollArea>
+        </div>
+      </form>
+    </GlassModal>
   );
 }

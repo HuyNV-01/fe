@@ -2,6 +2,7 @@
 
 import type { TStatusSlice } from ".";
 import type {
+  IContactsDataRes,
   IGetContacts,
   IGetListContacts,
   IGetListUsers,
@@ -21,11 +22,17 @@ export interface IUserState {
   profile: IUserProfile | null;
   users: IGetListUsers;
   status: TStatusSlice;
+  isProfileBlocked?: boolean;
+  profileBlockedByMe?: boolean;
+  profileError?: string | null;
 }
 
 export interface IContactState {
   contacts: IGetListContacts;
   listContacts: IGetContacts;
+  blockedUsers: IContactsDataRes[];
+  isLoadingBlocked?: boolean;
   status: TStatusSlice;
   isRequest: boolean;
 }
+

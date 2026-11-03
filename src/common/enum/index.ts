@@ -16,6 +16,7 @@ export enum MessageTypeEnum {
   AUDIO = "AUDIO",
   VIDEO = "VIDEO",
   CALL = "CALL",
+  POLL = "POLL",
   SYSTEM = "SYSTEM",
 }
 
@@ -35,8 +36,14 @@ export enum CallStatusEnum {
 }
 
 export enum ConversationTypeEnum {
-  DIRECT = "DIRECT",
-  GROUP = "GROUP",
+  DIRECT = 'DIRECT',
+  GROUP = 'GROUP',
+}
+
+export enum GroupRoleEnum {
+  OWNER = 'OWNER',
+  ADMIN = 'ADMIN',
+  MEMBER = 'MEMBER',
 }
 
 export enum SocketNamespaceEnum {
@@ -58,6 +65,7 @@ export enum KeyContactsEnum {
   PENDING_RECEIVED = "PENDING_RECEIVED",
   GROUPS_RECEIVED = "GROUPS_RECEIVED",
   PENDING_SENT = "PENDING_SENT",
+  BLOCKED = "BLOCKED",
 }
 
 export enum SortTypeEnum {

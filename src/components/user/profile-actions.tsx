@@ -7,6 +7,9 @@ import {
   MoreHorizontal,
   Camera,
   Trash2,
+  Pencil,
+  Shield,
+  Ban,
 } from "lucide-react";
 import { ContactStatusEnum } from "@/common/enum";
 import {
@@ -16,19 +19,29 @@ import {
 import type { IUserProfile } from "@/types/profile";
 import { cn } from "@/lib/utils";
 import { useProfileActions } from "@/utils/hooks/use-profile-actions";
-import { PatternButton } from "../button/button-patterns";
-import DropdownMenuContentCus from "../dropdown-menu/dropdown-menu-content-cus";
-import ItemMenu from "../dropdown-menu/item-menu";
+import {
+  PatternButton,
+  DropdownMenuContentCus,
+  ItemMenu,
+  GlassConfirmDialog,
+  BaseTooltip,
+} from "@/components/toolkit";
 import { ContactActionButton } from "../chat/add-new-contact";
 import { useTranslations } from "next-intl";
-import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 
 interface ProfileActionsProps {
   profile: IUserProfile;
   className?: string;
+  onOpenEditModal?: () => void;
+  onOpenPrivacyModal?: () => void;
 }
 
-export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
+export const ProfileActions = ({
+  profile,
+  className,
+  onOpenEditModal,
+  onOpenPrivacyModal,
+}: ProfileActionsProps) => {
   const t = useTranslations("Profile.actions");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const {
@@ -38,14 +51,16 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
     onAddFriend,
     onAcceptFriend,
     onRemoveContact,
+    onBlockUser,
+    onUnblockUser,
     onSendMessage,
     onUploadAvatar,
     onDeleteAvatar,
   } = useProfileActions(profile);
 
-  const [confirmMode, setConfirmMode] = useState<"AVATAR" | "CONTACT" | null>(
-    null,
-  );
+  const [confirmMode, setConfirmMode] = useState<
+    "AVATAR" | "CONTACT" | "BLOCK" | "UNBLOCK" | null
+  >(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,7 +74,7 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
     return (
       <div
         className={cn(
-          "flex flex-wrap items-center justify-center md:justify-end gap-2.5",
+          "flex flex-wrap items-center justify-center md:justify-end gap-2",
           className,
         )}
       >
@@ -71,9 +86,35 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
           onChange={handleFileChange}
         />
 
+        {onOpenEditModal && (
+          <PatternButton
+            size="sm"
+            variant="solid"
+            color="primary"
+            rounded="full"
+            icon={<Pencil className="w-3.5 h-3.5" />}
+            onClick={onOpenEditModal}
+          >
+            {t("editProfile")}
+          </PatternButton>
+        )}
+
+        {onOpenPrivacyModal && (
+          <PatternButton
+            size="sm"
+            variant="glass"
+            color="primary"
+            rounded="full"
+            icon={<Shield className="w-3.5 h-3.5" />}
+            onClick={onOpenPrivacyModal}
+          >
+            {t("privacySettings")}
+          </PatternButton>
+        )}
+
         <PatternButton
           size="sm"
-          variant="glass"
+          variant="outline"
           color="primary"
           rounded="full"
           isLoading={isUploadingAvatar}
@@ -96,6 +137,19 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
             {t("deleteAvatar")}
           </PatternButton>
         )}
+
+        <GlassConfirmDialog
+          open={Boolean(confirmMode)}
+          onOpenChange={(open) => !open && setConfirmMode(null)}
+          itemName={t("deleteAvatar")}
+          isLoading={isLoading || isUploadingAvatar}
+          onConfirm={async () => {
+            if (confirmMode === "AVATAR") {
+              await onDeleteAvatar();
+            }
+            setConfirmMode(null);
+          }}
+        />
       </div>
     );
   }
@@ -103,13 +157,14 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-2.5 justify-center md:justify-end",
+        "flex flex-wrap items-center gap-2 justify-center md:justify-end",
         className,
       )}
     >
       <ContactActionButton
         contactStatus={relationship}
         isLoading={isLoading}
+        disabled={isLoading}
         onClick={(e) => {
           e.stopPropagation();
           onAddFriend();
@@ -117,56 +172,89 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
         handleAccept={onAcceptFriend}
         handleRemove={() => setConfirmMode("CONTACT")}
       />
-      <PatternButton
-        size="sm"
-        onClick={onSendMessage}
-        rounded="full"
-        icon={<MessageCircle className="w-3.5 h-3.5" />}
-        variant="solid"
-        color="primary"
-      >
-        {t("sendMessage")}
-      </PatternButton>
 
-      {(relationship === ContactStatusEnum.FRIEND ||
-        relationship === ContactStatusEnum.PENDING_SENT) && (
-        <DropdownMenu>
+      {relationship !== ContactStatusEnum.BLOCKED && (
+        <PatternButton
+          size="sm"
+          onClick={onSendMessage}
+          rounded="full"
+          disabled={isLoading}
+          icon={<MessageCircle className="w-3.5 h-3.5" />}
+          variant="solid"
+          color="primary"
+        >
+          {t("sendMessage")}
+        </PatternButton>
+      )}
+
+      <DropdownMenu>
+        <BaseTooltip content={t("moreOptions")}>
           <DropdownMenuTrigger asChild>
             <PatternButton
               variant="glass"
               size="icon"
               rounded="full"
               className="h-8 w-8"
+              aria-label={t("moreOptions")}
             >
               <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
             </PatternButton>
           </DropdownMenuTrigger>
-          <DropdownMenuContentCus align="end" className="w-48">
-            {relationship === ContactStatusEnum.FRIEND && (
-              <ItemMenu
-                onClick={() => setConfirmMode("CONTACT")}
-                className="text-red-600 focus:text-red-600"
-                icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
-              >
-                {t("unfriend")}
-              </ItemMenu>
-            )}
-            {relationship === ContactStatusEnum.PENDING_SENT && (
-              <ItemMenu
-                onClick={() => setConfirmMode("CONTACT")}
-                className="text-red-600 focus:text-red-600"
-                icon={<UserX className="w-4 h-4 mr-2 text-red-600" />}
-              >
-                {t("revokeRequest")}
-              </ItemMenu>
-            )}
-          </DropdownMenuContentCus>
-        </DropdownMenu>
-      )}
+        </BaseTooltip>
+        <DropdownMenuContentCus align="end" className="w-52">
+          {relationship === ContactStatusEnum.FRIEND && (
+            <ItemMenu
+              onClick={() => setConfirmMode("CONTACT")}
+              className="text-amber-600 focus:text-amber-600"
+              icon={<UserX className="w-4 h-4 mr-2 text-amber-600" />}
+            >
+              {t("unfriend")}
+            </ItemMenu>
+          )}
+          {relationship === ContactStatusEnum.PENDING_SENT && (
+            <ItemMenu
+              onClick={() => setConfirmMode("CONTACT")}
+              className="text-amber-600 focus:text-amber-600"
+              icon={<UserX className="w-4 h-4 mr-2 text-amber-600" />}
+            >
+              {t("revokeRequest")}
+            </ItemMenu>
+          )}
+          <ItemMenu
+            onClick={() =>
+              setConfirmMode(
+                relationship === ContactStatusEnum.BLOCKED
+                  ? "UNBLOCK"
+                  : "BLOCK",
+              )
+            }
+            className="text-red-600 focus:text-red-600"
+            icon={<Ban className="w-4 h-4 mr-2 text-red-600" />}
+          >
+            {relationship === ContactStatusEnum.BLOCKED
+              ? t("unblockUser")
+              : t("blockUser")}
+          </ItemMenu>
+        </DropdownMenuContentCus>
+      </DropdownMenu>
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(confirmMode)}
         onOpenChange={(open) => !open && setConfirmMode(null)}
+        title={
+          confirmMode === "BLOCK"
+            ? t("blockConfirmTitle")
+            : confirmMode === "UNBLOCK"
+              ? t("unblockConfirmTitle")
+              : undefined
+        }
+        description={
+          confirmMode === "BLOCK"
+            ? t("blockConfirmDesc", { name: profile.name || "" })
+            : confirmMode === "UNBLOCK"
+              ? t("unblockConfirmDesc", { name: profile.name || "" })
+              : undefined
+        }
         itemName={confirmMode === "AVATAR" ? t("deleteAvatar") : profile.name}
         isLoading={isLoading || isUploadingAvatar}
         onConfirm={async () => {
@@ -174,6 +262,10 @@ export const ProfileActions = ({ profile, className }: ProfileActionsProps) => {
             await onDeleteAvatar();
           } else if (confirmMode === "CONTACT") {
             await onRemoveContact();
+          } else if (confirmMode === "BLOCK") {
+            await onBlockUser();
+          } else if (confirmMode === "UNBLOCK") {
+            await onUnblockUser();
           }
           setConfirmMode(null);
         }}

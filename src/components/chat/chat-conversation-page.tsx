@@ -11,19 +11,20 @@ import {
   Trash2,
   RefreshCw,
   AlertCircle,
-  Pin,
   X,
   Search,
   ChevronUp,
   ChevronDown,
-  Ban,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
 import { CreateGroupModal } from "@/components/chat/create-group-modal";
-import { Button } from "@/components/ui/button";
-import { PatternButton } from "../button/button-patterns";
+import {
+  PatternButton,
+  GlassIconButton,
+  GlassConfirmDialog,
+} from "@/components/toolkit";
 
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
@@ -42,8 +43,10 @@ import config from "@/config";
 import { Input } from "@/components/ui/input";
 import { PinnedMessagesBar } from "@/components/chat/pinned-messages-bar";
 import { ConversationInfoDrawer } from "@/components/chat/conversation-info-drawer";
-import { ConfirmDeleteModal } from "@/components/common/confirm-delete-modal";
 import type { IMessage } from "@/types/chat";
+import { ForwardMessageModal } from "./forward-message-modal";
+import { OngoingCallBanner } from "./ongoing-call-banner";
+import { ScrollArea } from "../ui/scroll-area";
 
 interface ChatConversationPageProps {
   params: { id: string };
@@ -66,6 +69,7 @@ export default function ChatConversationPage({
     messagesMeta,
     typingUsers,
     uploadProgress,
+    activeCall,
     fetchMessages,
     isLoadingMessages,
     sendMessage,
@@ -74,6 +78,8 @@ export default function ChatConversationPage({
     recallMessage,
     reactMessage,
     pinMessage,
+    votePoll,
+    closePoll,
     setReplyingTo,
     setEditingMessage,
     initiateCall,
@@ -88,6 +94,8 @@ export default function ChatConversationPage({
     fetchConversationDetails,
     deleteConversation,
     toggleBlockUser,
+    purgeExpiredMessages,
+    ongoingCallsByConv
   } = useChatStore();
 
   const [isInfoDrawerOpen, setIsInfoDrawerOpen] = useState(false);
@@ -95,6 +103,7 @@ export default function ChatConversationPage({
   const [inChatSearchQuery, setInChatSearchQuery] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [recallTarget, setRecallTarget] = useState<IMessage | null>(null);
+  const [forwardTarget, setForwardTarget] = useState<IMessage | null>(null);
   const [deleteFailedTargetId, setDeleteFailedTargetId] = useState<
     string | null
   >(null);
@@ -111,12 +120,44 @@ export default function ChatConversationPage({
   const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
   const scrolledNotificationMsgRef = useRef<string | null>(null);
 
+  const currentDetails = conversationId
+    ? conversationDetails[conversationId]
+    : undefined;
+
   const currentConversation = useMemo(
     () => conversations.find((c) => c.id === conversationId),
     [conversations, conversationId],
   );
 
-  const isGroupChat = currentConversation?.type === ConversationTypeEnum.GROUP;
+  const isGroupChat =
+    currentConversation?.type === ConversationTypeEnum.GROUP ||
+    currentDetails?.type === ConversationTypeEnum.GROUP;
+
+  const resolvedHeaderName = useMemo(() => {
+    if (isGroupChat) {
+      return (
+        currentConversation?.name ||
+        currentDetails?.name ||
+        tHeader("defaultUser")
+      );
+    }
+    const partnerMember = currentDetails?.members?.find(
+      (m) => m.userId !== currentUser?.user?.id,
+    );
+    return (
+      partnerMember?.nickname ||
+      currentConversation?.name ||
+      partnerMember?.name ||
+      tHeader("defaultUser")
+    );
+  }, [
+    isGroupChat,
+    currentConversation?.name,
+    currentDetails?.name,
+    currentDetails?.members,
+    currentUser?.user?.id,
+    tHeader,
+  ]);
 
   const rawMessages = useMemo(
     () => (conversationId ? messages[conversationId] || [] : []),
@@ -208,7 +249,6 @@ export default function ChatConversationPage({
     };
   }, [conversationId, fetchMessages, setActiveConversation]);
 
-  // Automatically scroll to and highlight the target message when arriving from NotificationBell
   useEffect(() => {
     if (!rawMessages.length) return;
 
@@ -240,6 +280,18 @@ export default function ChatConversationPage({
       await fetchMessages(conversationId, nextPage);
     }
   };
+
+  useEffect(() => {
+    const hasExpiringMessages = rawMessages.some(
+      (m) => m.expiresAt || m.metadata?.expiresAt,
+    );
+    if (!hasExpiringMessages && !currentConversation?.disappearingTtl) return;
+
+    const timer = setInterval(() => {
+      purgeExpiredMessages();
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [rawMessages, currentConversation?.disappearingTtl, purgeExpiredMessages]);
 
   const readReceiptsMap = useMemo(() => {
     const map: Record<
@@ -277,12 +329,17 @@ export default function ChatConversationPage({
   }, [rawMessages, currentUser?.user?.id, t]);
 
   const handleSendMessage = useCallback(
-    async (content: string) => {
+    async (
+      content: string,
+      options?: { mentionedUserIds?: string[]; mentionAll?: boolean },
+    ) => {
       if (!conversationId) return;
       await sendMessage({
         conversationId,
         content,
         type: MessageTypeEnum.TEXT,
+        mentionedUserIds: options?.mentionedUserIds,
+        mentionAll: options?.mentionAll,
       });
       scrollToBottom("smooth");
     },
@@ -351,7 +408,7 @@ export default function ChatConversationPage({
       {/* Header */}
       <div className="flex-none z-20 bg-background/95 backdrop-blur border-b">
         <ChatHeader
-          displayName={currentConversation?.name || tHeader("defaultUser")}
+          displayName={resolvedHeaderName}
           avatarUrl={currentConversation?.avatar}
           isOnline={currentConversation?.isOnline}
           isTyping={isPartnerTyping}
@@ -359,6 +416,10 @@ export default function ChatConversationPage({
           isGroupChat={isGroupChat}
           isAdmin={currentConversation?.isAdmin}
           partnerId={currentConversation?.partnerId}
+          isBlocked={Boolean(
+            currentDetails?.blockState?.isBlocked ||
+              currentConversation?.isBlocked,
+          )}
           onAudioCall={() => initiateCall(conversationId, CallTypeEnum.AUDIO)}
           onVideoCall={() => initiateCall(conversationId, CallTypeEnum.VIDEO)}
           onToggleMute={() =>
@@ -394,11 +455,12 @@ export default function ChatConversationPage({
                   : "0/0"}
               </span>
             )}
-            <Button
-              size="icon"
+            <GlassIconButton
+              size="sm"
               variant="ghost"
               className="h-7 w-7"
               disabled={!matchedMessageIds.length}
+              icon={<ChevronUp className="w-4 h-4" />}
               onClick={() => {
                 const nextIdx =
                   (searchMatchIndex - 1 + matchedMessageIds.length) %
@@ -406,34 +468,30 @@ export default function ChatConversationPage({
                 setSearchMatchIndex(nextIdx);
                 scrollToMessage(matchedMessageIds[nextIdx]);
               }}
-            >
-              <ChevronUp className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
+            />
+            <GlassIconButton
+              size="sm"
               variant="ghost"
               className="h-7 w-7"
               disabled={!matchedMessageIds.length}
+              icon={<ChevronDown className="w-4 h-4" />}
               onClick={() => {
                 const nextIdx =
                   (searchMatchIndex + 1) % matchedMessageIds.length;
                 setSearchMatchIndex(nextIdx);
                 scrollToMessage(matchedMessageIds[nextIdx]);
               }}
-            >
-              <ChevronDown className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
+            />
+            <GlassIconButton
+              size="sm"
               variant="ghost"
               className="h-7 w-7"
+              icon={<X className="w-4 h-4" />}
               onClick={() => {
                 setIsSearchBarOpen(false);
                 setInChatSearchQuery("");
               }}
-            >
-              <X className="w-4 h-4" />
-            </Button>
+            />
           </div>
         )}
 
@@ -448,14 +506,23 @@ export default function ChatConversationPage({
             })
           }
         />
+
+        {isGroupChat && (
+          <OngoingCallBanner
+            ongoingCall={ongoingCallsByConv[conversationId] || null}
+            currentActiveCallId={activeCall?.callId}
+            onJoinCall={(callType) => initiateCall(conversationId, callType)}
+          />
+        )}
       </div>
 
       {/* Message Area */}
       <div className="flex-1 min-h-0 relative bg-slate-50/50 dark:bg-background/50">
-        <div
-          ref={scrollRef}
-          onScroll={onContainerScroll}
-          className="h-full overflow-y-auto overflow-x-hidden px-2 md:px-4 pt-4 pb-2 scroll-smooth [overflow-anchor:none]"
+        <ScrollArea
+          className="h-full w-full"
+          viewportRef={scrollRef}
+          onViewportScroll={onContainerScroll}
+          viewportClassName="px-2 md:px-4 pt-4 pb-2 scroll-smooth [overflow-anchor:none]"
         >
           <div
             ref={contentRef}
@@ -513,6 +580,7 @@ export default function ChatConversationPage({
                           onReply={(m) => setReplyingTo(conversationId, m)}
                           onEdit={(m) => setEditingMessage(conversationId, m)}
                           onRecall={(m) => setRecallTarget(m)}
+                          onForward={(m) => setForwardTarget(m)}
                           onReact={(m, emoji) =>
                             reactMessage({
                               conversationId,
@@ -527,10 +595,24 @@ export default function ChatConversationPage({
                               isPinned: !(m.isPinned || m.metadata?.isPinned),
                             })
                           }
+                          onVotePoll={(messageId, optionIds) =>
+                            votePoll({
+                              conversationId,
+                              messageId,
+                              optionIds,
+                            })
+                          }
+                          onClosePoll={(messageId) =>
+                            closePoll({
+                              conversationId,
+                              messageId,
+                            })
+                          }
                           onCallbackCall={(callType) =>
                             initiateCall(conversationId, callType)
                           }
                           onScrollToMessage={scrollToMessage}
+                          members={currentDetails?.members}
                         />
 
                         {isMe && msg.status === "failed" && (
@@ -539,24 +621,28 @@ export default function ChatConversationPage({
                               <AlertCircle className="w-3.5 h-3.5" />
                               {t("sendFailed")}
                             </span>
-                            <Button
+                            <PatternButton
                               size="sm"
                               variant="ghost"
-                              className="h-6 px-2 text-[11px] text-blue-600 hover:bg-blue-500/10 rounded-full"
+                              color="info"
+                              rounded="full"
+                              className="h-6 px-2 text-[11px] text-blue-600 hover:bg-blue-500/10"
+                              icon={<RefreshCw className="w-3 h-3" />}
                               onClick={() => handleRetry(msg.id, msg.content)}
                             >
-                              <RefreshCw className="w-3 h-3 mr-1" />
                               {t("retry")}
-                            </Button>
-                            <Button
+                            </PatternButton>
+                            <PatternButton
                               size="sm"
                               variant="ghost"
-                              className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10 rounded-full"
+                              color="danger"
+                              rounded="full"
+                              className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10"
+                              icon={<Trash2 className="w-3 h-3" />}
                               onClick={() => setDeleteFailedTargetId(msg.id)}
                             >
-                              <Trash2 className="w-3 h-3 mr-1" />
                               {t("delete")}
-                            </Button>
+                            </PatternButton>
                           </div>
                         )}
                       </div>
@@ -569,8 +655,7 @@ export default function ChatConversationPage({
             {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-px w-full shrink-0" />
           </div>
-        </div>
-
+        </ScrollArea>
         {/* Scroll Button */}
         {showScrollButton && (
           <div className="absolute bottom-4 right-1/2 translate-x-1/2 z-30 animate-in slide-in-from-bottom-2 fade-in">
@@ -603,8 +688,24 @@ export default function ChatConversationPage({
           onSendAttachments={handleSendAttachments}
           onConfirmEdit={handleConfirmEdit}
           onScrollToMessage={scrollToMessage}
+          blockState={currentDetails?.blockState}
+          onUnblockPartner={() => {
+            if (currentDetails?.blockState?.partnerId) {
+              toggleBlockUser(
+                conversationId,
+                currentDetails.blockState.partnerId,
+                false,
+              );
+            }
+          }}
         />
       </div>
+
+      <ForwardMessageModal
+        open={Boolean(forwardTarget)}
+        onOpenChange={(open) => !open && setForwardTarget(null)}
+        message={forwardTarget}
+      />
 
       {isGroupChat && (
         <CreateGroupModal
@@ -624,7 +725,7 @@ export default function ChatConversationPage({
         onLeaveGroup={handleLeaveGroup}
       />
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(recallTarget)}
         onOpenChange={(open) => !open && setRecallTarget(null)}
         title={t("recallConfirmTitle")}
@@ -640,7 +741,7 @@ export default function ChatConversationPage({
         }}
       />
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={Boolean(deleteFailedTargetId)}
         onOpenChange={(open) => !open && setDeleteFailedTargetId(null)}
         onConfirm={() => {
@@ -651,7 +752,7 @@ export default function ChatConversationPage({
         }}
       />
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={isLeaveGroupConfirmOpen}
         onOpenChange={setIsLeaveGroupConfirmOpen}
         title={t("leaveGroupConfirmTitle")}
@@ -659,7 +760,7 @@ export default function ChatConversationPage({
         onConfirm={handleLeaveGroup}
       />
 
-      <ConfirmDeleteModal
+      <GlassConfirmDialog
         open={isDeleteConvConfirmOpen}
         onOpenChange={setIsDeleteConvConfirmOpen}
         title={t("deleteConversationConfirmTitle")}

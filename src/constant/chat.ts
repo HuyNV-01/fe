@@ -3,6 +3,7 @@ import config from "@/config";
 import type { IMenuItem } from "@/types/chat";
 import type { TSidebarViewMode } from "@/types/common";
 import {
+  Ban,
   Clock,
   Contact,
   MessagesSquare,
@@ -64,6 +65,12 @@ export const MENU_GROUPS: { title?: string; items: IMenuItem[] }[] = [
         icon: Clock,
         href: `${config.routes.private.directory}?tab=${KeyContactsEnum.PENDING_SENT}`,
         countKey: "groupRequests",
+      },
+      {
+        key: KeyContactsEnum.BLOCKED,
+        label: "contact.sidebar.blockedList",
+        icon: Ban,
+        href: `${config.routes.private.directory}?tab=${KeyContactsEnum.BLOCKED}`,
       },
     ],
   },
