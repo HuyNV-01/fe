@@ -1021,5 +1021,102 @@
       "unblockSuccess": "Đã bỏ chặn {name}",
       "unblockError": "Không thể bỏ chặn người dùng này"
     }
+  },
+  "OnboardingAndRoles": {
+    "pageTitle": "Khởi tạo Không gian Cửa hàng & Phân quyền Vai trò",
+    "pageSubtitle": "Tài khoản cá nhân của bạn đã sẵn sàng. Hãy tạo cửa hàng mới (Chủ quán) hoặc gia nhập cửa hàng hiện có (Nhân viên Sale, Kế toán, Kho).",
+    "initialAccountStatusNoticeTitle": "Trạng thái tài khoản mới: Chưa gắn quyền cửa hàng (Quyền trống [])",
+    "initialAccountStatusNoticeDesc": "Để bảo mật dữ liệu tuyệt đối, tài khoản mới đăng ký chưa có quyền truy cập dữ liệu bán hàng cho tới khi bạn khởi tạo cửa hàng của riêng mình hoặc được Chủ cửa hàng phê duyệt vai trò.",
+    "roles": {
+      "SHOP_OWNER": "Chủ cửa hàng",
+      "SHOP_MANAGER": "Quản lý cửa hàng",
+      "SENIOR_SALE": "Trưởng ca tư vấn",
+      "SALE_AGENT": "Nhân viên Sale",
+      "WAREHOUSE_PACKER": "Nhân viên Kho",
+      "ACCOUNTANT": "Kế toán",
+      "MARKETING_AI_OPS": "Marketing & AI"
+    },
+    "status": {
+      "PENDING_APPROVAL": "Đang chờ Chủ quán duyệt (Quyền trống)",
+      "ACTIVE": "Đang hoạt động",
+      "SUSPENDED": "Tạm đình chỉ",
+      "TERMINATED": "Đã nghỉ việc"
+    },
+    "scopes": {
+      "ALL_SHOP": "Toàn bộ cửa hàng",
+      "TEAM_SHIFT": "Trong nhóm / Ca trực",
+      "ASSIGNED_PLUS_POOL": "Khách của tôi & Hàng đợi chung",
+      "ASSIGNED_ONLY": "Chỉ khách được giao cho tôi"
+    },
+    "switcher": {
+      "setupShopBtn": "Thiết lập Cửa hàng / Nhận quyền",
+      "yourWorkspacesTitle": "Danh sách Cửa hàng của bạn",
+      "manageMembersBtn": "Quản lý Nhân sự & Phân quyền",
+      "createOrJoinShopBtn": "Tạo cửa hàng mới / Nhập mã gia nhập"
+    },
+    "invitationsSection": {
+      "title": "Lời mời nhận việc từ Chủ cửa hàng",
+      "invitedByLabel": "Người mời: {name}",
+      "acceptBtn": "Chấp nhận & Kích hoạt quyền ngay",
+      "acceptedToastTitle": "Đã kích hoạt quyền thành công",
+      "acceptedToastDesc": "Chào mừng bạn gia nhập cửa hàng!"
+    },
+    "pendingRequestsSection": {
+      "title": "Yêu cầu gia nhập đang chờ phê duyệt",
+      "waitingOwnerNotice": "Chủ cửa hàng sẽ sớm chọn vai trò (Sale, Kế toán, Kho...) và kích hoạt tài khoản của bạn."
+    },
+    "createShopCard": {
+      "title": "Mở cửa hàng mới",
+      "description": "Hệ thống tự động khởi tạo Không gian cửa hàng, Kho tổng mặc định.",
+      "shopNamePlaceholder": "Nhập tên cửa hàng / thương hiệu (VD: Thời trang Milano)...",
+      "phonePlaceholder": "Số điện thoại hotline cửa hàng...",
+      "addressPlaceholder": "Địa chỉ kho mặc định của cửa hàng...",
+      "submitBtn": "Khởi tạo Cửa hàng & Nhận quyền Chủ quán",
+      "successToastTitle": "Đã khởi tạo cửa hàng thành công",
+      "successToastDesc": "Tài khoản của bạn đã được cấp toàn quyền Chủ cửa hàng tại {shopName}."
+    },
+    "joinShopCard": {
+      "title": "Tham gia cửa hàng",
+      "roleBadge": "Sale / Kế toán / Kho",
+      "description": "Nhập Mã gia nhập cửa hàng (do Chủ quán cung cấp). Tài khoản của bạn sẽ ở trạng thái Chờ duyệt (Quyền trống).",
+      "joinCodePlaceholder": "Nhập mã cửa hàng (VD: PAN88291)...",
+      "notePlaceholder": "Ghi chú vị trí ứng tuyển",
+      "submitBtn": "Gửi yêu cầu",
+      "pendingToastTitle": "Đã gửi yêu cầu gia nhập cửa hàng",
+      "pendingToastDesc": "Vui lòng chờ Chủ cửa hàng phê duyệt và gán vai trò cho tài khoản của bạn."
+    },
+    "membersPage": {
+      "title": "Quản lý Nhân sự",
+      "subtitle": "Cấp quyền cho tài khoản mới hoặc tài khoản đã tồn tại.",
+      "shopJoinCodeLabel": "Mã cửa hàng: {code}",
+      "copiedJoinCode": "Đã sao chép Mã gia nhập cửa hàng",
+      "inviteBtn": "Thêm nhân viên",
+      "tabs": {
+        "activeMembers": "Nhân sự chính thức",
+        "pendingApproval": "Chờ phê duyệt vào quán",
+        "invitations": "Lời mời đã gửi"
+      },
+      "suspendBtn": "Đình chỉ",
+      "restoreBtn": "Mở lại",
+      "approveAndAssignRoleBtn": "Phê duyệt & Gán vai trò",
+      "emptyPendingTitle": "Không có yêu cầu xin vào quán nào đang chờ duyệt",
+      "emptyInvitationsTitle": "Chưa có lời mời nhân sự nào được gửi đi",
+      "inviteModalTitle": "Thêm nhân viên mới",
+      "inviteModalDesc": "Nếu email đã có tài khoản, họ sẽ nhận được thông báo kích hoạt ngay. Nếu chưa có tài khoản, khi đăng ký bằng email này sẽ tự động nhận đúng quyền đã chọn.",
+      "emailPlaceholder": "Nhập email nhân viên (VD: ketoan@shop.vn)...",
+      "namePlaceholder": "Họ và tên nhân viên...",
+      "selectRoleLabel": "Chọn Vai trò trong cửa hàng (Role)",
+      "selectScopeLabel": "Chọn Phạm vi dữ liệu được phép truy cập (Data Scope)",
+      "sendInviteConfirmBtn": "Gửi lời mời & Gán sẵn quyền",
+      "inviteSentToastTitle": "Đã gửi lời mời thành công",
+      "inviteSentToastDesc": "Đã gán sẵn vai trò {role} cho {email}.",
+      "approveModalTitle": "Phê duyệt Nhân sự & Cấp quyền Vai trò",
+      "confirmApproveBtn": "Xác nhận Phê duyệt & Mở khóa quyền",
+      "approvedToastTitle": "Đã phê duyệt nhân viên",
+      "approvedToastDesc": "Nhân viên đã được cấp quyền và mở khóa giao diện làm việc tức thì.",
+      "roleUpdatedToast": "Đã cập nhật vai trò nhân sự"
+    },
+    "invitationReceivedTitle": "Lời mời làm việc từ cửa hàng {shopName}",
+    "invitationReceivedDesc": "Bạn được mời đảm nhận vị trí {roleName} tại cửa hàng {shopName}. Nhấn Chấp nhận để kích hoạt quyền ngay lập tức."
   }
 }

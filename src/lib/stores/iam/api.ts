@@ -1,0 +1,127 @@
+import apiClient from "@/lib/http/axios-client";
+
+export type ShopRoleType =
+  | "SHOP_OWNER"
+  | "SHOP_MANAGER"
+  | "SENIOR_SALE"
+  | "SALE_AGENT"
+  | "WAREHOUSE_PACKER"
+  | "ACCOUNTANT"
+  | "MARKETING_AI_OPS";
+
+export type MembershipStatusType =
+  | "PENDING_APPROVAL"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "TERMINATED";
+
+export type DataScopeType =
+  | "ALL_SHOP"
+  | "TEAM_SHIFT"
+  | "ASSIGNED_PLUS_POOL"
+  | "ASSIGNED_ONLY";
+
+export type ShiftStatusType = "ONLINE" | "BUSY" | "OFFLINE";
+
+export const getOnboardingOverviewApi = async () => {
+  return apiClient.get("/onboarding/overview");
+};
+
+export const verifyInviteTokenPublicApi = async (token: string) => {
+  return apiClient.get("/onboarding/invitations/verify", {
+    params: { token },
+  });
+};
+
+export const getRolePresetsApi = async () => {
+  return apiClient.get("/onboarding/role-presets");
+};
+
+export const createShopAsOwnerApi = async (data: {
+  shopName: string;
+  contactPhone?: string;
+  defaultAddressLine?: string;
+}) => {
+  return apiClient.post("/onboarding/shops", data);
+};
+
+export const joinShopByCodeApi = async (data: {
+  joinCode: string;
+  requestedNote?: string;
+}) => {
+  return apiClient.post("/onboarding/join-by-code", data);
+};
+
+export const acceptRoleInvitationApi = async (idOrToken: string) => {
+  return apiClient.post(`/onboarding/invitations/${idOrToken}/accept`);
+};
+
+export const switchActiveShopApi = async (shopId: string) => {
+  return apiClient.post(`/onboarding/switch-shop/${shopId}`);
+};
+
+export const getMyShopContextApi = async (shopId: string) => {
+  return apiClient.get(`/iam/shops/${shopId}/me-context`);
+};
+
+export const getShopMembersAndInvitationsApi = async (shopId: string) => {
+  return apiClient.get(`/iam/shops/${shopId}/members`);
+};
+
+export const createRoleInvitationApi = async (
+  shopId: string,
+  data: {
+    invitedEmail: string;
+    invitedName?: string;
+    targetRole: ShopRoleType;
+    targetDataScope?: DataScopeType;
+    maxDiscountPercent?: number;
+    unmaskPhoneHourlyLimit?: number;
+  },
+) => {
+  return apiClient.post(`/iam/shops/${shopId}/invitations`, data);
+};
+
+export const approvePendingMemberApi = async (
+  shopId: string,
+  memberId: string,
+  data: {
+    assignedRole: ShopRoleType;
+    assignedDataScope?: DataScopeType;
+    maxDiscountPercent?: number;
+    unmaskPhoneHourlyLimit?: number;
+  },
+) => {
+  return apiClient.post(
+    `/iam/shops/${shopId}/members/${memberId}/approve`,
+    data,
+  );
+};
+
+export const updateMemberPermissionsApi = async (
+  shopId: string,
+  memberId: string,
+  data: {
+    role: ShopRoleType;
+    dataScope: DataScopeType;
+    maxDiscountPercent: number;
+    unmaskPhoneHourlyLimit: number;
+    grantedPermissionsJson?: string[];
+    revokedPermissionsJson?: string[];
+  },
+) => {
+  return apiClient.patch(
+    `/iam/shops/${shopId}/members/${memberId}/permissions`,
+    data,
+  );
+};
+
+export const updateMemberStatusApi = async (
+  shopId: string,
+  memberId: string,
+  membershipStatus: MembershipStatusType,
+) => {
+  return apiClient.patch(`/iam/shops/${shopId}/members/${memberId}/status`, {
+    membershipStatus,
+  });
+};

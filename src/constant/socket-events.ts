@@ -1,4 +1,11 @@
 export const SOCKET_EVENTS = {
+  IAM: {
+    PERMISSIONS_UPDATED: "iam:permissions_updated",
+    INVITATION_RECEIVED: "iam:invitation_received",
+    JOIN_REQUEST_RECEIVED: "iam:join_request_received",
+    SHIFT_STATUS_CHANGED: "iam:shift_status_changed",
+    FORCE_SHIFT_HANDOVER: "iam:force_shift_handover",
+  },
   CHAT: {
     JOIN_ROOM: "join_room",
     LEAVE_ROOM: "leave_room",
