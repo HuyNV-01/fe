@@ -6,6 +6,8 @@ const routes = {
     forgotPassword: "/forgot-password",
   },
   private: {
+    onboarding: "/onboarding",
+    settingsMembers: "/settings/members",
     detailChat: (id: string | number) => `/chat/${id}`,
     chat: "/chat",
     contacts: "/contacts",

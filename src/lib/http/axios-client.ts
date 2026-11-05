@@ -65,8 +65,18 @@ apiClient.interceptors.request.use(
         ? localStorage.getItem("accessToken")
         : null;
 
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const activeShopId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("activeShopId")
+        : null;
+
+    if (config.headers) {
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      if (activeShopId && !config.headers["x-shop-id"]) {
+        config.headers["x-shop-id"] = activeShopId;
+      }
     }
 
     return config;
@@ -106,14 +116,12 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         if (typeof window !== "undefined") {
           localStorage.removeItem("accessToken");
+          localStorage.removeItem("activeShopId");
           localStorage.clear();
           window.location.href = "/login";
         }
         return Promise.reject(refreshError);
       }
-    }
-
-    if (error.response?.status === 403) {
     }
 
     return Promise.reject(error);

@@ -34,6 +34,20 @@ export function resolveNotificationI18n(
     return (params.preview as string) || item.content || "";
   };
 
+  let roleLabel = (params.roleKey as string) || "";
+  if (params.roleKey) {
+    try {
+      roleLabel = t(`i18n.roles.${String(params.roleKey)}`);
+    } catch {}
+  }
+
+  let statusLabel = (params.statusKey as string) || "";
+  if (params.statusKey) {
+    try {
+      statusLabel = t(`i18n.statuses.${String(params.statusKey)}`);
+    } catch {}
+  }
+
   const mergedParams = {
     ...params,
     senderName: actorName,
@@ -43,6 +57,11 @@ export function resolveNotificationI18n(
     creatorName: actorName,
     accepterName: actorName,
     conversationName,
+    roleLabel,
+    statusLabel,
+    shopName: (params.shopName as string) || "",
+    requestedNote: (params.requestedNote as string) || "",
+    reason: (params.reason as string) || "",
     preview: getPreviewText(),
     emoji: params.emoji || meta.emoji || "",
     callTypeLabel:
@@ -116,6 +135,48 @@ export function resolveNotificationI18n(
       return {
         title: t("i18n.friendAccepted.title", mergedParams),
         content: t("i18n.friendAccepted.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_INVITATION:
+      return {
+        title: t("i18n.shopInvitationReceived.title", mergedParams),
+        content: t("i18n.shopInvitationReceived.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_INVITATION_ACCEPTED:
+      return {
+        title: t("i18n.shopInvitationAccepted.title", mergedParams),
+        content: t("i18n.shopInvitationAccepted.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_JOIN_REQUEST:
+      return {
+        title: t("i18n.shopJoinRequest.title", mergedParams),
+        content: t("i18n.shopJoinRequest.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_JOIN_APPROVED:
+      return {
+        title: t("i18n.shopJoinApproved.title", mergedParams),
+        content: t("i18n.shopJoinApproved.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_JOIN_REJECTED:
+      return {
+        title: t("i18n.shopJoinRejected.title", mergedParams),
+        content: t("i18n.shopJoinRejected.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_ROLE_UPDATED:
+      return {
+        title: t("i18n.shopRoleUpdated.title", mergedParams),
+        content: t("i18n.shopRoleUpdated.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_MEMBER_STATUS_CHANGED:
+      return {
+        title: t("i18n.shopMemberStatusChanged.title", mergedParams),
+        content: t("i18n.shopMemberStatusChanged.content", mergedParams),
       };
 
     default:

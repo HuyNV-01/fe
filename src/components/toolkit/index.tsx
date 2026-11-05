@@ -64,7 +64,7 @@ import {
   type StepComponentProps,
 } from "@/components/steps/base-steps";
 import { ToastCard, type ToastCardProps } from "@/components/toast/custom-toast";
-import { TruncatedText } from "@/components/common/truncated-text";
+import { Truncate, TruncatedText, TruncatedTextProps } from "@/components/common/truncated-text";
 import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
 import DropdownMenuSubContentCus from "@/components/dropdown-menu/dropdown-menu-sub-content-cus";
 import ItemMenu from "@/components/dropdown-menu/item-menu";
@@ -112,6 +112,7 @@ export {
   Badge,
   Switch,
   Skeleton,
+  Truncate,
 };
 
 export type {
@@ -125,6 +126,7 @@ export type {
   StepConfig,
   StepComponentProps,
   ToastCardProps,
+  TruncatedTextProps,
 };
 
 // ============================================================================

@@ -17,6 +17,10 @@ import {
   Trash2,
   Sparkles,
   Loader2,
+  Store,
+  ShieldCheck,
+  ShieldAlert,
+  MailCheck,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -87,7 +91,6 @@ export function NotificationBell() {
 
       if (targetConvId) {
         markConversationReadOptimistic(targetConvId);
-        // Pre-fetch messages immediately so the conversation has the latest message ready on arrival
         fetchMessages(targetConvId, 1);
 
         const baseUrl = config.routes.private.detailChat(targetConvId);
@@ -110,6 +113,25 @@ export function NotificationBell() {
 
       if (item.type === NotificationTypeEnum.FRIEND_ACCEPTED && item.actorId) {
         router.push(config.routes.private.profile(item.actorId));
+        return;
+      }
+
+      if (item.type === NotificationTypeEnum.SHOP_JOIN_REQUEST) {
+        router.push(
+          `${config.routes.private.settingsMembers}?tab=PENDING_APPROVAL`,
+        );
+        return;
+      }
+
+      if (item.type === NotificationTypeEnum.SHOP_INVITATION) {
+        router.push(`${config.routes.private.onboarding}?tab=INVITATIONS`);
+        return;
+      }
+
+      if (item.type === NotificationTypeEnum.SHOP_INVITATION_ACCEPTED) {
+        router.push(
+          `${config.routes.private.settingsMembers}?tab=ACTIVE_MEMBERS`,
+        );
       }
     },
     [markAsRead, markConversationReadOptimistic, fetchMessages, router],
@@ -158,6 +180,38 @@ export function NotificationBell() {
         return (
           <Badge className="p-1 rounded-full bg-red-500 text-white shadow-xs">
             <PhoneMissed className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.SHOP_INVITATION:
+        return (
+          <Badge className="p-1 rounded-full bg-indigo-600 text-white shadow-xs">
+            <MailCheck className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.SHOP_INVITATION_ACCEPTED:
+      case NotificationTypeEnum.SHOP_JOIN_APPROVED:
+        return (
+          <Badge className="p-1 rounded-full bg-emerald-600 text-white shadow-xs">
+            <ShieldCheck className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.SHOP_JOIN_REQUEST:
+        return (
+          <Badge className="p-1 rounded-full bg-amber-500 text-white shadow-xs">
+            <Store className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.SHOP_JOIN_REJECTED:
+      case NotificationTypeEnum.SHOP_MEMBER_STATUS_CHANGED:
+        return (
+          <Badge className="p-1 rounded-full bg-rose-500 text-white shadow-xs">
+            <ShieldAlert className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.SHOP_ROLE_UPDATED:
+        return (
+          <Badge className="p-1 rounded-full bg-blue-600 text-white shadow-xs">
+            <ShieldCheck className="size-3.5" />
           </Badge>
         );
       default:

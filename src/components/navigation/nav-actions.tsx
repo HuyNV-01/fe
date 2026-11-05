@@ -5,6 +5,7 @@ import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 import { AccountMenu } from "../dropdown-menu/account-menu";
 import { NotificationBell } from "../notifications/notification-bell";
+import { ShopWorkspaceSwitcher } from "../iam/shop-workspace-switcher";
 
 interface NavActionsProps {
   actions: {
@@ -55,6 +56,7 @@ export function NavActions({ actions, className }: NavActionsProps) {
 
       {actions.showAccount && (
         <>
+          <ShopWorkspaceSwitcher />
           <NotificationBell />
           <AccountMenu />
         </>
