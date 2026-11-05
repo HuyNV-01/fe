@@ -1022,6 +1022,122 @@
       "unblockError": "Không thể bỏ chặn người dùng này"
     }
   },
+  "Notifications": {
+    "ariaLabel": "Thông báo",
+    "title": "Thông báo",
+    "newBadge": "{count} mới",
+    "markAllRead": "Đọc tất cả",
+    "tabs": {
+      "all": "Tất cả",
+      "unread": "Chưa đọc"
+    },
+    "empty": {
+      "unreadTitle": "Không có thông báo chưa đọc",
+      "allTitle": "Chưa có thông báo nào",
+      "description": "Các cập nhật mới về tin nhắn, lời mời kết bạn và cuộc gọi sẽ xuất hiện tại đây."
+    },
+    "systemActor": "Hệ thống",
+    "deleteTitle": "Xóa thông báo",
+    "loadMore": "Xem thêm thông báo cũ",
+    "i18n": {
+      "defaultGroup": "nhóm",
+      "callType": {
+        "video": "video",
+        "audio": "thoại"
+      },
+      "preview": {
+        "image": "đã gửi một hình ảnh",
+        "video": "đã gửi một video",
+        "audio": "đã gửi một tin nhắn thoại",
+        "file": "đã gửi một tệp đính kèm"
+      },
+      "messageReply": {
+        "groupTitle": "{senderName} đã trả lời bạn trong {conversationName}",
+        "directTitle": "{senderName} đã trả lời tin nhắn của bạn"
+      },
+      "newMessage": {
+        "groupTitle": "Tin nhắn mới trong {conversationName}",
+        "directTitle": "Tin nhắn mới từ {senderName}",
+        "groupContent": "{senderName}: {preview}",
+        "directContent": "{preview}"
+      },
+      "messageReaction": {
+        "title": "{actorName} đã bày tỏ cảm xúc {emoji}",
+        "content": "Về tin nhắn của bạn: \"{preview}\""
+      },
+      "missedCall": {
+        "title": "Cuộc gọi {callTypeLabel} nhỡ",
+        "content": "Bạn có cuộc gọi {callTypeLabel} nhỡ từ {callerName}."
+      },
+      "groupMemberAdded": {
+        "title": "Được thêm vào nhóm trò chuyện",
+        "content": "{requesterName} đã thêm bạn vào nhóm \"{conversationName}\"."
+      },
+      "groupInvite": {
+        "title": "Nhóm trò chuyện mới",
+        "content": "{creatorName} đã thêm bạn vào nhóm \"{conversationName}\"."
+      },
+      "friendRequest": {
+        "title": "Lời mời kết bạn mới",
+        "content": "{senderName} đã gửi cho bạn một lời mời kết bạn."
+      },
+      "friendAccepted": {
+        "title": "Đã kết bạn",
+        "content": "{accepterName} đã chấp nhận lời mời kết bạn của bạn."
+      },
+      "messageMention": {
+        "title": "{senderName} đã nhắc đến bạn trong {conversationName}",
+        "content": "{preview}"
+      },
+      "roles": {
+        "SHOP_OWNER": "Chủ cửa hàng",
+        "SHOP_MANAGER": "Quản lý cửa hàng",
+        "SENIOR_SALE": "Trưởng ca tư vấn",
+        "SALE_AGENT": "Nhân viên Sale",
+        "WAREHOUSE_PACKER": "Nhân viên Kho",
+        "ACCOUNTANT": "Kế toán",
+        "MARKETING_AI_OPS": "Marketing & AI"
+      },
+      "statuses": {
+        "PENDING_APPROVAL": "Chờ phê duyệt",
+        "ACTIVE": "Đang hoạt động",
+        "SUSPENDED": "Tạm đình chỉ",
+        "TERMINATED": "Đã nghỉ việc"
+      },
+      "shopInvitationReceived": {
+        "title": "Lời mời nhận việc từ {shopName}",
+        "content": "{actorName} đã mời bạn đảm nhận vị trí {roleLabel} tại cửa hàng \"{shopName}\"."
+      },
+      "shopInvitationAccepted": {
+        "title": "{accepterName} đã nhận việc tại {shopName}",
+        "content": "{accepterName} đã chấp nhận lời mời và kích hoạt vai trò {roleLabel}."
+      },
+      "shopJoinRequest": {
+        "title": "Yêu cầu gia nhập cửa hàng {shopName}",
+        "content": "{requesterName} xin gia nhập cửa hàng \"{shopName}\" và đang chờ bạn phê duyệt vai trò."
+      },
+      "shopJoinApproved": {
+        "title": "Đã được duyệt vào {shopName}",
+        "content": "{actorName} đã phê duyệt bạn vào cửa hàng \"{shopName}\" với vai trò {roleLabel}."
+      },
+      "shopJoinRejected": {
+        "title": "Yêu cầu gia nhập {shopName} bị từ chối",
+        "content": "{actorName} đã từ chối yêu cầu xin vào cửa hàng \"{shopName}\"."
+      },
+      "shopRoleUpdated": {
+        "title": "Cập nhật phân quyền tại {shopName}",
+        "content": "{actorName} đã cập nhật vai trò của bạn tại \"{shopName}\" thành {roleLabel}."
+      },
+      "shopMemberStatusChanged": {
+        "title": "Trạng thái nhân sự tại {shopName}",
+        "content": "Trạng thái làm việc của bạn tại \"{shopName}\" đã chuyển sang: {statusLabel}."
+      },
+      "shopOwnershipTransferred": {
+        "title": "Chuyển nhượng quyền Chủ cửa hàng {shopName}",
+        "content": "{actorName} đã chuyển nhượng toàn quyền Chủ cửa hàng (SHOP_OWNER) tại \"{shopName}\" cho bạn."
+      }
+    }
+  },
   "OnboardingAndRoles": {
     "pageTitle": "Khởi tạo Không gian Cửa hàng & Phân quyền Vai trò",
     "pageSubtitle": "Tài khoản cá nhân của bạn đã sẵn sàng. Hãy tạo cửa hàng mới (Chủ quán) hoặc gia nhập cửa hàng hiện có (Nhân viên Sale, Kế toán, Kho).",
@@ -1052,7 +1168,7 @@
       "setupShopBtn": "Thiết lập Cửa hàng / Nhận quyền",
       "yourWorkspacesTitle": "Danh sách Cửa hàng của bạn",
       "manageMembersBtn": "Quản lý Nhân sự & Phân quyền",
-      "createOrJoinShopBtn": "Tạo cửa hàng mới / Nhập mã gia nhập"
+      "createOrJoinShopBtn": "Tạo cửa hàng / Nhập mã gia nhập"
     },
     "invitationsSection": {
       "title": "Lời mời nhận việc từ Chủ cửa hàng",
@@ -1066,8 +1182,8 @@
       "waitingOwnerNotice": "Chủ cửa hàng sẽ sớm chọn vai trò (Sale, Kế toán, Kho...) và kích hoạt tài khoản của bạn."
     },
     "createShopCard": {
-      "title": "Mở cửa hàng mới",
-      "description": "Hệ thống tự động khởi tạo Không gian cửa hàng, Kho tổng mặc định.",
+      "title": "Tôi là Chủ quán — Mở cửa hàng mới",
+      "description": "Hệ thống tự động khởi tạo Không gian cửa hàng, Kho tổng mặc định (WH-MAIN), Bộ 6 Tag màu chuẩn oklch và cấp toàn bộ 92 quyền Chủ cửa hàng (SHOP_OWNER) cho bạn.",
       "shopNamePlaceholder": "Nhập tên cửa hàng / thương hiệu (VD: Thời trang Milano)...",
       "phonePlaceholder": "Số điện thoại hotline cửa hàng...",
       "addressPlaceholder": "Địa chỉ kho mặc định của cửa hàng...",
@@ -1076,24 +1192,24 @@
       "successToastDesc": "Tài khoản của bạn đã được cấp toàn quyền Chủ cửa hàng tại {shopName}."
     },
     "joinShopCard": {
-      "title": "Tham gia cửa hàng",
+      "title": "Xin tham gia",
       "roleBadge": "Sale / Kế toán / Kho",
-      "description": "Nhập Mã gia nhập cửa hàng (do Chủ quán cung cấp). Tài khoản của bạn sẽ ở trạng thái Chờ duyệt (Quyền trống).",
+      "description": "Nhập Mã gia nhập cửa hàng (do Chủ quán cung cấp). Tài khoản của bạn sẽ ở trạng thái Chờ duyệt (Quyền trống) cho tới khi Chủ quán chọn đúng vai trò.",
       "joinCodePlaceholder": "Nhập mã cửa hàng (VD: PAN88291)...",
-      "notePlaceholder": "Ghi chú vị trí ứng tuyển",
-      "submitBtn": "Gửi yêu cầu",
+      "notePlaceholder": "Ghi chú vị trí ứng tuyển (VD: Em Minh bộ phận Kế toán ca sáng)...",
+      "submitBtn": "Gửi yêu cầu gia nhập chờ duyệt",
       "pendingToastTitle": "Đã gửi yêu cầu gia nhập cửa hàng",
       "pendingToastDesc": "Vui lòng chờ Chủ cửa hàng phê duyệt và gán vai trò cho tài khoản của bạn."
     },
     "membersPage": {
       "title": "Quản lý Nhân sự",
-      "subtitle": "Cấp quyền cho tài khoản mới hoặc tài khoản đã tồn tại.",
+      "subtitle": "Cấp quyền Chủ quán, Quản lý, Nhân viên Sale, Nhân viên Kho, Kế toán, Marketing cho tài khoản mới hoặc tài khoản đã tồn tại.",
       "shopJoinCodeLabel": "Mã cửa hàng: {code}",
       "copiedJoinCode": "Đã sao chép Mã gia nhập cửa hàng",
       "inviteBtn": "Thêm nhân viên",
       "tabs": {
         "activeMembers": "Nhân sự chính thức",
-        "pendingApproval": "Chờ phê duyệt vào quán",
+        "pendingApproval": "Chờ phê duyệt",
         "invitations": "Lời mời đã gửi"
       },
       "suspendBtn": "Đình chỉ",
@@ -1110,13 +1226,43 @@
       "sendInviteConfirmBtn": "Gửi lời mời & Gán sẵn quyền",
       "inviteSentToastTitle": "Đã gửi lời mời thành công",
       "inviteSentToastDesc": "Đã gán sẵn vai trò {role} cho {email}.",
-      "approveModalTitle": "Phê duyệt Nhân sự & Cấp quyền Vai trò",
+      "approveModalTitle": "Phê duyệt Nhân sự & Cấp quyền",
       "confirmApproveBtn": "Xác nhận Phê duyệt & Mở khóa quyền",
       "approvedToastTitle": "Đã phê duyệt nhân viên",
       "approvedToastDesc": "Nhân viên đã được cấp quyền và mở khóa giao diện làm việc tức thì.",
-      "roleUpdatedToast": "Đã cập nhật vai trò nhân sự"
+      "roleUpdatedToast": "Đã cập nhật vai trò nhân sự",
+      "regenerateJoinCodeBtn": "Đổi mã mới",
+      "regeneratedJoinCodeTitle": "Đã tạo Mã gia nhập cửa hàng mới",
+      "rejectBtn": "Từ chối",
+      "rejectedToastTitle": "Đã từ chối yêu cầu gia nhập",
+      "rejectedToastDesc": "Đã xóa yêu cầu gia nhập và gửi thông báo cho nhân sự.",
+      "revokeInviteBtn": "Thu hồi lời mời",
+      "revokedInviteToastTitle": "Đã thu hồi lời mời",
+      "revokedInviteToastDesc": "Liên kết lời mời đã bị vô hiệu hóa.",
+      "customizePermissionsBtn": "Phân quyền chi tiết",
+      "customizeModalTitle": "Tinh chỉnh Ma trận 92 Quyền & Hạn mức Rủi ro",
+      "maxDiscountLabel": "Hạn mức chiết khấu tối đa (%)",
+      "unmaskLimitLabel": "Giới hạn giải mã SĐT / giờ",
+      "maxDiscountShort": "CK tối đa: {percent}%",
+      "permissionCountBadge": "{count} quyền",
+      "granularPermissionsHeading": "Danh sách mã quyền chi tiết đang bật ({count})",
+      "savePermissionsBtn": "Lưu phân quyền & Đồng bộ Real-Time",
+      "transferOwnershipBtn": "Chuyển quyền Chủ quán",
+      "transferOwnershipModalTitle": "Chuyển nhượng quyền Chủ cửa hàng (SHOP_OWNER)",
+      "transferOwnershipModalDesc": "Đảm bảo nguyên tắc mỗi cửa hàng chỉ có duy nhất 1 Chủ cửa hàng tại mọi thời điểm.",
+      "transferOwnershipWarning": "Sau khi chuyển nhượng, thành viên được chọn sẽ nhận toàn quyền Chủ cửa hàng (SHOP_OWNER), còn tài khoản của bạn sẽ chuyển xuống vai trò Quản lý cửa hàng (SHOP_MANAGER).",
+      "selectNewOwnerLabel": "Chọn nhân sự chính thức nhận quyền Chủ cửa hàng",
+      "confirmTransferOwnershipBtn": "Xác nhận Chuyển nhượng Chủ quán",
+      "transferOwnershipSuccessTitle": "Đã chuyển nhượng quyền Chủ cửa hàng",
+      "transferOwnershipSuccessDesc": "Quyền Chủ cửa hàng đã được cập nhật tức thì qua WebSocket."
     },
     "invitationReceivedTitle": "Lời mời làm việc từ cửa hàng {shopName}",
-    "invitationReceivedDesc": "Bạn được mời đảm nhận vị trí {roleName} tại cửa hàng {shopName}. Nhấn Chấp nhận để kích hoạt quyền ngay lập tức."
+    "invitationReceivedDesc": "Bạn được mời đảm nhận vị trí {roleName} tại cửa hàng {shopName}. Nhấn Chấp nhận để kích hoạt quyền ngay lập tức.",
+    "registerInviteBanner": {
+      "title": "Lời mời nhận việc tại {shopName}",
+      "description": "Bạn đang đăng ký tài khoản theo lời mời vị trí {role} tại cửa hàng {shopName}. Sau khi hoàn tất, quyền làm việc sẽ tự động kích hoạt ngay.",
+      "invalidTitle": "Liên kết lời mời không hợp lệ hoặc đã hết hạn",
+      "invalidDescription": "Lời mời này đã được sử dụng, bị thu hồi hoặc quá hạn 7 ngày. Bạn vẫn có thể đăng ký tài khoản thông thường."
+    }
   }
 }

@@ -77,9 +77,19 @@ export const createRoleInvitationApi = async (
     targetDataScope?: DataScopeType;
     maxDiscountPercent?: number;
     unmaskPhoneHourlyLimit?: number;
+    customGrantedPermissions?: string[];
   },
 ) => {
   return apiClient.post(`/iam/shops/${shopId}/invitations`, data);
+};
+
+export const revokeRoleInvitationApi = async (
+  shopId: string,
+  invitationId: string,
+) => {
+  return apiClient.patch(
+    `/iam/shops/${shopId}/invitations/${invitationId}/revoke`,
+  );
 };
 
 export const approvePendingMemberApi = async (
@@ -96,6 +106,20 @@ export const approvePendingMemberApi = async (
     `/iam/shops/${shopId}/members/${memberId}/approve`,
     data,
   );
+};
+
+export const rejectPendingMemberApi = async (
+  shopId: string,
+  memberId: string,
+  reason?: string,
+) => {
+  return apiClient.post(`/iam/shops/${shopId}/members/${memberId}/reject`, {
+    reason,
+  });
+};
+
+export const regenerateShopJoinCodeApi = async (shopId: string) => {
+  return apiClient.post(`/iam/shops/${shopId}/regenerate-join-code`);
 };
 
 export const updateMemberPermissionsApi = async (
@@ -123,5 +147,14 @@ export const updateMemberStatusApi = async (
 ) => {
   return apiClient.patch(`/iam/shops/${shopId}/members/${memberId}/status`, {
     membershipStatus,
+  });
+};
+
+export const transferShopOwnershipApi = async (
+  shopId: string,
+  targetMemberId: string,
+) => {
+  return apiClient.post(`/iam/shops/${shopId}/transfer-ownership`, {
+    targetMemberId,
   });
 };

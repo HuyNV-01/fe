@@ -64,9 +64,11 @@ export interface PermissionStoreState {
   memberships: ShopMembershipSummary[];
   pendingInvitations: PendingInvitationSummary[];
   isLoadingOverview: boolean;
+  membersRefreshTick: number;
 
   fetchOnboardingOverview: () => Promise<void>;
   applyRealtimeEffectiveContext: (ctx: EffectiveMemberContextPayload) => void;
+  triggerMembersRefresh: () => void;
   createShopAsOwner: (payload: {
     shopName: string;
     contactPhone?: string;
@@ -98,6 +100,7 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
     memberships: [],
     pendingInvitations: [],
     isLoadingOverview: false,
+    membersRefreshTick: 0,
 
     fetchOnboardingOverview: async () => {
       set((state) => {
@@ -157,7 +160,11 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
 
     applyRealtimeEffectiveContext: (ctx) => {
       set((state) => {
-        if (state.activeShopId && state.activeShopId !== ctx.shopId) {
+        if (
+          state.activeShopId &&
+          state.activeShopId !== ctx.shopId &&
+          state.onboardingState === "HAS_ACTIVE_SHOPS"
+        ) {
           return;
         }
         state.activeShopId = ctx.shopId;
@@ -180,6 +187,12 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
       }
     },
 
+    triggerMembersRefresh: () => {
+      set((state) => {
+        state.membersRefreshTick = (state.membersRefreshTick || 0) + 1;
+      });
+    },
+
     createShopAsOwner: async (payload) => {
       const res: any = await createShopAsOwnerApi(payload);
       const effectiveContext = res?.data?.effectiveContext;
@@ -187,6 +200,7 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
         get().applyRealtimeEffectiveContext(effectiveContext);
       }
       await get().fetchOnboardingOverview();
+      get().triggerMembersRefresh();
       return true;
     },
 
@@ -203,6 +217,7 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
         get().applyRealtimeEffectiveContext(effectiveContext);
       }
       await get().fetchOnboardingOverview();
+      get().triggerMembersRefresh();
       return true;
     },
 
@@ -212,6 +227,7 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
         get().applyRealtimeEffectiveContext(res.data);
       }
       await get().fetchOnboardingOverview();
+      get().triggerMembersRefresh();
       return true;
     },
 
@@ -238,6 +254,7 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
         state.permissions = [];
         state.memberships = [];
         state.pendingInvitations = [];
+        state.membersRefreshTick = 0;
       });
     },
   }),

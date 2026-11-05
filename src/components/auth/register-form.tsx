@@ -1,3 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Mail, Lock, User, ShieldCheck } from "lucide-react";
 import { registerSchema } from "@/Validation/register-schema";
 import {
   Field,
@@ -11,19 +16,47 @@ import {
 import { Input } from "../ui/input";
 import { useForm } from "@tanstack/react-form";
 import { EMPTY_STRING } from "@/constant";
-import { PatternButton } from "@/components/toolkit";
+import {
+  GlassAlert,
+  LiquidGlassInput,
+  PatternButton,
+} from "@/components/toolkit";
 import { useRouter } from "@/i18n/navigation";
 import config from "@/config";
 import { useTranslations } from "next-intl";
 import LoginThird from "./login-third";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
+import {
+  type ShopRoleType,
+  verifyInviteTokenPublicApi,
+} from "@/lib/stores/iam/api";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
+import { cn } from "@/lib/utils";
+
+interface VerifiedInviteInfo {
+  invitationId: string;
+  shopId: string;
+  shopName: string;
+  invitedEmail: string;
+  invitedName: string | null;
+  targetRole: ShopRoleType;
+  expiresAt: string;
+}
 
 export function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawInviteToken = searchParams.get("inviteToken")?.trim() || "";
+
   const tMessage = useTranslations("Messages.error");
   const tForm = useTranslations("Form.Register");
+  const tIam = useTranslations("OnboardingAndRoles");
   const register = useAuthStore((s) => s.register);
+
+  const [verifiedInvite, setVerifiedInvite] =
+    useState<VerifiedInviteInfo | null>(null);
+  const [inviteError, setInviteError] = useState<boolean>(false);
+
   const form = useForm({
     defaultValues: {
       name: EMPTY_STRING,
@@ -36,7 +69,12 @@ export function RegisterForm() {
     },
     onSubmit: async ({ value }) => {
       await register(
-        { ...value },
+        {
+          ...value,
+          ...(rawInviteToken && verifiedInvite
+            ? { inviteToken: rawInviteToken }
+            : {}),
+        },
         {
           onSuccess: (code) => {
             router.push(`${config.routes.public.login}`);
@@ -52,6 +90,36 @@ export function RegisterForm() {
     },
   });
 
+  useEffect(() => {
+    if (!rawInviteToken) return;
+    let isMounted = true;
+
+    verifyInviteTokenPublicApi(rawInviteToken)
+      .then((res: any) => {
+        if (!isMounted) return;
+        const data = res?.data as VerifiedInviteInfo | undefined;
+        if (data?.invitedEmail) {
+          setVerifiedInvite(data);
+          setInviteError(false);
+          form.setFieldValue("email", data.invitedEmail);
+          if (data.invitedName) {
+            form.setFieldValue("name", data.invitedName);
+          }
+        } else {
+          setInviteError(true);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setInviteError(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [rawInviteToken]);
+
   return (
     <form
       id="register-form"
@@ -61,6 +129,28 @@ export function RegisterForm() {
       }}
     >
       <FieldGroup>
+        {verifiedInvite && (
+          <GlassAlert
+            variant="info"
+            icon={<ShieldCheck className="w-4 h-4" />}
+            title={tIam("registerInviteBanner.title", {
+              shopName: verifiedInvite.shopName,
+            })}
+            description={tIam("registerInviteBanner.description", {
+              role: tIam(`roles.${verifiedInvite.targetRole}`),
+              shopName: verifiedInvite.shopName,
+            })}
+          />
+        )}
+
+        {inviteError && (
+          <GlassAlert
+            variant="danger"
+            title={tIam("registerInviteBanner.invalidTitle")}
+            description={tIam("registerInviteBanner.invalidDescription")}
+          />
+        )}
+
         <FieldSet>
           <FieldGroup>
             <form.Field name="name">
@@ -76,17 +166,29 @@ export function RegisterForm() {
                     <FieldDescription>
                       {tForm("description.name")}
                     </FieldDescription>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      aria-invalid={isInvalid}
-                      type="text"
-                      placeholder={tForm("placeholder.name")}
-                      className="rounded-full"
-                    />
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <User className="h-4 w-4 text-muted-foreground/50 mr-2.5 shrink-0" />
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          aria-invalid={isInvalid}
+                          type="text"
+                          placeholder={tForm("placeholder.name")}
+                          className={cn(
+                            "flex h-full w-full py-2 text-sm",
+                            "bg-transparent!",
+                            "border-none",
+                            "shadow-none",
+                            "focus-visible:ring-0 focus-visible:ring-offset-0",
+                            "px-0",
+                          )}
+                        />
+                      </div>
+                    </LiquidGlassInput>
                     {isInvalid && (
                       <FieldError errors={field.state.meta.errors} />
                     )}
@@ -108,17 +210,35 @@ export function RegisterForm() {
                     <FieldDescription>
                       {tForm("description.email")}
                     </FieldDescription>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      aria-invalid={isInvalid}
-                      type="email"
-                      placeholder={tForm("placeholder.email")}
-                      className="rounded-full"
-                    />
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Mail className="h-4 w-4 text-muted-foreground/50 mr-2.5 shrink-0" />
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          readOnly={Boolean(verifiedInvite)}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => {
+                            if (!verifiedInvite) {
+                              field.handleChange(e.target.value);
+                            }
+                          }}
+                          aria-invalid={isInvalid}
+                          type="email"
+                          placeholder={tForm("placeholder.email")}
+                          className={cn(
+                            "flex h-full w-full py-2 text-sm",
+                            "bg-transparent!",
+                            "border-none",
+                            "shadow-none",
+                            "focus-visible:ring-0 focus-visible:ring-offset-0",
+                            "px-0",
+                            verifiedInvite && "opacity-80 cursor-not-allowed",
+                          )}
+                        />
+                      </div>
+                    </LiquidGlassInput>
                     {isInvalid && (
                       <FieldError errors={field.state.meta.errors} />
                     )}
@@ -137,17 +257,29 @@ export function RegisterForm() {
                       {tForm("label.password")}
                       <span className="ml-0.5 text-red-400">*</span>
                     </FieldLabel>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      aria-invalid={isInvalid}
-                      type="password"
-                      placeholder={tForm("placeholder.password")}
-                      className="rounded-full"
-                    />
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Lock className="h-4 w-4 text-muted-foreground/50 mr-2.5 shrink-0" />
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          aria-invalid={isInvalid}
+                          type="password"
+                          placeholder={tForm("placeholder.password")}
+                          className={cn(
+                            "flex h-full w-full py-2 text-sm",
+                            "bg-transparent!",
+                            "border-none",
+                            "shadow-none",
+                            "focus-visible:ring-0 focus-visible:ring-offset-0",
+                            "px-0",
+                          )}
+                        />
+                      </div>
+                    </LiquidGlassInput>
                     {isInvalid && (
                       <FieldError errors={field.state.meta.errors} />
                     )}
@@ -166,17 +298,29 @@ export function RegisterForm() {
                       {tForm("label.confirmPassword")}
                       <span className="ml-0.5 text-red-400">*</span>
                     </FieldLabel>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      aria-invalid={isInvalid}
-                      type="password"
-                      placeholder={tForm("placeholder.confirmPassword")}
-                      className="rounded-full"
-                    />
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Lock className="h-4 w-4 text-muted-foreground/50 mr-2.5 shrink-0" />
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          aria-invalid={isInvalid}
+                          type="password"
+                          placeholder={tForm("placeholder.confirmPassword")}
+                          className={cn(
+                            "flex h-full w-full py-2 text-sm",
+                            "bg-transparent!",
+                            "border-none",
+                            "shadow-none",
+                            "focus-visible:ring-0 focus-visible:ring-offset-0",
+                            "px-0",
+                          )}
+                        />
+                      </div>
+                    </LiquidGlassInput>
                     {isInvalid && (
                       <FieldError errors={field.state.meta.errors} />
                     )}

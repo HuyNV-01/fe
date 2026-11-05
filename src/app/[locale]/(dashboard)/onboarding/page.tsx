@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Store,
   UserPlus,
@@ -63,10 +64,13 @@ const joinShopByCodeSchema = z.object({
 export default function WorkspaceOnboardingPage() {
   const t = useTranslations("OnboardingAndRoles");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as OnboardingTabMode | null;
 
   const onboardingState = usePermissionStore((s) => s.onboardingState);
   const memberships = usePermissionStore((s) => s.memberships);
   const pendingInvitations = usePermissionStore((s) => s.pendingInvitations);
+  const membersRefreshTick = usePermissionStore((s) => s.membersRefreshTick);
   const fetchOnboardingOverview = usePermissionStore(
     (s) => s.fetchOnboardingOverview,
   );
@@ -81,14 +85,30 @@ export default function WorkspaceOnboardingPage() {
 
   useEffect(() => {
     fetchOnboardingOverview();
-  }, [fetchOnboardingOverview]);
+  }, [fetchOnboardingOverview, membersRefreshTick]);
 
-  // Nếu tài khoản có lời mời đang chờ từ Chủ quán, tự động ưu tiên mở tab Lời mời
+  // Hỗ trợ điều hướng trực tiếp từ NotificationBell qua ?tab=INVITATIONS hoặc ?tab=JOIN_BY_CODE
   useEffect(() => {
-    if (pendingInvitations.length > 0) {
-      setActiveTab("INVITATIONS");
+    if (
+      tabParam === "CREATE_SHOP" ||
+      tabParam === "JOIN_BY_CODE" ||
+      tabParam === "INVITATIONS"
+    ) {
+      setActiveTab(tabParam);
     }
-  }, [pendingInvitations.length]);
+  }, [tabParam]);
+
+  // Nếu tài khoản nhận được lời mời Real-Time từ Chủ quán, tự động ưu tiên mở tab Lời mời
+  useEffect(() => {
+    if (!tabParam && pendingInvitations.length > 0) {
+      setActiveTab("INVITATIONS");
+    } else if (
+      activeTab === "INVITATIONS" &&
+      pendingInvitations.length === 0
+    ) {
+      setActiveTab("CREATE_SHOP");
+    }
+  }, [pendingInvitations.length, tabParam]);
 
   const handleTabChange = (nextTab: OnboardingTabMode) => {
     setActiveTab(nextTab);
@@ -215,7 +235,7 @@ export default function WorkspaceOnboardingPage() {
             icon: <UserPlus className="w-4 h-4" />,
             badge: pendingApprovalShops.length,
           },
-          ...(pendingInvitations.length > 0
+          ...(pendingInvitations.length > 0 || activeTab === "INVITATIONS"
             ? [
                 {
                   key: "INVITATIONS" as OnboardingTabMode,

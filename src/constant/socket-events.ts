@@ -1,11 +1,4 @@
 export const SOCKET_EVENTS = {
-  IAM: {
-    PERMISSIONS_UPDATED: "iam:permissions_updated",
-    INVITATION_RECEIVED: "iam:invitation_received",
-    JOIN_REQUEST_RECEIVED: "iam:join_request_received",
-    SHIFT_STATUS_CHANGED: "iam:shift_status_changed",
-    FORCE_SHIFT_HANDOVER: "iam:force_shift_handover",
-  },
   CHAT: {
     JOIN_ROOM: "join_room",
     LEAVE_ROOM: "leave_room",
@@ -86,5 +79,16 @@ export const SOCKET_EVENTS = {
     FRIEND_REMOVED: "contact.friend_removed",
     USER_BLOCKED: "contact.user_blocked",
     USER_UNBLOCKED: "contact.user_unblocked",
+  },
+  IAM: {
+    PERMISSIONS_UPDATED: "iam:permissions_updated",
+    INVITATION_RECEIVED: "iam:invitation_received",
+    INVITATION_ACCEPTED: "iam:invitation_accepted",
+    INVITATION_REVOKED: "iam:invitation_revoked",
+    JOIN_REQUEST_RECEIVED: "iam:join_request_received",
+    JOIN_REQUEST_APPROVED: "iam:join_request_approved",
+    JOIN_REQUEST_REJECTED: "iam:join_request_rejected",
+    MEMBER_STATUS_CHANGED: "iam:member_status_changed",
+    SHOP_MEMBERS_CHANGED: "iam:shop_members_changed",
   },
 } as const;
