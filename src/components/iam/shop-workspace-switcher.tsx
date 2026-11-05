@@ -1,3 +1,4 @@
+// File: src/components/iam/shop-workspace-switcher.tsx
 "use client";
 
 import React from "react";
@@ -8,6 +9,8 @@ import {
   PlusCircle,
   Users,
   Clock,
+  Share2,
+  ShieldCheck,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
@@ -25,6 +28,7 @@ import {
   ItemMenu,
   GlassBadge,
   PatternButton,
+  TruncatedText,
 } from "@/components/toolkit";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 import config from "@/config";
@@ -56,11 +60,14 @@ export const ShopWorkspaceSwitcher = () => {
         variant="solid"
         color="primary"
         size="sm"
-        rounded="full"
+        rounded={"full"}
         onClick={() => router.push(config.routes.private.onboarding)}
         icon={<Store className="w-3.5 h-3.5" />}
+        iconPosition="left"
       >
-        {t("switcher.setupShopBtn")}
+        <TruncatedText className="max-w-40">
+          {t("switcher.setupShopBtn")}
+        </TruncatedText>
         {pendingInvitations.length > 0 && (
           <span className="ml-1.5 rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.2 font-bold">
             {pendingInvitations.length}
@@ -79,28 +86,28 @@ export const ShopWorkspaceSwitcher = () => {
         >
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-transparent outline-none cursor-pointer"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-transparent outline-none cursor-pointer max-w-60"
           >
             <Store className="w-4 h-4 text-primary shrink-0" />
-            <span className="text-xs font-bold truncate max-w-32">
+            <TruncatedText className="text-xs font-bold max-w-28">
               {activeShop.shopName}
-            </span>
+            </TruncatedText>
             {role && (
-              <GlassBadge variant="primary" size="sm">
-                {t(`roles.${role}`)}
+              <GlassBadge variant="primary" size="sm" className="max-w-28">
+                <TruncatedText>{t(`roles.${role}`)}</TruncatedText>
               </GlassBadge>
             )}
-            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           </button>
         </LiquidGlassInput>
       </DropdownMenuTrigger>
 
       <DropdownMenuContentCus
         align="end"
-        className="w-72 max-w-[calc(100vw-1.5rem)]"
+        className="w-76 max-w-[calc(100vw-1.5rem)]"
       >
         <DropdownMenuLabel className="text-[11px] font-semibold text-muted-foreground">
-          {t("switcher.yourWorkspacesTitle")}
+          <TruncatedText>{t("switcher.yourWorkspacesTitle")}</TruncatedText>
         </DropdownMenuLabel>
 
         <DropdownMenuGroup>
@@ -118,17 +125,23 @@ export const ShopWorkspaceSwitcher = () => {
                   isSelected && "bg-primary/15 text-primary font-semibold",
                 )}
               >
-                <div className="min-w-0 flex items-center space-x-3.5">
-                  <p className="text-xs font-bold truncate">{m.shopName}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="min-w-0 flex items-center space-x-2.5">
+                  <TruncatedText className="text-xs font-bold max-w-36">
+                    {m.shopName}
+                  </TruncatedText>
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {isPending ? (
                       <GlassBadge variant="warning" size="sm">
-                        <Clock className="w-2.5 h-2.5 mr-1 inline" />
-                        {t("status.PENDING_APPROVAL")}
+                        <Clock className="w-2.5 h-2.5 mr-1 inline shrink-0" />
+                        <TruncatedText className="max-w-24">
+                          {t("status.PENDING_APPROVAL")}
+                        </TruncatedText>
                       </GlassBadge>
                     ) : (
                       <GlassBadge variant="secondary" size="sm">
-                        {t(`roles.${m.role}`)}
+                        <TruncatedText className="max-w-24">
+                          {t(`roles.${m.role}`)}
+                        </TruncatedText>
                       </GlassBadge>
                     )}
                   </div>
@@ -144,20 +157,40 @@ export const ShopWorkspaceSwitcher = () => {
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          {hasPermission("IAM_MEMBER_INVITE_MANAGE") && (
+          {hasPermission("CHANNEL_INTEGRATION_CONNECT") && (
             <ItemMenu
-              route={config.routes.private.settingsMembers}
-              icon={<Users className="size-4 text-indigo-500" />}
+              route={config.routes.private.settingsChannels}
+              icon={<Share2 className="size-4 text-sky-500" />}
             >
-              {t("switcher.manageMembersBtn")}
+              <TruncatedText>{t("switcher.manageChannelsBtn")}</TruncatedText>
             </ItemMenu>
+          )}
+
+          {hasPermission("IAM_MEMBER_INVITE_MANAGE") && (
+            <>
+              <ItemMenu
+                route={config.routes.private.settingsPermissions}
+                icon={<ShieldCheck className="size-4 text-emerald-500" />}
+              >
+                <TruncatedText>
+                  {t("switcher.managePermissionsMatrixBtn")}
+                </TruncatedText>
+              </ItemMenu>
+
+              <ItemMenu
+                route={config.routes.private.settingsMembers}
+                icon={<Users className="size-4 text-indigo-500" />}
+              >
+                <TruncatedText>{t("switcher.manageMembersBtn")}</TruncatedText>
+              </ItemMenu>
+            </>
           )}
 
           <ItemMenu
             route={config.routes.private.onboarding}
             icon={<PlusCircle className="size-4 text-primary" />}
           >
-            {t("switcher.createOrJoinShopBtn")}
+            <TruncatedText>{t("switcher.createOrJoinShopBtn")}</TruncatedText>
           </ItemMenu>
         </DropdownMenuGroup>
       </DropdownMenuContentCus>

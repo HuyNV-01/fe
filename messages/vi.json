@@ -87,75 +87,6 @@
       "logout": "Đăng xuất"
     }
   },
-  "Notifications": {
-    "ariaLabel": "Thông báo",
-    "title": "Thông báo",
-    "newBadge": "{count} mới",
-    "markAllRead": "Đọc tất cả",
-    "tabs": {
-      "all": "Tất cả",
-      "unread": "Chưa đọc"
-    },
-    "empty": {
-      "unreadTitle": "Không có thông báo chưa đọc",
-      "allTitle": "Chưa có thông báo nào",
-      "description": "Các cập nhật mới về tin nhắn, lời mời kết bạn và cuộc gọi sẽ xuất hiện tại đây."
-    },
-    "systemActor": "Hệ thống",
-    "deleteTitle": "Xóa thông báo",
-    "loadMore": "Xem thêm thông báo cũ",
-    "i18n": {
-      "defaultGroup": "nhóm",
-      "callType": {
-        "video": "video",
-        "audio": "thoại"
-      },
-      "preview": {
-        "image": "đã gửi một hình ảnh",
-        "video": "đã gửi một video",
-        "audio": "đã gửi một tin nhắn thoại",
-        "file": "đã gửi một tệp đính kèm"
-      },
-      "messageReply": {
-        "groupTitle": "{senderName} đã trả lời bạn trong {conversationName}",
-        "directTitle": "{senderName} đã trả lời tin nhắn của bạn"
-      },
-      "newMessage": {
-        "groupTitle": "Tin nhắn mới trong {conversationName}",
-        "directTitle": "Tin nhắn mới từ {senderName}",
-        "groupContent": "{senderName}: {preview}",
-        "directContent": "{preview}"
-      },
-      "messageReaction": {
-        "title": "{actorName} đã bày tỏ cảm xúc {emoji}",
-        "content": "Về tin nhắn của bạn: \"{preview}\""
-      },
-      "missedCall": {
-        "title": "Cuộc gọi {callTypeLabel} nhỡ",
-        "content": "Bạn có cuộc gọi {callTypeLabel} nhỡ từ {callerName}."
-      },
-      "groupMemberAdded": {
-        "title": "Được thêm vào nhóm trò chuyện",
-        "content": "{requesterName} đã thêm bạn vào nhóm \"{conversationName}\"."
-      },
-      "groupInvite": {
-        "title": "Nhóm trò chuyện mới",
-        "content": "{creatorName} đã thêm bạn vào nhóm \"{conversationName}\"."
-      },
-      "friendRequest": {
-        "title": "Lời mời kết bạn mới",
-        "content": "{senderName} đã gửi cho bạn một lời mời kết bạn."
-      },
-      "friendAccepted": {
-        "title": "Đã kết bạn",
-        "content": "{accepterName} đã chấp nhận lời mời kết bạn của bạn."
-      },
-      "messageMention": {
-        "title": "{senderName} đã nhắc đến bạn trong {conversationName}",
-        "content": "{preview}"
-      }
-    }
-  },
   "Form": {
     "Login": {
       "label": {
@@ -1168,6 +1099,8 @@
       "setupShopBtn": "Thiết lập Cửa hàng / Nhận quyền",
       "yourWorkspacesTitle": "Danh sách Cửa hàng của bạn",
       "manageMembersBtn": "Quản lý Nhân sự & Phân quyền",
+      "manageChannelsBtn": "Kết nối Đa kênh & Webhook",
+      "managePermissionsMatrixBtn": "Ma trận 92 Quyền & Ca trực",
       "createOrJoinShopBtn": "Tạo cửa hàng / Nhập mã gia nhập"
     },
     "invitationsSection": {
@@ -1264,5 +1197,179 @@
       "invalidTitle": "Liên kết lời mời không hợp lệ hoặc đã hết hạn",
       "invalidDescription": "Lời mời này đã được sử dụng, bị thu hồi hoặc quá hạn 7 ngày. Bạn vẫn có thể đăng ký tài khoản thông thường."
     }
+  },
+  "SellerNavigation": {
+    "commandCenter": "Trung tâm điều hành",
+    "omnichannelInbox": "Hộp thư đa kênh",
+    "multiPageMerged": "Gộp trang trực đơn",
+    "livestreamCenter": "Chốt đơn Livestream",
+    "counterPos": "Bán tại quầy (POS)",
+    "ordersAndOms": "Đơn hàng & Vận đơn",
+    "packingStation": "Bàn đóng gói Barcode",
+    "failedDeliveryRescue": "Cứu đơn giao thất bại",
+    "returnVerification": "Quét nhận hàng hoàn",
+    "rmaExchange": "Đổi trả & Bảo hành",
+    "codReconciliation": "Đối soát COD & Cước",
+    "catalogAndInventory": "Sản phẩm & Đa kho",
+    "bundleBom": "Combo & Quà tặng kèm",
+    "warehouseTransfers": "Chuyển kho nội bộ",
+    "procurement": "Nhập hàng & Nhà cung cấp",
+    "customersCrm": "Khách hàng CRM 360°",
+    "rfmSegments": "Phân khúc khách RFM",
+    "botcakeAutomation": "Kịch bản Botcake & ZNS",
+    "aiAgentStudio": "Trợ lý Local AI Agent",
+    "workforceAndSla": "Nhân sự, SLA & Hoa hồng",
+    "financeAndPnL": "Sổ quỹ & Báo cáo Lãi/Lỗ",
+    "settingsAndIam": "Cấu hình Kênh & Phân quyền"
+  },
+  "ShiftAndIam": {
+    "status": {
+      "ONLINE": "Đang nhận khách",
+      "BUSY": "Tạm bận",
+      "OFFLINE": "Nghỉ ca"
+    },
+    "scope": {
+      "ALL_SHOP": "Toàn bộ cửa hàng",
+      "TEAM_SHIFT": "Trong nhóm / Ca trực",
+      "ASSIGNED_PLUS_POOL": "Khách của tôi & Hàng đợi chung",
+      "ASSIGNED_ONLY": "Chỉ khách được giao cho tôi"
+    },
+    "handoverModal": {
+      "title": "Bàn giao hội thoại trước khi nghỉ ca",
+      "description": "Bạn đang có {count} cuộc hội thoại chờ phản hồi. Vui lòng chọn phương thức bàn giao để không bỏ lỡ khách hàng.",
+      "autoRedistributeBtn": "Chia đều cho đồng nghiệp đang trực",
+      "transferToSpecificAgent": "Chuyển cho nhân viên cụ thể",
+      "keepAssignedOption": "Giữ nguyên trong danh sách của tôi",
+      "selectColleaguePlaceholder": "Chọn đồng nghiệp đang trực nhận bàn giao...",
+      "confirmHandoverBtn": "Xác nhận bàn giao & Nghỉ ca",
+      "cancelBtn": "Ở lại ca trực",
+      "handoverSuccessToast": "Đã bàn giao {count} hội thoại và chuyển sang Nghỉ ca.",
+      "forceOfflineWarning": "Quản lý đã chuyển trạng thái ca trực của bạn sang Nghỉ ca và thu hồi {count} hội thoại đang chờ."
+    },
+    "permissionDenied": {
+      "tooltipCostPrice": "Chỉ Chủ cửa hàng và Kế toán mới được quyền xem Giá vốn & Lợi nhuận ròng",
+      "tooltipExportCustomer": "Chức năng xuất tệp khách hàng bị khóa để bảo mật dữ liệu",
+      "tooltipDiscountExceed": "Mức giảm giá vượt trần ({maxPercent}%). Đơn hàng sẽ được chuyển sang chờ Quản lý phê duyệt.",
+      "unmaskQuotaExceeded": "Bạn đã sử dụng hết hạn mức mở xem SĐT trong giờ này ({limit} lượt/giờ)."
+    }
+  },
+  "OmnichannelInbox": {
+    "mergeMode": {
+      "title": "Chế độ Gộp Trang Đa Kênh",
+      "subtitle": "Chọn tổ hợp Fanpage, Zalo OA, TikTok Shop, Shopee để trực đơn trên cùng một luồng duy nhất.",
+      "selectPagesPlaceholder": "Chọn Fanpage, Zalo OA, TikTok Shop, Shopee để gộp...",
+      "activePagesBadge": "Đang gộp {count} kênh bán hàng",
+      "singlePageBadge": "Đang xem 1 kênh đơn lẻ",
+      "savePresetBtn": "Lưu bộ gộp trang",
+      "presetNamePlaceholder": "Đặt tên bộ gộp trang (VD: Tổ hợp 5 Page Thời trang Nữ)...",
+      "savedPresetsHeading": "Bộ gộp trang đã lưu ({count})",
+      "applyPresetBtn": "Áp dụng",
+      "deletePresetBtn": "Xóa",
+      "selectAllChannelsBtn": "Chọn tất cả kênh ({count})",
+      "presetSavedToast": "Đã lưu bộ gộp trang đa kênh thành công"
+    },
+    "filters": {
+      "all": "Tất cả",
+      "unread": "Chưa đọc",
+      "unreplied": "Chưa trả lời",
+      "ghosted": "Đã xem nhưng bỏ quên ({count})",
+      "slaBreached": "Quá hạn SLA",
+      "window24hExpiring": "Sắp hết 24h ({count})",
+      "hasPhone": "Đã có SĐT",
+      "noPhone": "Chưa có SĐT",
+      "unconfirmedOrder": "Chưa lên đơn",
+      "tagIncludeLabel": "Bao gồm tất cả/một trong các Tag",
+      "tagExcludeLabel": "Loại trừ các Tag"
+    },
+    "collision": {
+      "lockedByAgent": "{agentName} đang mở và tư vấn khách hàng này",
+      "takeOverBtn": "Tiếp quản hội thoại"
+    },
+    "composer": {
+      "replyPlaceholder": "Nhập tin nhắn tư vấn (/ để chèn mẫu nhanh, Alt+N ghi chú nội bộ, Alt+O tạo đơn POS)...",
+      "internalNotePlaceholder": "Ghi chú nội bộ (Khách hàng không nhìn thấy, gõ @ để nhắc đồng nghiệp)...",
+      "internalNoteBadge": "Chế độ Ghi chú nội bộ (Alt+N)",
+      "quickReplyHint": "Nhấn Tab hoặc Enter để chèn mẫu câu trả lời",
+      "snoozeBtn": "Hẹn giờ chăm sóc lại",
+      "maskedCallBtn": "Gọi chốt đơn ẩn SĐT"
+    },
+    "adAttribution": {
+      "fromAdBadge": "Khách từ Quảng cáo #{adId}",
+      "fromPostBadge": "Bình luận từ Bài viết #{postId}",
+      "capiSyncedBadge": "Đã đồng bộ Meta CAPI ({eventName})"
+    }
+  },
+  "SettingsChannels": {
+    "title": "Kết nối Đa kênh, Định tuyến SLA & Webhook Inspector",
+    "subtitle": "Quản lý Token OAuth2 mã hóa AES-256-GCM cho Facebook, Instagram, Zalo OA, TikTok Shop, Shopee, Lazada và chẩn đoán Webhook thời gian thực.",
+    "tabs": {
+      "connectedChannels": "Kênh bán hàng đã kết nối",
+      "routingAndSla": "Định tuyến Chia khách & SLA",
+      "webhookInspector": "Nhật ký & Replay Webhook (T01)"
+    },
+    "connectNewChannelBtn": "Kết nối Kênh bán hàng mới",
+    "runTokenDoctorBtn": "Chẩn đoán & Làm mới Token (T02)",
+    "tokenDoctorSuccessTitle": "Hoàn tất chẩn đoán sức khỏe Token",
+    "tokenDoctorSuccessDesc": "Đã kiểm tra {total} kênh: {healthy} hoạt động tốt, {warning} sắp hết hạn, {expired} hết hạn.",
+    "tokenWarningTitle": "Cảnh báo kết nối kênh {pageName}",
+    "tokenWarningDesc": "Token của kênh {pageShortCode} sắp hết hạn hoặc cần làm mới.",
+    "emptyChannelsTitle": "Chưa có kênh bán hàng nào được kết nối",
+    "emptyChannelsDesc": "Hãy kết nối Fanpage Facebook, Zalo OA, TikTok Shop hoặc Shopee để bắt đầu nhận tin nhắn và gộp trang trực đơn.",
+    "connectModalTitle": "Kết nối OAuth2 & Webhook Kênh Bán Hàng",
+    "connectModalDesc": "Mọi Access Token, Refresh Token và CAPI Token được mã hóa tự động bằng AES-256-GCM + HKDF-SHA256 trước khi lưu cơ sở dữ liệu.",
+    "channelTypeLabel": "Nền tảng kênh bán hàng",
+    "pageNameLabel": "Tên hiển thị của Trang / Gian hàng",
+    "pageNamePlaceholder": "VD: Thời trang Milano — Fanpage Chính...",
+    "pageShortCodeLabel": "Mã rút gọn (Hiển thị trên huy hiệu Gộp Trang)",
+    "pageShortCodePlaceholder": "VD: FB-MILANO-01",
+    "externalPageIdLabel": "ID Trang / Shop ID trên nền tảng (External Page ID)",
+    "externalPageIdPlaceholder": "VD: 108294819201948",
+    "accessTokenLabel": "Access Token OAuth2",
+    "accessTokenPlaceholder": "Dán Access Token từ Facebook / Zalo / TikTok / Shopee...",
+    "refreshTokenLabel": "Refresh Token (Tự động gia hạn ngầm)",
+    "refreshTokenPlaceholder": "Dán Refresh Token (nếu có)...",
+    "metaDatasetIdLabel": "Meta Dataset / Pixel ID (Đồng bộ chuyển đổi CAPI)",
+    "metaDatasetIdPlaceholder": "VD: 9981726354123",
+    "submitConnectBtn": "Mã hóa Token & Kết nối Kênh ngay",
+    "connectedSuccessToast": "Đã kết nối và mã hóa Token cho kênh {name}",
+    "disconnectBtn": "Ngắt kết nối",
+    "disconnectedToast": "Đã ngắt kết nối kênh bán hàng",
+    "simulateWebhookBtn": "Bắn thử Webhook",
+    "simulatedWebhookToast": "Đã gửi gói tin Webhook thử nghiệm và định tuyến chia khách!",
+    "routingCardTitle": "Cấu hình Động cơ Chia khách Tự động & SLA (F01.1 & F01.4)",
+    "routingCardDesc": "Thiết lập thuật toán phân bổ hội thoại cho nhân viên đang Đang nhận khách (ONLINE) và tự động thu hồi khách bị bỏ quên.",
+    "routingStrategyLabel": "Thuật toán chia khách mặc định",
+    "strategies": {
+      "STICKY_AGENT": "Ưu tiên nhân viên cũ (Sticky Agent) + Chia theo tải thấp nhất",
+      "LEAST_BUSY": "Chia cho nhân viên ít hội thoại chờ nhất (Least Busy - Redis ZSET)",
+      "ROUND_ROBIN": "Chia xoay vòng công bằng (Round Robin - Atomic HINCRBY)",
+      "AI_FIRST": "Trợ lý AI / Botcake xử lý lọc SĐT trước khi chuyển người thật"
+    },
+    "slaResponseSecondsLabel": "Thời gian cam kết phản hồi SLA (Giây)",
+    "autoReclaimMinutesLabel": "Tự động thu hồi khách mới nếu không trả lời sau (Phút)",
+    "leadCollectorWeightLabel": "Tỷ trọng hoa hồng người xin SĐT (0.0 - 1.0)",
+    "orderCloserWeightLabel": "Tỷ trọng hoa hồng người chốt đơn POS (0.0 - 1.0)",
+    "lockOrderAfterPrintLabel": "Khóa không cho Sale tự sửa đơn sau khi Kho đã in phiếu giao hàng",
+    "autoReserveMarketplaceLabel": "Tự động giữ chỗ tồn kho khi phát sinh đơn mới từ Shopee / TikTok Shop",
+    "saveRoutingConfigBtn": "Lưu cấu hình Vận hành & SLA",
+    "savedRoutingToast": "Đã lưu cấu hình Định tuyến & SLA cửa hàng",
+    "webhookInspectorTitle": "Bảng Kiểm tra Chống Trùng & Chạy lại Webhook (T01)",
+    "webhookInspectorDesc": "Mọi sự kiện Webhook đều được khử trùng qua Redis SETNX và lưu vào bảng phân vùng theo tháng channel_webhook_logs.",
+    "replayWebhookBtn": "Replay Webhook",
+    "replayedSuccessToast": "Đã chạy lại (Replay) sự kiện Webhook thành công!",
+    "emptyWebhookLogsTitle": "Chưa ghi nhận sự kiện Webhook nào"
+  },
+  "SettingsPermissions": {
+    "title": "Ma trận Phân quyền 4 Chiều (92 Quyền) & Giám sát Ca trực",
+    "subtitle": "Kiểm soát toàn diện 92 mã quyền hạt nhân, phạm vi dữ liệu (Data Scope), bảo mật cấp trường (Field-Level Security), trần chiết khấu và cưỡng chế bàn giao ca trực.",
+    "tabs": {
+      "shiftMonitor": "Giám sát Ca trực & Cưỡng chế Bàn giao (F01.5 - F01.6)",
+      "roleMatrix": "Ma trận 92 Quyền theo Nhân sự (F01.3)"
+    },
+    "forceOfflineBtn": "Cưỡng chế Nghỉ ca & Thu hồi khách",
+    "forceOfflineSuccessToast": "Đã cưỡng chế chuyển nhân sự sang Nghỉ ca và chia lại {count} hội thoại.",
+    "openMembersDirectoryBtn": "Mời & Duyệt Nhân sự",
+    "customizeMemberBtn": "Tinh chỉnh 92 Quyền & Hạn mức",
+    "flsProtectionBadge": "Field-Level Security: Đang bảo vệ Giá vốn & SĐT gốc"
   }
 }

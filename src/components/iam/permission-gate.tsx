@@ -2,7 +2,7 @@
 
 import React, { type ReactNode } from "react";
 import { Lock } from "lucide-react";
-import { BaseTooltip, GlassBadge } from "@/components/toolkit";
+import { BaseTooltip, GlassBadge, TruncatedText } from "@/components/toolkit";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 
 export interface PermissionGateProps {
@@ -32,9 +32,13 @@ export const PermissionGate = ({
 
   if (mode === "mask") {
     const badge = (
-      <GlassBadge variant="secondary" size="sm" className="cursor-not-allowed">
-        <Lock className="w-3 h-3 mr-1 inline" />
-        {maskedText}
+      <GlassBadge
+        variant="secondary"
+        size="sm"
+        className="cursor-not-allowed max-w-44"
+      >
+        <Lock className="w-3 h-3 mr-1 inline shrink-0" />
+        <TruncatedText className="min-w-0">{maskedText}</TruncatedText>
       </GlassBadge>
     );
     return deniedTooltip ? (

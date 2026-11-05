@@ -1,3 +1,48 @@
+export const SELLER_OS_SOCKET_EVENTS = {
+  IAM: {
+    PERMISSIONS_UPDATED: "iam:permissions_updated",
+    SHIFT_STATUS_CHANGED: "iam:shift_status_changed",
+    FORCE_SHIFT_HANDOVER: "iam:force_shift_handover",
+    INVITATION_RECEIVED: "iam:invitation_received",
+    INVITATION_ACCEPTED: "iam:invitation_accepted",
+    INVITATION_REVOKED: "iam:invitation_revoked",
+    JOIN_REQUEST_RECEIVED: "iam:join_request_received",
+    JOIN_REQUEST_APPROVED: "iam:join_request_approved",
+    JOIN_REQUEST_REJECTED: "iam:join_request_rejected",
+    MEMBER_STATUS_CHANGED: "iam:member_status_changed",
+    SHOP_MEMBERS_CHANGED: "iam:shop_members_changed",
+  },
+  OMNICHANNEL_INBOX: {
+    AGENT_COLLISION_LOCK: "inbox:agent_collision_lock",
+    AGENT_COLLISION_UNLOCK: "inbox:agent_collision_unlock",
+    CONVERSATION_ASSIGNED: "inbox:conversation_assigned",
+    CONVERSATION_RECLAIMED: "inbox:conversation_reclaimed",
+    SLA_WARNING_TICK: "inbox:sla_warning_tick",
+    GHOSTED_ALERT: "inbox:ghosted_alert",
+    TAGS_UPDATED: "inbox:tags_updated",
+    MESSAGE_TAGGED: "inbox:message_tagged",
+    NER_ENTITIES_DETECTED: "inbox:ner_entities_detected",
+    AI_COPILOT_DRAFT_READY: "inbox:ai_copilot_draft_ready",
+    MASKED_PSTN_CALL_INITIATE: "inbox:masked_pstn_call_initiate",
+    MASKED_PSTN_CALL_STATUS: "inbox:masked_pstn_call_status",
+  },
+  POS_OMS: {
+    STOCK_RESERVED_UPDATED: "pos:stock_reserved_updated",
+    DUPLICATE_ORDER_DETECTED: "pos:duplicate_order_detected",
+    DISCOUNT_APPROVAL_REQUESTED: "pos:discount_approval_requested",
+    DISCOUNT_APPROVAL_RESOLVED: "pos:discount_approval_resolved",
+    VIETQR_PAYMENT_CONFIRMED: "pos:vietqr_payment_confirmed",
+    CARRIER_WEBHOOK_STATUS_CHANGED: "oms:carrier_webhook_status_changed",
+    FAILED_DELIVERY_RESCUE_ALERT: "oms:failed_delivery_rescue_alert",
+  },
+  LIVESTREAM: {
+    COMMENT_HARVESTED: "live:comment_harvested",
+    AUTO_CART_UPDATED: "live:auto_cart_updated",
+    INSTANT_THERMAL_PRINT_JOB: "live:instant_thermal_print_job",
+    LUCKY_WHEEL_WINNER: "live:lucky_wheel_winner",
+  },
+} as const;
+
 export const SOCKET_EVENTS = {
   CHAT: {
     JOIN_ROOM: "join_room",
@@ -80,15 +125,8 @@ export const SOCKET_EVENTS = {
     USER_BLOCKED: "contact.user_blocked",
     USER_UNBLOCKED: "contact.user_unblocked",
   },
-  IAM: {
-    PERMISSIONS_UPDATED: "iam:permissions_updated",
-    INVITATION_RECEIVED: "iam:invitation_received",
-    INVITATION_ACCEPTED: "iam:invitation_accepted",
-    INVITATION_REVOKED: "iam:invitation_revoked",
-    JOIN_REQUEST_RECEIVED: "iam:join_request_received",
-    JOIN_REQUEST_APPROVED: "iam:join_request_approved",
-    JOIN_REQUEST_REJECTED: "iam:join_request_rejected",
-    MEMBER_STATUS_CHANGED: "iam:member_status_changed",
-    SHOP_MEMBERS_CHANGED: "iam:shop_members_changed",
-  },
+  IAM: SELLER_OS_SOCKET_EVENTS.IAM,
+  OMNICHANNEL_INBOX: SELLER_OS_SOCKET_EVENTS.OMNICHANNEL_INBOX,
+  POS_OMS: SELLER_OS_SOCKET_EVENTS.POS_OMS,
+  LIVESTREAM: SELLER_OS_SOCKET_EVENTS.LIVESTREAM,
 } as const;
