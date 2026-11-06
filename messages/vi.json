@@ -1243,7 +1243,11 @@
       "unsavedChangesBadge": "Có thay đổi chưa lưu",
       "roleDefaultSyncedBadge": "Chuẩn theo vai trò",
       "emptySearchPermissionsTitle": "Không tìm thấy quyền hạn phù hợp",
-      "emptySearchPermissionsDesc": "Thử tìm bằng từ khóa khác hoặc chuyển sang tab Tất cả quyền."
+      "emptySearchPermissionsDesc": "Thử tìm bằng từ khóa khác hoặc chuyển sang tab Tất cả quyền.",
+      "allowedChannelsScopeLabel": "Giới hạn kênh bán hàng được phép trực (4D Channel Scope)",
+      "allChannelsAllowedBadge": "Truy cập tất cả kênh của cửa hàng",
+      "selectedChannelsCountBadge": "Giới hạn {count} kênh chỉ định",
+      "allowAllChannelsBtn": "Cho phép tất cả kênh"
     },
     "invitationReceivedTitle": "Lời mời làm việc từ {shopName}",
     "invitationReceivedDesc": "Bạn được mời đảm nhận vị trí {roleName} tại {shopName}. Nhấn Chấp nhận để bắt đầu công việc.",
@@ -1276,7 +1280,7 @@
       "confirmHandoverBtn": "Xác nhận bàn giao & nghỉ ca",
       "cancelBtn": "Tiếp tục trực ca",
       "handoverSuccessToast": "Đã bàn giao {count} cuộc hội thoại và chuyển sang trạng thái Nghỉ ca.",
-      "forceOfflineWarning": "Quản lý đã chuyển ca trực của bạn sang Nghỉ ca và điều phối lại {count} cuộc hội thoại đang chờ.",
+      "forceOfflineWarning": "Quản lý {managerName} đã chuyển ca trực của bạn sang Nghỉ ca và điều phối lại {count} cuộc hội thoại đang chờ.",
       "receivedHandoverToast": "Bạn vừa nhận bàn giao {count} cuộc hội thoại cần hỗ trợ từ đồng nghiệp."
     },
     "permissionDenied": {
@@ -1304,7 +1308,18 @@
       "applyPresetBtn": "Áp dụng",
       "deletePresetBtn": "Xóa",
       "selectAllChannelsBtn": "Chọn tất cả kênh ({count})",
-      "presetSavedToast": "Đã lưu nhóm kênh gộp thành công"
+      "presetSavedToast": "Đã lưu nhóm kênh gộp thành công",
+      "openMergedConsoleBtn": "Mở bảng điều phối gộp trang (/chat/merged)",
+      "defaultPresetBadge": "Mặc định",
+      "setAsDefaultPresetLabel": "Đặt làm nhóm kênh gộp mặc định khi mở ca trực",
+      "refreshStreamBtn": "Làm mới luồng hội thoại",
+      "configureChannelsBtn": "Cấu hình kênh bán",
+      "repliedFilterTab": "Đã phản hồi",
+      "searchMergedPlaceholder": "Tìm khách hàng hoặc mã luồng xuyên suốt các trang...",
+      "emptyMergedStreamTitle": "Chưa có hội thoại nào trong các kênh đang chọn",
+      "emptyMergedStreamDesc": "Hãy chọn thêm kênh bán hàng trên thanh gộp trang hoặc gửi tin nhắn thử nghiệm từ trang cấu hình kênh.",
+      "marketplaceOrderBadge": "Có đơn sàn TMĐT",
+      "openConversationBtn": "Mở hội thoại"
     },
     "filters": {
       "all": "Tất cả",
@@ -1351,7 +1366,8 @@
     "tabs": {
       "connectedChannels": "Kênh bán hàng đã kết nối",
       "routingAndSla": "Quy tắc chia khách & thời gian phản hồi",
-      "webhookInspector": "Nhật ký đồng bộ & xử lý lỗi sự kiện"
+      "webhookInspector": "Nhật ký đồng bộ & xử lý lỗi sự kiện",
+      "marketplaceBridge": "Đồng bộ đơn sàn & giữ tồn kho"
     },
     "platforms": {
       "FACEBOOK_PAGE": "Facebook Fanpage",
@@ -1429,7 +1445,30 @@
     "replayWebhookBtn": "Chạy lại sự kiện",
     "replayedSuccessToast": "Đã chạy lại sự kiện đồng bộ thành công!",
     "emptyWebhookLogsTitle": "Chưa có sự kiện đồng bộ nào được ghi nhận",
-    "webhookLogSummary": "Loại sự kiện: {eventType} • Thời gian xử lý: {duration}ms • Số lần chạy lại: {replayed}"
+    "webhookLogSummary": "Loại sự kiện: {eventType} • Thời gian xử lý: {duration}ms • Số lần chạy lại: {replayed}",
+    "unreadBadgeCount": "{count} chờ trả lời",
+    "editChannelBtn": "Cấu hình",
+    "editChannelModalTitle": "Cập nhật cấu hình kênh & Meta CAPI Dataset",
+    "saveEditChannelBtn": "Lưu cập nhật kênh",
+    "newAccessTokenOptionalPlaceholder": "Để trống nếu giữ nguyên Access Token hiện tại...",
+    "channelActiveToggleLabel": "Kích hoạt nhận sự kiện Webhook thời gian thực cho kênh này",
+    "updatedChannelToast": "Đã cập nhật cấu hình kênh bán hàng thành công",
+    "ghostedAlertSecondsLabel": "Thời gian cảnh báo hội thoại đã xem nhưng bỏ quên (Giây)",
+    "safetyBufferStockQtyLabel": "Tồn kho đệm an toàn khi đồng bộ lên sàn TMĐT (Số lượng)",
+    "requireDepositOnHighRiskLabel": "Bắt buộc đặt cọc qua VietQR đối với khách hàng có cảnh báo rủi ro bom hàng cao",
+    "deductOnReturnedOrderLabel": "Tự động khấu trừ hoa hồng nhân viên nếu đơn hàng bị hoàn trả về kho",
+    "pushAvailableStockToMarketplaceLabel": "Tự động đẩy tồn kho khả dụng (availableQty) lên Shopee / TikTok Shop / Lazada",
+    "allWebhookStatusesFilter": "Tất cả sự kiện",
+    "inspectPayloadBtn": "Xem Payload",
+    "webhookPayloadModalTitle": "Chi tiết sự kiện Webhook & Dead-Letter Queue (T01)",
+    "webhookPayloadLabel": "Nội dung JSON Payload gốc từ nền tảng:",
+    "webhookErrorStackLabel": "Chi tiết lỗi xử lý (Error Stack):",
+    "marketplaceBridge": {
+      "title": "Đơn hàng Sàn TMĐT vừa đồng bộ & giữ chỗ tồn kho (Shopee / TikTok Shop / Lazada)",
+      "emptyTitle": "Chưa có đơn hàng sàn TMĐT nào đang giữ chỗ tồn kho",
+      "emptyDesc": "Khi có đơn hàng mới từ Shopee, TikTok Shop hoặc Lazada, hệ thống sẽ tự động quy chiếu SKU và giữ chỗ tồn kho tại đây.",
+      "openChatBtn": "Mở hội thoại đơn sàn"
+    }
   },
   "SettingsPermissions": {
     "title": "Phân quyền chi tiết & Giám sát ca trực",

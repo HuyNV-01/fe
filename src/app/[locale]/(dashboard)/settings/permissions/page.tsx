@@ -11,6 +11,9 @@ import {
   Search,
   Users,
   Sparkles,
+  Eye,
+  EyeOff,
+  Share2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
@@ -27,6 +30,7 @@ import {
   TruncatedText,
 } from "@/components/toolkit";
 import { MemberPermissionsCustomizeModal } from "@/components/iam/member-permissions-customize-modal";
+import { PermissionGate } from "@/components/iam/permission-gate";
 import { resolveEffectivePermissionsForMember } from "@/constant/permission-catalog";
 import {
   forceMemberOfflineApi,
@@ -94,15 +98,6 @@ export default function GranularPermissionsAndShiftPage() {
     setCustomizeModalOpen(true);
   };
 
-  const handleQuickCustomizeFromHeader = () => {
-    const firstCustomizable =
-      members.find((m) => m.role !== "SHOP_OWNER") || members[0] || null;
-    if (firstCustomizable) {
-      setSelectedMemberForModal(firstCustomizable);
-      setCustomizeModalOpen(true);
-    }
-  };
-
   const handleForceMemberOffline = async (member: any) => {
     if (!activeShopId) return;
     setForcingUserId(member.userId);
@@ -152,18 +147,24 @@ export default function GranularPermissionsAndShiftPage() {
               <TruncatedText>{tPerm("flsProtectionBadge")}</TruncatedText>
             </GlassBadge>
 
-            <PatternButton
-              type="button"
-              variant="solid"
-              color="primary"
-              size="sm"
-              rounded="full"
-              onClick={() => router.push(config.routes.private.settingsMembers)}
-              icon={<ArrowRight className="w-4 h-4" />}
-              iconPosition="right"
-            >
-              <TruncatedText>{tPerm("openMembersDirectoryBtn")}</TruncatedText>
-            </PatternButton>
+            <PermissionGate can="IAM_MEMBER_INVITE_MANAGE" mode="hide">
+              <PatternButton
+                type="button"
+                variant="solid"
+                color="primary"
+                size="sm"
+                rounded="full"
+                onClick={() =>
+                  router.push(config.routes.private.settingsMembers)
+                }
+                icon={<ArrowRight className="w-4 h-4" />}
+                iconPosition="right"
+              >
+                <TruncatedText>
+                  {tPerm("openMembersDirectoryBtn")}
+                </TruncatedText>
+              </PatternButton>
+            </PermissionGate>
           </div>
         }
       />
@@ -268,21 +269,26 @@ export default function GranularPermissionsAndShiftPage() {
 
                   <div className="flex items-center gap-2 flex-wrap shrink-0">
                     {(isOnline || isBusy) && !isOwner && (
-                      <PatternButton
-                        type="button"
-                        variant="glass"
-                        color="danger"
-                        size="sm"
-                        rounded="full"
-                        isLoading={forcingUserId === m.userId}
-                        onClick={() => handleForceMemberOffline(m)}
-                        icon={<PowerOff className="w-3.5 h-3.5" />}
-                        iconPosition="left"
+                      <PermissionGate
+                        can="IAM_SHIFT_FORCE_HANDOVER"
+                        mode="disable"
                       >
-                        <TruncatedText>
-                          {tPerm("forceOfflineBtn")}
-                        </TruncatedText>
-                      </PatternButton>
+                        <PatternButton
+                          type="button"
+                          variant="glass"
+                          color="danger"
+                          size="sm"
+                          rounded="full"
+                          isLoading={forcingUserId === m.userId}
+                          onClick={() => handleForceMemberOffline(m)}
+                          icon={<PowerOff className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>
+                            {tPerm("forceOfflineBtn")}
+                          </TruncatedText>
+                        </PatternButton>
+                      </PermissionGate>
                     )}
                   </div>
                 </div>
@@ -304,6 +310,15 @@ export default function GranularPermissionsAndShiftPage() {
               0,
               effectivePerms.length - previewPerms.length,
             );
+            const canSeeCost =
+              isOwner ||
+              effectivePerms.includes("CATALOG_COST_PRICE_VIEW") ||
+              effectivePerms.includes("FINANCE_PNL_STATEMENT_VIEW");
+            const canUnmaskPhone =
+              isOwner || effectivePerms.includes("CRM_PHONE_UNMASK");
+            const allowedChannelsCount = Array.isArray(m.allowedChannelIdsJson)
+              ? m.allowedChannelIdsJson.length
+              : 0;
 
             return (
               <GlassSurfaceCard key={m.id} className="p-4">
@@ -342,6 +357,48 @@ export default function GranularPermissionsAndShiftPage() {
                                     count: permCount,
                                   })}
                             </TruncatedText>
+                          </GlassBadge>
+
+                          <GlassBadge
+                            variant={canSeeCost ? "success" : "secondary"}
+                            size="sm"
+                          >
+                            {canSeeCost ? (
+                              <Eye className="w-3 h-3 mr-1 inline shrink-0" />
+                            ) : (
+                              <EyeOff className="w-3 h-3 mr-1 inline shrink-0" />
+                            )}
+                            <span>
+                              {canSeeCost
+                                ? tIam("membersPage.fieldSecurityCostOn")
+                                : tIam("membersPage.fieldSecurityCostOff")}
+                            </span>
+                          </GlassBadge>
+
+                          <GlassBadge
+                            variant={canUnmaskPhone ? "info" : "secondary"}
+                            size="sm"
+                          >
+                            <Lock className="w-3 h-3 mr-1 inline shrink-0" />
+                            <span>
+                              {canUnmaskPhone
+                                ? tIam("membersPage.fieldSecurityPhoneOn")
+                                : tIam("membersPage.fieldSecurityPhoneOff")}
+                            </span>
+                          </GlassBadge>
+
+                          <GlassBadge variant="secondary" size="sm">
+                            <Share2 className="w-3 h-3 mr-1 inline shrink-0" />
+                            <span>
+                              {allowedChannelsCount === 0
+                                ? tIam("membersPage.allChannelsAllowedBadge")
+                                : tIam(
+                                    "membersPage.selectedChannelsCountBadge",
+                                    {
+                                      count: allowedChannelsCount,
+                                    },
+                                  )}
+                            </span>
                           </GlassBadge>
                         </div>
                         <TruncatedText
@@ -389,20 +446,28 @@ export default function GranularPermissionsAndShiftPage() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <PatternButton
-                      type="button"
-                      variant={isOwner ? "ghost" : "solid"}
-                      color="primary"
-                      size="sm"
-                      rounded="full"
-                      onClick={() => handleOpenCustomizeModal(m)}
-                      icon={<Sliders className="w-3.5 h-3.5" />}
-                      iconPosition="left"
+                    <PermissionGate
+                      can={[
+                        "IAM_ROLE_MATRIX_CONFIGURE",
+                        "IAM_MEMBER_INVITE_MANAGE",
+                      ]}
+                      mode="disable"
                     >
-                      <TruncatedText>
-                        {tPerm("customizeMemberBtn")}
-                      </TruncatedText>
-                    </PatternButton>
+                      <PatternButton
+                        type="button"
+                        variant={isOwner ? "ghost" : "solid"}
+                        color="primary"
+                        size="sm"
+                        rounded="full"
+                        onClick={() => handleOpenCustomizeModal(m)}
+                        icon={<Sliders className="w-3.5 h-3.5" />}
+                        iconPosition="left"
+                      >
+                        <TruncatedText>
+                          {tPerm("customizeMemberBtn")}
+                        </TruncatedText>
+                      </PatternButton>
+                    </PermissionGate>
                   </div>
                 </div>
               </GlassSurfaceCard>

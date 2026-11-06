@@ -14,6 +14,7 @@ import {
   PhoneCall,
   RotateCcw,
   Search,
+  Share2,
   Shield,
   ShieldCheck,
   Sparkles,
@@ -47,6 +48,7 @@ import {
   resolveEffectivePermissionsForMember,
   resolveRolePresetDefaults,
 } from "@/constant/permission-catalog";
+import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 import {
   type DataScopeType,
   type ShopRoleType,
@@ -98,6 +100,10 @@ export const MemberPermissionsCustomizeModal = ({
   const triggerMembersRefresh = usePermissionStore(
     (s) => s.triggerMembersRefresh,
   );
+  const channels = useChannelWorkspaceStore((s) => s.channels);
+  const fetchShopChannels = useChannelWorkspaceStore(
+    (s) => s.fetchShopChannels,
+  );
 
   const [role, setRole] = useState<ShopRoleType>("SALE_AGENT");
   const [dataScope, setDataScope] =
@@ -107,6 +113,7 @@ export const MemberPermissionsCustomizeModal = ({
     useState<number>(15);
   const [maxConcurrentChats, setMaxConcurrentChats] = useState<number>(25);
   const [customGrantedPerms, setCustomGrantedPerms] = useState<string[]>([]);
+  const [allowedChannelIds, setAllowedChannelIds] = useState<string[]>([]);
   const [initialSnapshot, setInitialSnapshot] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [activeGroupFilter, setActiveGroupFilter] = useState<
@@ -123,18 +130,28 @@ export const MemberPermissionsCustomizeModal = ({
   );
 
   useEffect(() => {
+    if (open && shopId && channels.length === 0) {
+      fetchShopChannels(shopId);
+    }
+  }, [open, shopId, channels.length, fetchShopChannels]);
+
+  useEffect(() => {
     if (!open || !member) return;
     const memberRole: ShopRoleType = member.role || "SALE_AGENT";
     const memberScope: DataScopeType = member.dataScope || "ASSIGNED_PLUS_POOL";
     const memberDiscount = Number(member.maxDiscountPercent ?? 5);
     const memberUnmask = Number(member.unmaskPhoneHourlyLimit ?? 15);
     const memberMaxChats = Number(member.maxConcurrentChats ?? 25);
+    const memberChannelIds = Array.isArray(member.allowedChannelIdsJson)
+      ? member.allowedChannelIdsJson
+      : [];
 
     setRole(memberRole);
     setDataScope(memberScope);
     setMaxDiscountPercent(memberDiscount);
     setUnmaskPhoneHourlyLimit(memberUnmask);
     setMaxConcurrentChats(memberMaxChats);
+    setAllowedChannelIds(memberChannelIds);
 
     const effectivePerms = resolveEffectivePermissionsForMember(
       member,
@@ -148,6 +165,7 @@ export const MemberPermissionsCustomizeModal = ({
         maxDiscountPercent: memberDiscount,
         unmaskPhoneHourlyLimit: memberUnmask,
         maxConcurrentChats: memberMaxChats,
+        allowedChannels: [...memberChannelIds].sort(),
         perms: [...effectivePerms].sort(),
       }),
     );
@@ -165,6 +183,7 @@ export const MemberPermissionsCustomizeModal = ({
       maxDiscountPercent: Number(maxDiscountPercent || 0),
       unmaskPhoneHourlyLimit: Number(unmaskPhoneHourlyLimit || 0),
       maxConcurrentChats: Number(maxConcurrentChats || 25),
+      allowedChannels: [...allowedChannelIds].sort(),
       perms: [...customGrantedPerms].sort(),
     });
     return currentSnap !== initialSnapshot;
@@ -176,6 +195,7 @@ export const MemberPermissionsCustomizeModal = ({
     maxDiscountPercent,
     unmaskPhoneHourlyLimit,
     maxConcurrentChats,
+    allowedChannelIds,
     customGrantedPerms,
   ]);
 
@@ -201,6 +221,7 @@ export const MemberPermissionsCustomizeModal = ({
     setDataScope(defaultScope);
     setMaxDiscountPercent(defaultDiscount);
     setUnmaskPhoneHourlyLimit(defaultUnmask);
+    setAllowedChannelIds([]);
 
     const presetPerms =
       rolePresets?.[targetRole]?.defaultPermissions ||
@@ -215,6 +236,15 @@ export const MemberPermissionsCustomizeModal = ({
       checked
         ? Array.from(new Set([...prev, code]))
         : prev.filter((c) => c !== code),
+    );
+  };
+
+  const handleToggleAllowedChannel = (channelId: string) => {
+    if (isOwner) return;
+    setAllowedChannelIds((prev) =>
+      prev.includes(channelId)
+        ? prev.filter((id) => id !== channelId)
+        : [...prev, channelId],
     );
   };
 
@@ -287,6 +317,7 @@ export const MemberPermissionsCustomizeModal = ({
         maxConcurrentChats: Math.max(1, Number(maxConcurrentChats || 25)),
         grantedPermissionsJson: customGrantedPerms,
         revokedPermissionsJson: revokedList,
+        allowedChannelIdsJson: allowedChannelIds,
       });
 
       triggerMembersRefresh();
@@ -354,7 +385,6 @@ export const MemberPermissionsCustomizeModal = ({
       size="full"
       footer={
         <div className="w-full pt-3.5 border-t border-border/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* Cụm bên trái Footer: Huy hiệu tiến độ quyền & nút Khôi phục mặc định */}
           <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
             <GlassBadge variant="primary" size="md" className="h-8 px-3">
               <Sparkles className="w-3.5 h-3.5 mr-1 inline shrink-0" />
@@ -396,7 +426,6 @@ export const MemberPermissionsCustomizeModal = ({
             )}
           </div>
 
-          {/* Cụm bên phải Footer: Nút Hủy bỏ & Lưu thiết lập đồng bộ kích thước */}
           <div className="flex items-center justify-end gap-2.5 shrink-0">
             <PatternButton
               type="button"
@@ -438,7 +467,6 @@ export const MemberPermissionsCustomizeModal = ({
         onSubmit={handleSubmit}
         className="space-y-4 px-3"
       >
-        {/* 1. Thanh thông tin nhân sự & chuyển nhanh nhân sự cần chỉnh quyền */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl border border-border/50 bg-muted/20">
           <div className="flex items-center gap-3 min-w-0">
             <GlassAvatar
@@ -506,7 +534,6 @@ export const MemberPermissionsCustomizeModal = ({
           )}
         </div>
 
-        {/* 2. Khối thiết lập Vai trò, Phạm vi dữ liệu & Hạn mức (Các tiêu đề và ô Input/Select căn thẳng hàng tuyệt đối trên cùng 1 hàng) */}
         {isOwner ? (
           <GlassAlert
             variant="info"
@@ -517,7 +544,6 @@ export const MemberPermissionsCustomizeModal = ({
           <FieldGroup>
             <FieldSet>
               <FieldGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3.5 gap-y-3 items-stretch">
-                {/* Ô 1: Vai trò công việc */}
                 <Field className="flex flex-col justify-between gap-1.5 h-full">
                   <FieldLabel className="w-full min-h-5 flex items-center text-xs font-semibold text-foreground">
                     <TruncatedText className="w-full">
@@ -551,7 +577,6 @@ export const MemberPermissionsCustomizeModal = ({
                   </Select>
                 </Field>
 
-                {/* Ô 2: Phạm vi truy cập dữ liệu */}
                 <Field className="flex flex-col justify-between gap-1.5 h-full">
                   <FieldLabel className="w-full min-h-5 flex items-center text-xs font-semibold text-foreground">
                     <TruncatedText className="w-full">
@@ -583,7 +608,6 @@ export const MemberPermissionsCustomizeModal = ({
                   </Select>
                 </Field>
 
-                {/* Ô 3: Hạn mức chiết khấu tối đa (%) */}
                 <Field className="flex flex-col justify-between gap-1.5 h-full">
                   <FieldLabel className="w-full min-h-5 flex items-center text-xs font-semibold text-foreground">
                     <TruncatedText className="w-full">
@@ -608,7 +632,6 @@ export const MemberPermissionsCustomizeModal = ({
                   </LiquidGlassInput>
                 </Field>
 
-                {/* Ô 4: Giới hạn mở xem SĐT (lượt/giờ) */}
                 <Field className="flex flex-col justify-between gap-1.5 h-full">
                   <FieldLabel className="w-full min-h-5 flex items-center text-xs font-semibold text-foreground">
                     <TruncatedText className="w-full">
@@ -632,7 +655,6 @@ export const MemberPermissionsCustomizeModal = ({
                   </LiquidGlassInput>
                 </Field>
 
-                {/* Ô 5: Hội thoại nhận tối đa cùng lúc */}
                 <Field className="flex flex-col justify-between gap-1.5 h-full">
                   <FieldLabel className="w-full min-h-5 flex items-center text-xs font-semibold text-foreground">
                     <TruncatedText className="w-full">
@@ -657,7 +679,6 @@ export const MemberPermissionsCustomizeModal = ({
                   </LiquidGlassInput>
                 </Field>
 
-                {/* Ô 6: Trạng thái bảo mật trường nhạy cảm (Giá vốn & SĐT) — Cân đối lưới 3x2 */}
                 <Field className="flex flex-col justify-between gap-1.5 h-full">
                   <FieldLabel className="w-full min-h-5 flex items-center text-xs font-semibold text-foreground">
                     <TruncatedText className="w-full">
@@ -725,10 +746,72 @@ export const MemberPermissionsCustomizeModal = ({
                 </Field>
               </FieldGroup>
             </FieldSet>
+
+            {/* Thiết lập Giới hạn Kênh bán hàng được phép trực (Allowed Channels Scope) */}
+            {channels.length > 0 && (
+              <div className="p-3 rounded-2xl border border-border/50 bg-muted/15 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-xs font-bold text-foreground">
+                      {t("membersPage.allowedChannelsScopeLabel")}
+                    </span>
+                    <GlassBadge variant="secondary" size="sm">
+                      {allowedChannelIds.length === 0
+                        ? t("membersPage.allChannelsAllowedBadge")
+                        : t("membersPage.selectedChannelsCountBadge", {
+                            count: allowedChannelIds.length,
+                          })}
+                    </GlassBadge>
+                  </div>
+                  {allowedChannelIds.length > 0 && (
+                    <PatternButton
+                      type="button"
+                      variant="ghost"
+                      color="primary"
+                      size="sm"
+                      rounded="full"
+                      onClick={() => setAllowedChannelIds([])}
+                      className="h-7 px-2.5 text-[11px]"
+                    >
+                      {t("membersPage.allowAllChannelsBtn")}
+                    </PatternButton>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {channels.map((ch) => {
+                    const isExplicitlySelected = allowedChannelIds.includes(
+                      ch.id,
+                    );
+                    const isAllMode = allowedChannelIds.length === 0;
+                    return (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => handleToggleAllowedChannel(ch.id)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer",
+                          isExplicitlySelected
+                            ? "border-primary bg-primary/15 text-primary font-semibold"
+                            : isAllMode
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                              : "border-border/50 bg-background/50 text-muted-foreground opacity-70 hover:opacity-100",
+                        )}
+                      >
+                        <span>{ch.pageShortCode}</span>
+                        <span className="text-[10px] opacity-75">
+                          ({ch.pageName})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </FieldGroup>
         )}
 
-        {/* 3. Thanh tìm kiếm & Thanh Tab GlassTabs (tích hợp sẵn ScrollArea + ScrollBar ngang của shadcn/ui) */}
         <div className="space-y-2.5 pt-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <span className="text-xs font-bold text-foreground">
@@ -769,7 +852,6 @@ export const MemberPermissionsCustomizeModal = ({
           />
         </div>
 
-        {/* 4. Danh sách 92 quyền cuộn dọc bằng ScrollArea + ScrollBar của shadcn/ui */}
         <ScrollArea className="h-72 sm:h-80 w-full rounded-2xl border border-border/50 p-2">
           {filteredGroups.length === 0 ? (
             <GlassEmptyState

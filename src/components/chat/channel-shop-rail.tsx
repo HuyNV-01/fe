@@ -1,4 +1,5 @@
-// File: src/components/chat/channel-shop-rail.tsx
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: <explanation> */
 "use client";
 
 import React, { useState } from "react";
@@ -11,9 +12,11 @@ import {
   Trash2,
   ArrowRight,
   Settings2,
+  LayoutGrid,
+  Star,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
 import { Input } from "@/components/ui/input";
 import {
   LiquidGlass,
@@ -26,6 +29,7 @@ import {
   BaseTooltip,
   TruncatedText,
 } from "@/components/toolkit";
+import { PermissionGate } from "@/components/iam/permission-gate";
 import {
   type ConnectedChannelItem,
   useChannelWorkspaceStore,
@@ -57,6 +61,7 @@ export const ChannelShopRail = ({
 }: ChannelShopRailProps) => {
   const t = useTranslations("OmnichannelInbox");
   const router = useRouter();
+  const pathname = usePathname();
 
   const savedPresets = usePermissionStore((s) => s.savedPageGroupPresets);
   const savePageGroupPresets = usePermissionStore(
@@ -67,11 +72,15 @@ export const ChannelShopRail = ({
 
   const [presetModalOpen, setPresetModalOpen] = useState(false);
   const [presetName, setPresetName] = useState("");
+  const [isDefaultPreset, setIsDefaultPreset] = useState(false);
   const [isSavingPreset, setIsSavingPreset] = useState(false);
 
   const totalUnread = channels.reduce(
     (acc, c) => acc + (c.unreadCount || 0),
     0,
+  );
+  const isOnMergedConsole = pathname?.includes(
+    config.routes.private.multiPageMergeChat,
   );
 
   const handleSaveNewPreset = async (e: React.FormEvent) => {
@@ -83,10 +92,15 @@ export const ChannelShopRail = ({
         presetId: `preset_${Date.now()}`,
         name: presetName.trim(),
         channelIntegrationIds: selectedChannelIds,
+        isDefault: isDefaultPreset,
       };
-      const updatedList = [...(savedPresets || []), nextPreset];
+      const baseList = isDefaultPreset
+        ? (savedPresets || []).map((p) => ({ ...p, isDefault: false }))
+        : savedPresets || [];
+      const updatedList = [...baseList, nextPreset];
       await savePageGroupPresets(updatedList);
       setPresetName("");
+      setIsDefaultPreset(false);
       showSuccessToast(t("mergeMode.presetSavedToast"));
     } finally {
       setIsSavingPreset(false);
@@ -109,40 +123,61 @@ export const ChannelShopRail = ({
         className="w-16 shrink-0 h-full py-3 flex flex-col items-center justify-between border-r border-border/40"
       >
         <div className="flex flex-col items-center gap-3 w-full">
-          <BaseTooltip
-            content={
-              isMergeMode
-                ? t("mergeMode.activePagesBadge", {
-                    count: selectedChannelIds.length,
-                  })
-                : t("mergeMode.singlePageBadge")
-            }
-          >
-            <button
-              type="button"
-              onClick={onSelectAllChannelsMerge}
-              className={cn(
-                "relative flex flex-col items-center justify-center w-11 h-11 rounded-2xl transition-all cursor-pointer",
+          <PermissionGate can="INBOX_MULTI_PAGE_MERGE" mode="disable">
+            <BaseTooltip
+              content={
                 isMergeMode
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "bg-muted/60 text-muted-foreground hover:text-foreground",
-              )}
+                  ? t("mergeMode.activePagesBadge", {
+                      count: selectedChannelIds.length,
+                    })
+                  : t("mergeMode.singlePageBadge")
+              }
             >
-              <Layers className="w-5 h-5" />
-              <span className="text-[9px] font-bold leading-none mt-0.5">
-                {selectedChannelIds.length}/{channels.length}
-              </span>
-              {totalUnread > 0 && (
-                <span className="absolute -top-1 -right-1 rounded-full bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.2">
-                  {totalUnread > 99 ? "99+" : totalUnread}
+              <button
+                type="button"
+                onClick={onSelectAllChannelsMerge}
+                className={cn(
+                  "relative flex flex-col items-center justify-center w-11 h-11 rounded-2xl transition-all cursor-pointer",
+                  isMergeMode
+                    ? "bg-primary text-primary-foreground shadow-md"
+                    : "bg-muted/60 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Layers className="w-5 h-5" />
+                <span className="text-[9px] font-bold leading-none mt-0.5">
+                  {selectedChannelIds.length}/{channels.length}
                 </span>
-              )}
-            </button>
-          </BaseTooltip>
+                {totalUnread > 0 && (
+                  <span className="absolute -top-1 -right-1 rounded-full bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.2">
+                    {totalUnread > 99 ? "99+" : totalUnread}
+                  </span>
+                )}
+              </button>
+            </BaseTooltip>
+          </PermissionGate>
+
+          <PermissionGate can="INBOX_MULTI_PAGE_MERGE" mode="hide">
+            <BaseTooltip content={t("mergeMode.openMergedConsoleBtn")}>
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(config.routes.private.multiPageMergeChat)
+                }
+                className={cn(
+                  "flex items-center justify-center w-9 h-9 rounded-xl transition-all cursor-pointer",
+                  isOnMergedConsole
+                    ? "bg-indigo-500 text-white shadow-sm"
+                    : "bg-muted/40 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </BaseTooltip>
+          </PermissionGate>
 
           <div className="w-8 h-px bg-border/60" />
 
-          <div className="flex flex-col items-center gap-2.5 overflow-y-auto max-h-[calc(100dvh-15rem)] px-1">
+          <div className="flex flex-col items-center gap-2.5 overflow-y-auto max-h-[calc(100dvh-18rem)] px-1">
             {channels.map((ch) => {
               const isSelected = selectedChannelIds.includes(ch.id);
               const hasTokenWarning = ch.webhookStatus !== "HEALTHY";
@@ -194,16 +229,23 @@ export const ChannelShopRail = ({
         </div>
 
         <div className="flex flex-col items-center gap-2">
-          <GlassIconButton
-            icon={<Plus className="w-4 h-4" />}
-            tooltip={t("mergeMode.savePresetBtn")}
-            onClick={() => setPresetModalOpen(true)}
-          />
-          <GlassIconButton
-            icon={<Settings2 className="w-4 h-4" />}
-            tooltip={t("mergeMode.title")}
-            onClick={() => router.push(config.routes.private.settingsChannels)}
-          />
+          <PermissionGate can="INBOX_MULTI_PAGE_MERGE" mode="hide">
+            <GlassIconButton
+              icon={<Plus className="w-4 h-4" />}
+              tooltip={t("mergeMode.savePresetBtn")}
+              onClick={() => setPresetModalOpen(true)}
+            />
+          </PermissionGate>
+
+          <PermissionGate can="CHANNEL_INTEGRATION_CONNECT" mode="hide">
+            <GlassIconButton
+              icon={<Settings2 className="w-4 h-4" />}
+              tooltip={t("mergeMode.title")}
+              onClick={() =>
+                router.push(config.routes.private.settingsChannels)
+              }
+            />
+          </PermissionGate>
         </div>
       </LiquidGlass>
 
@@ -214,21 +256,42 @@ export const ChannelShopRail = ({
         description={t("mergeMode.subtitle")}
         size="md"
         footer={
-          <PatternButton
-            type="submit"
-            form="save-merge-preset-form"
-            variant="solid"
-            color="primary"
-            size="md"
-            rounded={"full"}
-            fullWidth
-            isLoading={isSavingPreset}
-            disabled={!presetName.trim() || selectedChannelIds.length === 0}
-            icon={<ArrowRight className="w-4 h-4" />}
-            iconPosition="right"
-          >
-            <TruncatedText>{t("mergeMode.savePresetBtn")}</TruncatedText>
-          </PatternButton>
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+            <PatternButton
+              type="button"
+              variant="glass"
+              color="neutral"
+              size="md"
+              rounded={"full"}
+              fullWidth
+              onClick={() => {
+                setPresetModalOpen(false);
+                router.push(config.routes.private.multiPageMergeChat);
+              }}
+              icon={<LayoutGrid className="w-4 h-4" />}
+              iconPosition="left"
+            >
+              <TruncatedText>
+                {t("mergeMode.openMergedConsoleBtn")}
+              </TruncatedText>
+            </PatternButton>
+
+            <PatternButton
+              type="submit"
+              form="save-merge-preset-form"
+              variant="solid"
+              color="primary"
+              size="md"
+              rounded={"full"}
+              fullWidth
+              isLoading={isSavingPreset}
+              disabled={!presetName.trim() || selectedChannelIds.length === 0}
+              icon={<ArrowRight className="w-4 h-4" />}
+              iconPosition="right"
+            >
+              <TruncatedText>{t("mergeMode.savePresetBtn")}</TruncatedText>
+            </PatternButton>
+          </div>
         }
       >
         <div className="space-y-4">
@@ -333,6 +396,12 @@ export const ChannelShopRail = ({
                         <TruncatedText className="text-xs font-medium">
                           {preset.name} ({preset.channelIntegrationIds.length})
                         </TruncatedText>
+                        {preset.isDefault && (
+                          <GlassBadge variant="warning" size="sm">
+                            <Star className="w-2.5 h-2.5 mr-0.5 inline" />
+                            <span>{t("mergeMode.defaultPresetBadge")}</span>
+                          </GlassBadge>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <PatternButton
@@ -376,7 +445,7 @@ export const ChannelShopRail = ({
           <form
             id="save-merge-preset-form"
             onSubmit={handleSaveNewPreset}
-            className="pt-2 border-t border-border/40"
+            className="space-y-2.5 pt-2 border-t border-border/40"
           >
             <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
               <div className="flex items-center px-3.5 w-full h-full">
@@ -389,6 +458,25 @@ export const ChannelShopRail = ({
                 />
               </div>
             </LiquidGlassInput>
+
+            <button
+              type="button"
+              onClick={() => setIsDefaultPreset((prev) => !prev)}
+              className={cn(
+                "inline-flex items-center gap-1.5 text-xs font-medium cursor-pointer transition-colors",
+                isDefaultPreset
+                  ? "text-amber-500 font-semibold"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Star
+                className={cn(
+                  "w-3.5 h-3.5",
+                  isDefaultPreset && "fill-amber-500 text-amber-500",
+                )}
+              />
+              <span>{t("mergeMode.setAsDefaultPresetLabel")}</span>
+            </button>
           </form>
         </div>
       </GlassModal>

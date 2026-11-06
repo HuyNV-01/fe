@@ -16,8 +16,12 @@ import {
   Hash,
   Globe,
   ShoppingBag,
+  Pencil,
+  Eye,
+  CheckCircle2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Field, FieldGroup, FieldLabel, FieldSet } from "@/components/ui/field";
@@ -36,8 +40,11 @@ import {
   ItemSelect,
   Switch,
 } from "@/components/toolkit";
+import { PermissionGate } from "@/components/iam/permission-gate";
 import {
   type ChannelPlatformType,
+  type ChannelWebhookLogItem,
+  type ConnectedChannelItem,
   simulateOmnichannelWebhookApi,
 } from "@/lib/stores/channel/api";
 import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
@@ -47,11 +54,13 @@ import {
   updateWorkspaceSettingsApi,
 } from "@/lib/stores/iam/api";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
+import config from "@/config";
 import { showErrorToast, showInfoToast, showSuccessToast } from "@/utils/toast";
 
 type ChannelsTabMode =
   | "CONNECTED_CHANNELS"
   | "ROUTING_AND_SLA"
+  | "MARKETPLACE_BRIDGE"
   | "WEBHOOK_INSPECTOR";
 
 const CHANNEL_PLATFORMS: ChannelPlatformType[] = [
@@ -71,29 +80,51 @@ const ROUTING_STRATEGIES: RoutingStrategyType[] = [
   "AI_FIRST",
 ];
 
+const WEBHOOK_STATUS_FILTERS = [
+  "ALL",
+  "PROCESSED",
+  "DUPLICATE_SKIPPED",
+  "FAILED_DLQ",
+  "REPLAYED_SUCCESS",
+] as const;
+
 export default function OmnichannelSettingsPage() {
   const t = useTranslations("SettingsChannels");
+  const router = useRouter();
 
   const activeShopId = usePermissionStore((s) => s.activeShopId);
   const membersRefreshTick = usePermissionStore((s) => s.membersRefreshTick);
   const channels = useChannelWorkspaceStore((s) => s.channels);
   const webhookLogs = useChannelWorkspaceStore((s) => s.webhookLogs);
+  const marketplaceReservations = useChannelWorkspaceStore(
+    (s) => s.marketplaceReservations,
+  );
   const fetchShopChannels = useChannelWorkspaceStore(
     (s) => s.fetchShopChannels,
   );
   const connectChannelOAuth = useChannelWorkspaceStore(
     (s) => s.connectChannelOAuth,
   );
+  const updateChannelIntegration = useChannelWorkspaceStore(
+    (s) => s.updateChannelIntegration,
+  );
   const disconnectChannel = useChannelWorkspaceStore(
     (s) => s.disconnectChannel,
   );
   const runTokenDoctor = useChannelWorkspaceStore((s) => s.runTokenDoctor);
   const fetchWebhookLogs = useChannelWorkspaceStore((s) => s.fetchWebhookLogs);
+  const fetchMarketplaceReservations = useChannelWorkspaceStore(
+    (s) => s.fetchMarketplaceReservations,
+  );
   const replayWebhookLog = useChannelWorkspaceStore((s) => s.replayWebhookLog);
 
   const [activeTab, setActiveTab] =
     useState<ChannelsTabMode>("CONNECTED_CHANNELS");
   const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [editingChannel, setEditingChannel] =
+    useState<ConnectedChannelItem | null>(null);
+  const [inspectingLog, setInspectingLog] =
+    useState<ChannelWebhookLogItem | null>(null);
 
   const [channelType, setChannelType] =
     useState<ChannelPlatformType>("FACEBOOK_PAGE");
@@ -103,6 +134,18 @@ export default function OmnichannelSettingsPage() {
   const [accessToken, setAccessToken] = useState("");
   const [refreshToken, setRefreshToken] = useState("");
   const [metaDatasetId, setMetaDatasetId] = useState("");
+  const [capiAccessToken, setCapiAccessToken] = useState("");
+
+  const [editPageName, setEditPageName] = useState("");
+  const [editPageShortCode, setEditPageShortCode] = useState("");
+  const [editAccessToken, setEditAccessToken] = useState("");
+  const [editRefreshToken, setEditRefreshToken] = useState("");
+  const [editMetaDatasetId, setEditMetaDatasetId] = useState("");
+  const [editCapiAccessToken, setEditCapiAccessToken] = useState("");
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [isUpdatingChannel, setIsUpdatingChannel] = useState(false);
+
+  const [webhookStatusFilter, setWebhookStatusFilter] = useState<string>("ALL");
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRunningDoctor, setIsRunningDoctor] = useState(false);
@@ -118,11 +161,19 @@ export default function OmnichannelSettingsPage() {
   const [routingStrategy, setRoutingStrategy] =
     useState<RoutingStrategyType>("STICKY_AGENT");
   const [slaResponseSeconds, setSlaResponseSeconds] = useState<number>(180);
+  const [ghostedAlertSeconds, setGhostedAlertSeconds] = useState<number>(180);
   const [autoReclaimMinutes, setAutoReclaimMinutes] = useState<number>(5);
   const [leadCollectorWeight, setLeadCollectorWeight] = useState<number>(0.4);
   const [orderCloserWeight, setOrderCloserWeight] = useState<number>(0.6);
+  const [deductOnReturnedOrder, setDeductOnReturnedOrder] =
+    useState<boolean>(true);
   const [lockOrderAfterPrint, setLockOrderAfterPrint] = useState<boolean>(true);
+  const [requireDepositOnHighRisk, setRequireDepositOnHighRisk] =
+    useState<boolean>(true);
   const [autoReserveMarketplace, setAutoReserveMarketplace] =
+    useState<boolean>(true);
+  const [safetyBufferStockQty, setSafetyBufferStockQty] = useState<number>(2);
+  const [pushAvailableStockToMarketplace, setPushAvailableStockToMarketplace] =
     useState<boolean>(true);
   const [isSavingRouting, setIsSavingRouting] = useState(false);
 
@@ -134,8 +185,12 @@ export default function OmnichannelSettingsPage() {
       if (!data) return;
       setRoutingStrategy(data.routingStrategy || "STICKY_AGENT");
       setSlaResponseSeconds(Number(data.slaResponseSeconds || 180));
+      setGhostedAlertSeconds(Number(data.ghostedAlertSeconds || 180));
       setAutoReclaimMinutes(Number(data.autoReclaimMinutes || 5));
       setLockOrderAfterPrint(Boolean(data.lockOrderAfterPrint ?? true));
+      setRequireDepositOnHighRisk(
+        Boolean(data.requireDepositOnHighRisk ?? true),
+      );
       if (data.commissionSplitConfigJson) {
         setLeadCollectorWeight(
           Number(data.commissionSplitConfigJson.leadCollectorWeight ?? 0.4),
@@ -143,11 +198,23 @@ export default function OmnichannelSettingsPage() {
         setOrderCloserWeight(
           Number(data.commissionSplitConfigJson.orderCloserWeight ?? 0.6),
         );
+        setDeductOnReturnedOrder(
+          Boolean(data.commissionSplitConfigJson.deductOnReturnedOrder ?? true),
+        );
       }
       if (data.marketplaceSyncConfigJson) {
         setAutoReserveMarketplace(
           Boolean(
             data.marketplaceSyncConfigJson.autoReserveStockOnMarketplaceOrder ??
+              true,
+          ),
+        );
+        setSafetyBufferStockQty(
+          Number(data.marketplaceSyncConfigJson.safetyBufferStockQty ?? 2),
+        );
+        setPushAvailableStockToMarketplace(
+          Boolean(
+            data.marketplaceSyncConfigJson.pushAvailableStockToShopeeTikTok ??
               true,
           ),
         );
@@ -159,14 +226,54 @@ export default function OmnichannelSettingsPage() {
     if (!activeShopId) return;
     fetchShopChannels(activeShopId);
     loadWorkspaceSettings();
-    fetchWebhookLogs(activeShopId);
+    fetchWebhookLogs(activeShopId, {
+      processingStatus:
+        webhookStatusFilter === "ALL" ? undefined : webhookStatusFilter,
+    });
+    fetchMarketplaceReservations(activeShopId);
   }, [
     activeShopId,
     membersRefreshTick,
+    webhookStatusFilter,
     fetchShopChannels,
     loadWorkspaceSettings,
     fetchWebhookLogs,
+    fetchMarketplaceReservations,
   ]);
+
+  const handleOpenEditChannel = (ch: ConnectedChannelItem) => {
+    setEditingChannel(ch);
+    setEditPageName(ch.pageName);
+    setEditPageShortCode(ch.pageShortCode);
+    setEditAccessToken("");
+    setEditRefreshToken("");
+    setEditMetaDatasetId(ch.metaDatasetId || "");
+    setEditCapiAccessToken("");
+    setEditIsActive(ch.isActive);
+  };
+
+  const handleEditChannelSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeShopId || !editingChannel) return;
+    setIsUpdatingChannel(true);
+    try {
+      await updateChannelIntegration(activeShopId, editingChannel.id, {
+        pageName: editPageName.trim() || undefined,
+        pageShortCode: editPageShortCode.trim().toUpperCase() || undefined,
+        accessToken: editAccessToken.trim() || undefined,
+        refreshToken: editRefreshToken.trim() || undefined,
+        metaDatasetId: editMetaDatasetId.trim() || undefined,
+        capiAccessToken: editCapiAccessToken.trim() || undefined,
+        isActive: editIsActive,
+      });
+      setEditingChannel(null);
+      showSuccessToast(t("updatedChannelToast"));
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setIsUpdatingChannel(false);
+    }
+  };
 
   const handleConnectChannelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,6 +297,7 @@ export default function OmnichannelSettingsPage() {
         accessToken: accessToken.trim(),
         refreshToken: refreshToken.trim() || undefined,
         metaDatasetId: metaDatasetId.trim() || undefined,
+        capiAccessToken: capiAccessToken.trim() || undefined,
       });
       setConnectModalOpen(false);
       setPageName("");
@@ -198,6 +306,7 @@ export default function OmnichannelSettingsPage() {
       setAccessToken("");
       setRefreshToken("");
       setMetaDatasetId("");
+      setCapiAccessToken("");
       showSuccessToast(t("connectedSuccessToast", { name: pageName.trim() }));
     } catch (err: any) {
       showErrorToast(err?.response?.data?.message || "Failed");
@@ -231,7 +340,7 @@ export default function OmnichannelSettingsPage() {
     }
   };
 
-  const handleSimulateWebhook = async (ch: any) => {
+  const handleSimulateWebhook = async (ch: ConnectedChannelItem) => {
     if (!activeShopId) return;
     setSimulatingChannelId(ch.id);
     try {
@@ -252,7 +361,7 @@ export default function OmnichannelSettingsPage() {
     }
   };
 
-  const handleSimulateMarketplaceOrder = async (ch: any) => {
+  const handleSimulateMarketplaceOrder = async (ch: ConnectedChannelItem) => {
     if (!activeShopId) return;
     setSimulatingOrderChannelId(ch.id);
     try {
@@ -276,6 +385,7 @@ export default function OmnichannelSettingsPage() {
       });
       await fetchShopChannels(activeShopId);
       await fetchWebhookLogs(activeShopId);
+      await fetchMarketplaceReservations(activeShopId);
       showSuccessToast(t("simulatedMarketplaceOrderToast"));
     } catch (err: any) {
       showErrorToast(err?.response?.data?.message || "Failed");
@@ -305,11 +415,16 @@ export default function OmnichannelSettingsPage() {
       await updateWorkspaceSettingsApi(activeShopId, {
         routingStrategy,
         slaResponseSeconds,
+        ghostedAlertSeconds,
         autoReclaimMinutes,
         leadCollectorWeight,
         orderCloserWeight,
+        deductOnReturnedOrder,
         lockOrderAfterPrint,
+        requireDepositOnHighRisk,
         autoReserveStockOnMarketplaceOrder: autoReserveMarketplace,
+        safetyBufferStockQty,
+        pushAvailableStockToShopeeTikTok: pushAvailableStockToMarketplace,
       });
       showSuccessToast(t("savedRoutingToast"));
     } catch (err: any) {
@@ -340,32 +455,36 @@ export default function OmnichannelSettingsPage() {
         subtitle={<TruncatedText as="span">{t("subtitle")}</TruncatedText>}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
-            <PatternButton
-              type="button"
-              variant="glass"
-              color="info"
-              size="sm"
-              rounded="full"
-              isLoading={isRunningDoctor}
-              onClick={handleRunTokenDoctor}
-              icon={<RefreshCw className="w-3.5 h-3.5" />}
-              iconPosition="left"
-            >
-              <TruncatedText>{t("runTokenDoctorBtn")}</TruncatedText>
-            </PatternButton>
+            <PermissionGate can="CHANNEL_INTEGRATION_CONNECT" mode="disable">
+              <PatternButton
+                type="button"
+                variant="glass"
+                color="info"
+                size="sm"
+                rounded="full"
+                isLoading={isRunningDoctor}
+                onClick={handleRunTokenDoctor}
+                icon={<RefreshCw className="w-3.5 h-3.5" />}
+                iconPosition="left"
+              >
+                <TruncatedText>{t("runTokenDoctorBtn")}</TruncatedText>
+              </PatternButton>
+            </PermissionGate>
 
-            <PatternButton
-              type="button"
-              variant="solid"
-              color="primary"
-              size="sm"
-              rounded="full"
-              onClick={() => setConnectModalOpen(true)}
-              icon={<Plus className="w-4 h-4" />}
-              iconPosition="left"
-            >
-              <TruncatedText>{t("connectNewChannelBtn")}</TruncatedText>
-            </PatternButton>
+            <PermissionGate can="CHANNEL_INTEGRATION_CONNECT" mode="disable">
+              <PatternButton
+                type="button"
+                variant="solid"
+                color="primary"
+                size="sm"
+                rounded="full"
+                onClick={() => setConnectModalOpen(true)}
+                icon={<Plus className="w-4 h-4" />}
+                iconPosition="left"
+              >
+                <TruncatedText>{t("connectNewChannelBtn")}</TruncatedText>
+              </PatternButton>
+            </PermissionGate>
           </div>
         }
       />
@@ -384,6 +503,11 @@ export default function OmnichannelSettingsPage() {
             label: <TruncatedText>{t("tabs.routingAndSla")}</TruncatedText>,
           },
           {
+            key: "MARKETPLACE_BRIDGE",
+            label: <TruncatedText>{t("tabs.marketplaceBridge")}</TruncatedText>,
+            badge: marketplaceReservations.length,
+          },
+          {
             key: "WEBHOOK_INSPECTOR",
             label: <TruncatedText>{t("tabs.webhookInspector")}</TruncatedText>,
             badge: webhookLogs.length,
@@ -399,18 +523,23 @@ export default function OmnichannelSettingsPage() {
               title={<TruncatedText>{t("emptyChannelsTitle")}</TruncatedText>}
               description={t("emptyChannelsDesc")}
               action={
-                <PatternButton
-                  type="button"
-                  variant="solid"
-                  color="primary"
-                  size="md"
-                  rounded="full"
-                  onClick={() => setConnectModalOpen(true)}
-                  icon={<ArrowRight className="w-4 h-4" />}
-                  iconPosition="right"
+                <PermissionGate
+                  can="CHANNEL_INTEGRATION_CONNECT"
+                  mode="disable"
                 >
-                  <TruncatedText>{t("connectNewChannelBtn")}</TruncatedText>
-                </PatternButton>
+                  <PatternButton
+                    type="button"
+                    variant="solid"
+                    color="primary"
+                    size="md"
+                    rounded="full"
+                    onClick={() => setConnectModalOpen(true)}
+                    icon={<ArrowRight className="w-4 h-4" />}
+                    iconPosition="right"
+                  >
+                    <TruncatedText>{t("connectNewChannelBtn")}</TruncatedText>
+                  </PatternButton>
+                </PermissionGate>
               }
             />
           ) : (
@@ -455,6 +584,13 @@ export default function OmnichannelSettingsPage() {
                               {t(`webhookStatuses.${ch.webhookStatus}`)}
                             </TruncatedText>
                           </GlassBadge>
+                          {ch.unreadCount > 0 && (
+                            <GlassBadge variant="danger" size="sm">
+                              {t("unreadBadgeCount", {
+                                count: ch.unreadCount,
+                              })}
+                            </GlassBadge>
+                          )}
                         </div>
                         <TruncatedText
                           as="p"
@@ -502,19 +638,42 @@ export default function OmnichannelSettingsPage() {
                         </PatternButton>
                       )}
 
-                      <PatternButton
-                        type="button"
-                        variant="ghost"
-                        color="danger"
-                        size="sm"
-                        rounded="full"
-                        isLoading={disconnectingId === ch.id}
-                        onClick={() => handleDisconnectChannel(ch.id)}
-                        icon={<Trash2 className="w-3.5 h-3.5" />}
-                        iconPosition="left"
+                      <PermissionGate
+                        can="CHANNEL_INTEGRATION_CONNECT"
+                        mode="hide"
                       >
-                        <TruncatedText>{t("disconnectBtn")}</TruncatedText>
-                      </PatternButton>
+                        <PatternButton
+                          type="button"
+                          variant="ghost"
+                          color="neutral"
+                          size="sm"
+                          rounded="full"
+                          onClick={() => handleOpenEditChannel(ch)}
+                          icon={<Pencil className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>{t("editChannelBtn")}</TruncatedText>
+                        </PatternButton>
+                      </PermissionGate>
+
+                      <PermissionGate
+                        can="CHANNEL_INTEGRATION_CONNECT"
+                        mode="hide"
+                      >
+                        <PatternButton
+                          type="button"
+                          variant="ghost"
+                          color="danger"
+                          size="sm"
+                          rounded="full"
+                          isLoading={disconnectingId === ch.id}
+                          onClick={() => handleDisconnectChannel(ch.id)}
+                          icon={<Trash2 className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>{t("disconnectBtn")}</TruncatedText>
+                        </PatternButton>
+                      </PermissionGate>
                     </div>
                   </div>
                 </GlassSurfaceCard>
@@ -537,20 +696,29 @@ export default function OmnichannelSettingsPage() {
             </div>
           }
           footer={
-            <PatternButton
-              type="submit"
-              form="workspace-routing-form"
-              variant="solid"
-              color="primary"
-              size="md"
-              rounded="full"
-              fullWidth
-              isLoading={isSavingRouting}
-              icon={<ArrowRight className="w-4 h-4" />}
-              iconPosition="right"
+            <PermissionGate
+              can={[
+                "WORKSPACE_SETTINGS_MANAGE",
+                "INBOX_ROUTING_RULES_CONFIGURE",
+                "INBOX_SLA_CONFIG_MANAGE",
+              ]}
+              mode="disable"
             >
-              <TruncatedText>{t("saveRoutingConfigBtn")}</TruncatedText>
-            </PatternButton>
+              <PatternButton
+                type="submit"
+                form="workspace-routing-form"
+                variant="solid"
+                color="primary"
+                size="md"
+                rounded="full"
+                fullWidth
+                isLoading={isSavingRouting}
+                icon={<ArrowRight className="w-4 h-4" />}
+                iconPosition="right"
+              >
+                <TruncatedText>{t("saveRoutingConfigBtn")}</TruncatedText>
+              </PatternButton>
+            </PermissionGate>
           }
         >
           <form
@@ -559,8 +727,8 @@ export default function OmnichannelSettingsPage() {
           >
             <FieldGroup>
               <FieldSet>
-                <FieldGroup className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field className="sm:col-span-2">
+                <FieldGroup className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Field className="sm:col-span-3">
                     <FieldLabel>
                       <TruncatedText>{t("routingStrategyLabel")}</TruncatedText>
                     </FieldLabel>
@@ -604,6 +772,29 @@ export default function OmnichannelSettingsPage() {
                           value={String(slaResponseSeconds)}
                           onChange={(e) =>
                             setSlaResponseSeconds(Number(e.target.value || 180))
+                          }
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>
+                        {t("ghostedAlertSecondsLabel")}
+                      </TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          type="number"
+                          min={15}
+                          value={String(ghostedAlertSeconds)}
+                          onChange={(e) =>
+                            setGhostedAlertSeconds(
+                              Number(e.target.value || 180),
+                            )
                           }
                           className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
                         />
@@ -680,7 +871,28 @@ export default function OmnichannelSettingsPage() {
                     </LiquidGlassInput>
                   </Field>
 
-                  <div className="sm:col-span-2 space-y-3 pt-2">
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>
+                        {t("safetyBufferStockQtyLabel")}
+                      </TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={String(safetyBufferStockQty)}
+                          onChange={(e) =>
+                            setSafetyBufferStockQty(Number(e.target.value || 0))
+                          }
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+
+                  <div className="sm:col-span-3 space-y-2.5 pt-2">
                     <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
                       <TruncatedText className="text-xs sm:text-sm font-medium">
                         {t("lockOrderAfterPrintLabel")}
@@ -693,11 +905,41 @@ export default function OmnichannelSettingsPage() {
 
                     <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
                       <TruncatedText className="text-xs sm:text-sm font-medium">
+                        {t("requireDepositOnHighRiskLabel")}
+                      </TruncatedText>
+                      <Switch
+                        checked={requireDepositOnHighRisk}
+                        onCheckedChange={setRequireDepositOnHighRisk}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
+                      <TruncatedText className="text-xs sm:text-sm font-medium">
+                        {t("deductOnReturnedOrderLabel")}
+                      </TruncatedText>
+                      <Switch
+                        checked={deductOnReturnedOrder}
+                        onCheckedChange={setDeductOnReturnedOrder}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
+                      <TruncatedText className="text-xs sm:text-sm font-medium">
                         {t("autoReserveMarketplaceLabel")}
                       </TruncatedText>
                       <Switch
                         checked={autoReserveMarketplace}
                         onCheckedChange={setAutoReserveMarketplace}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
+                      <TruncatedText className="text-xs sm:text-sm font-medium">
+                        {t("pushAvailableStockToMarketplaceLabel")}
+                      </TruncatedText>
+                      <Switch
+                        checked={pushAvailableStockToMarketplace}
+                        onCheckedChange={setPushAvailableStockToMarketplace}
                       />
                     </div>
                   </div>
@@ -708,8 +950,90 @@ export default function OmnichannelSettingsPage() {
         </GlassSurfaceCard>
       )}
 
+      {activeTab === "MARKETPLACE_BRIDGE" && (
+        <div className="space-y-3">
+          {marketplaceReservations.length === 0 ? (
+            <GlassEmptyState
+              icon={<ShoppingBag className="w-6 h-6" />}
+              title={
+                <TruncatedText>
+                  {t("marketplaceBridge.emptyTitle")}
+                </TruncatedText>
+              }
+              description={t("marketplaceBridge.emptyDesc")}
+            />
+          ) : (
+            marketplaceReservations.map((res) => (
+              <GlassSurfaceCard key={res.orderSn} className="p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="min-w-0 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm">#{res.orderSn}</span>
+                      <GlassBadge variant="primary" size="sm">
+                        {res.pageShortCode}
+                      </GlassBadge>
+                      <GlassBadge variant="success" size="sm" dot>
+                        {res.orderStatus}
+                      </GlassBadge>
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                        {Number(res.totalAmount || 0).toLocaleString("vi-VN")}đ
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {res.buyerUsername} •{" "}
+                      {res.items
+                        .map(
+                          (it) =>
+                            `${it.itemName} x${it.quantity} (${it.externalItemId} ↔ ${it.mappedVariantId})`,
+                        )
+                        .join(" | ")}
+                    </p>
+                  </div>
+
+                  {res.conversationId && (
+                    <PatternButton
+                      type="button"
+                      variant="glass"
+                      color="primary"
+                      size="sm"
+                      rounded="full"
+                      onClick={() =>
+                        router.push(
+                          config.routes.private.detailChat(res.conversationId!),
+                        )
+                      }
+                      icon={<ArrowRight className="w-3.5 h-3.5" />}
+                      iconPosition="right"
+                    >
+                      <TruncatedText>
+                        {t("marketplaceBridge.openChatBtn")}
+                      </TruncatedText>
+                    </PatternButton>
+                  )}
+                </div>
+              </GlassSurfaceCard>
+            ))
+          )}
+        </div>
+      )}
+
       {activeTab === "WEBHOOK_INSPECTOR" && (
         <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <GlassTabs
+              size="sm"
+              value={webhookStatusFilter}
+              onValueChange={setWebhookStatusFilter}
+              items={WEBHOOK_STATUS_FILTERS.map((st) => ({
+                key: st,
+                label:
+                  st === "ALL"
+                    ? t("allWebhookStatusesFilter")
+                    : t(`processingStatuses.${st}`),
+              }))}
+            />
+          </div>
+
           {webhookLogs.length === 0 ? (
             <GlassEmptyState
               icon={<Activity className="w-6 h-6" />}
@@ -761,19 +1085,39 @@ export default function OmnichannelSettingsPage() {
                     </TruncatedText>
                   </div>
 
-                  <PatternButton
-                    type="button"
-                    variant="glass"
-                    color="primary"
-                    size="sm"
-                    rounded="full"
-                    isLoading={replayingLogId === log.id}
-                    onClick={() => handleReplayWebhook(log.id)}
-                    icon={<RotateCcw className="w-3.5 h-3.5" />}
-                    iconPosition="left"
-                  >
-                    <TruncatedText>{t("replayWebhookBtn")}</TruncatedText>
-                  </PatternButton>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <PatternButton
+                      type="button"
+                      variant="ghost"
+                      color="neutral"
+                      size="sm"
+                      rounded="full"
+                      onClick={() => setInspectingLog(log)}
+                      icon={<Eye className="w-3.5 h-3.5" />}
+                      iconPosition="left"
+                    >
+                      <TruncatedText>{t("inspectPayloadBtn")}</TruncatedText>
+                    </PatternButton>
+
+                    <PermissionGate
+                      can="CHANNEL_WEBHOOK_INSPECT_REPLAY"
+                      mode="disable"
+                    >
+                      <PatternButton
+                        type="button"
+                        variant="glass"
+                        color="primary"
+                        size="sm"
+                        rounded="full"
+                        isLoading={replayingLogId === log.id}
+                        onClick={() => handleReplayWebhook(log.id)}
+                        icon={<RotateCcw className="w-3.5 h-3.5" />}
+                        iconPosition="left"
+                      >
+                        <TruncatedText>{t("replayWebhookBtn")}</TruncatedText>
+                      </PatternButton>
+                    </PermissionGate>
+                  </div>
                 </div>
               </GlassSurfaceCard>
             ))
@@ -781,6 +1125,7 @@ export default function OmnichannelSettingsPage() {
         </div>
       )}
 
+      {/* Modal Kết nối Kênh mới */}
       <GlassModal
         open={connectModalOpen}
         onOpenChange={setConnectModalOpen}
@@ -809,6 +1154,7 @@ export default function OmnichannelSettingsPage() {
         <form
           id="connect-channel-oauth-form"
           onSubmit={handleConnectChannelSubmit}
+          className="p-2"
         >
           <FieldGroup>
             <FieldSet>
@@ -952,6 +1298,160 @@ export default function OmnichannelSettingsPage() {
             </FieldSet>
           </FieldGroup>
         </form>
+      </GlassModal>
+
+      {/* Modal Chỉnh sửa Kênh tích hợp (PATCH /channels/:shopId/:channelId) */}
+      <GlassModal
+        open={Boolean(editingChannel)}
+        onOpenChange={(open) => {
+          if (!open) setEditingChannel(null);
+        }}
+        title={
+          <TruncatedText as="span">{t("editChannelModalTitle")}</TruncatedText>
+        }
+        description={editingChannel?.pageName}
+        size="md"
+        footer={
+          <PatternButton
+            type="submit"
+            form="edit-channel-integration-form"
+            variant="solid"
+            color="primary"
+            size="md"
+            rounded="full"
+            fullWidth
+            isLoading={isUpdatingChannel}
+            icon={<CheckCircle2 className="w-4 h-4" />}
+            iconPosition="left"
+          >
+            <TruncatedText>{t("saveEditChannelBtn")}</TruncatedText>
+          </PatternButton>
+        }
+      >
+        <form
+          id="edit-channel-integration-form"
+          onSubmit={handleEditChannelSubmit}
+        >
+          <FieldGroup>
+            <FieldSet>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel>
+                    <TruncatedText>{t("pageNameLabel")}</TruncatedText>
+                  </FieldLabel>
+                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                    <div className="flex items-center px-3.5 w-full h-full">
+                      <Input
+                        required
+                        value={editPageName}
+                        onChange={(e) => setEditPageName(e.target.value)}
+                        className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                      />
+                    </div>
+                  </LiquidGlassInput>
+                </Field>
+
+                <Field>
+                  <FieldLabel>
+                    <TruncatedText>{t("pageShortCodeLabel")}</TruncatedText>
+                  </FieldLabel>
+                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                    <div className="flex items-center px-3.5 w-full h-full">
+                      <Input
+                        required
+                        value={editPageShortCode}
+                        onChange={(e) => setEditPageShortCode(e.target.value)}
+                        className="flex h-full w-full py-2 text-sm uppercase bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                      />
+                    </div>
+                  </LiquidGlassInput>
+                </Field>
+
+                <Field>
+                  <FieldLabel>
+                    <TruncatedText>{t("accessTokenLabel")}</TruncatedText>
+                  </FieldLabel>
+                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                    <div className="flex items-center px-3.5 w-full h-full">
+                      <Input
+                        type="password"
+                        value={editAccessToken}
+                        onChange={(e) => setEditAccessToken(e.target.value)}
+                        placeholder={t("newAccessTokenOptionalPlaceholder")}
+                        className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                      />
+                    </div>
+                  </LiquidGlassInput>
+                </Field>
+
+                <Field>
+                  <FieldLabel>
+                    <TruncatedText>{t("metaDatasetIdLabel")}</TruncatedText>
+                  </FieldLabel>
+                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                    <div className="flex items-center px-3.5 w-full h-full">
+                      <Input
+                        value={editMetaDatasetId}
+                        onChange={(e) => setEditMetaDatasetId(e.target.value)}
+                        placeholder={t("metaDatasetIdPlaceholder")}
+                        className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                      />
+                    </div>
+                  </LiquidGlassInput>
+                </Field>
+
+                <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
+                  <TruncatedText className="text-xs sm:text-sm font-medium">
+                    {t("channelActiveToggleLabel")}
+                  </TruncatedText>
+                  <Switch
+                    checked={editIsActive}
+                    onCheckedChange={setEditIsActive}
+                  />
+                </div>
+              </FieldGroup>
+            </FieldSet>
+          </FieldGroup>
+        </form>
+      </GlassModal>
+
+      {/* Modal T01: Xem chi tiết Payload & Error Stack của Webhook */}
+      <GlassModal
+        open={Boolean(inspectingLog)}
+        onOpenChange={(open) => {
+          if (!open) setInspectingLog(null);
+        }}
+        title={
+          <TruncatedText as="span">
+            {t("webhookPayloadModalTitle")}
+          </TruncatedText>
+        }
+        description={inspectingLog?.idempotencyKey}
+        size="lg"
+      >
+        {inspectingLog && (
+          <div className="space-y-3 text-xs">
+            <div className="p-3 rounded-xl border border-border/50 bg-muted/30 space-y-1">
+              <p className="font-bold text-foreground">
+                {t("webhookPayloadLabel")}
+              </p>
+              <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-muted-foreground max-h-60">
+                {JSON.stringify(inspectingLog.rawPayloadJson || {}, null, 2)}
+              </pre>
+            </div>
+
+            {inspectingLog.errorStack && (
+              <div className="p-3 rounded-xl border border-red-500/40 bg-red-500/10 space-y-1">
+                <p className="font-bold text-red-500">
+                  {t("webhookErrorStackLabel")}
+                </p>
+                <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-red-400 max-h-40">
+                  {inspectingLog.errorStack}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
       </GlassModal>
     </div>
   );

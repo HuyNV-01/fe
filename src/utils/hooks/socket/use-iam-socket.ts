@@ -133,6 +133,7 @@ export const useIamSocket = () => {
         });
         showWarningToast(
           tStore("ShiftAndIam.handoverModal.forceOfflineWarning", {
+            managerName: payload?.forcedByManagerName || "Quản lý",
             count: payload?.reassignedConversationCount || 0,
           }),
           {

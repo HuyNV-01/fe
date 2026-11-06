@@ -5,17 +5,24 @@ import {
   type ChannelWebhookLogItem,
   type ConnectedChannelItem,
   connectChannelOAuthApi,
+  getMarketplaceReservationsApi,
+  getMergedInboxConversationsApi,
   getWebhookLogsApi,
   listShopChannelsApi,
+  type MarketplaceStockReservationItem,
+  type MergedOmnichannelConversationItem,
   removeChannelIntegrationApi,
   replayFailedWebhookApi,
   runTokenDoctorHealthCheckApi,
+  updateChannelIntegrationApi,
 } from "./api";
 
 export type {
   ChannelPlatformType,
   ChannelWebhookLogItem,
   ConnectedChannelItem,
+  MarketplaceStockReservationItem,
+  MergedOmnichannelConversationItem,
 };
 
 export interface ChannelWorkspaceStoreState {
@@ -24,22 +31,41 @@ export interface ChannelWorkspaceStoreState {
   isMergeMode: boolean;
   activePresetId: string | null;
   webhookLogs: ChannelWebhookLogItem[];
+  mergedConversations: MergedOmnichannelConversationItem[];
+  mergedTotal: number;
+  marketplaceReservations: MarketplaceStockReservationItem[];
   isLoadingChannels: boolean;
   isLoadingWebhookLogs: boolean;
+  isLoadingMergedInbox: boolean;
+  isLoadingMarketplaceReservations: boolean;
 
   fetchShopChannels: (shopId: string) => Promise<void>;
   connectChannelOAuth: (
     shopId: string,
     payload: {
       channelType: ChannelPlatformType;
-      externalPageId: string;
+      externalPageId?: string;
       externalShopId?: string;
-      pageName: string;
+      pageName?: string;
       pageShortCode: string;
-      accessToken: string;
+      oauthCode?: string;
+      accessToken?: string;
       refreshToken?: string;
       metaDatasetId?: string;
       capiAccessToken?: string;
+    },
+  ) => Promise<boolean>;
+  updateChannelIntegration: (
+    shopId: string,
+    channelId: string,
+    payload: {
+      pageName?: string;
+      pageShortCode?: string;
+      accessToken?: string;
+      refreshToken?: string;
+      metaDatasetId?: string;
+      capiAccessToken?: string;
+      isActive?: boolean;
     },
   ) => Promise<boolean>;
   disconnectChannel: (shopId: string, channelId: string) => Promise<boolean>;
@@ -56,6 +82,17 @@ export interface ChannelWorkspaceStoreState {
       processingStatus?: string;
     },
   ) => Promise<void>;
+  fetchMergedConversations: (
+    shopId: string,
+    params?: {
+      channelIds?: string[];
+      supportStatus?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) => Promise<void>;
+  fetchMarketplaceReservations: (shopId: string) => Promise<void>;
   replayWebhookLog: (shopId: string, logId: string) => Promise<boolean>;
   selectSingleChannel: (channelId: string) => void;
   toggleMergeChannel: (channelId: string) => void;
@@ -71,8 +108,13 @@ export const useChannelWorkspaceStore =
       isMergeMode: true,
       activePresetId: null,
       webhookLogs: [],
+      mergedConversations: [],
+      mergedTotal: 0,
+      marketplaceReservations: [],
       isLoadingChannels: false,
       isLoadingWebhookLogs: false,
+      isLoadingMergedInbox: false,
+      isLoadingMarketplaceReservations: false,
 
       fetchShopChannels: async (shopId) => {
         if (!shopId) return;
@@ -110,6 +152,12 @@ export const useChannelWorkspaceStore =
         return true;
       },
 
+      updateChannelIntegration: async (shopId, channelId, payload) => {
+        await updateChannelIntegrationApi(shopId, channelId, payload);
+        await get().fetchShopChannels(shopId);
+        return true;
+      },
+
       disconnectChannel: async (shopId, channelId) => {
         await removeChannelIntegrationApi(shopId, channelId);
         await get().fetchShopChannels(shopId);
@@ -135,6 +183,55 @@ export const useChannelWorkspaceStore =
         } finally {
           set((state) => {
             state.isLoadingWebhookLogs = false;
+          });
+        }
+      },
+
+      fetchMergedConversations: async (shopId, params) => {
+        if (!shopId) return;
+        set((state) => {
+          state.isLoadingMergedInbox = true;
+        });
+        try {
+          const channelIdsStr =
+            params?.channelIds && params.channelIds.length > 0
+              ? params.channelIds.join(",")
+              : get().selectedChannelIds.join(",");
+          const res: any = await getMergedInboxConversationsApi(shopId, {
+            channelIds: channelIdsStr || undefined,
+            supportStatus:
+              params?.supportStatus && params.supportStatus !== "ALL"
+                ? params.supportStatus
+                : undefined,
+            search: params?.search?.trim() || undefined,
+            page: params?.page || 1,
+            limit: params?.limit || 50,
+          });
+          set((state) => {
+            state.mergedConversations = res?.data?.items || [];
+            state.mergedTotal = Number(res?.data?.total || 0);
+          });
+        } finally {
+          set((state) => {
+            state.isLoadingMergedInbox = false;
+          });
+        }
+      },
+
+      fetchMarketplaceReservations: async (shopId) => {
+        if (!shopId) return;
+        set((state) => {
+          state.isLoadingMarketplaceReservations = true;
+        });
+        try {
+          const res: any = await getMarketplaceReservationsApi(shopId);
+          set((state) => {
+            state.marketplaceReservations = res?.data || [];
+          });
+        } catch {
+        } finally {
+          set((state) => {
+            state.isLoadingMarketplaceReservations = false;
           });
         }
       },
