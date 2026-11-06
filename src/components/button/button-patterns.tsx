@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { Slot } from "@radix-ui/react-slot";
 import { LiquidGlassAnchor } from "@/components/liquid-glass/liquid-glass-anchor";
+import { TruncatedText } from "@/components/common/truncated-text";
 
 const buttonVariants = cva(
   "inline-flex items-center whitespace-nowrap text-sm font-medium ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] select-none cursor-pointer",
@@ -274,9 +275,11 @@ const PatternButton = React.forwardRef<HTMLButtonElement, PatternButtonProps>(
         )}
 
         {isLoading ? (
-          <span className="flex items-center justify-center gap-2 pointer-events-none relative w-full">
-            <Spinner className="h-4 w-4 animate-spin current-color" />
-            {loadingText || (
+          <span className="flex items-center justify-center gap-2 pointer-events-none relative w-full min-w-0">
+            <Spinner className="h-4 w-4 animate-spin current-color shrink-0" />
+            {loadingText ? (
+              <TruncatedText className="min-w-0">{loadingText}</TruncatedText>
+            ) : (
               <span className="opacity-0 w-0 h-0 overflow-hidden">
                 {children}
               </span>
@@ -285,7 +288,7 @@ const PatternButton = React.forwardRef<HTMLButtonElement, PatternButtonProps>(
         ) : (
           <span
             className={cn(
-              "flex items-center relative w-full",
+              "flex items-center relative w-full min-w-0",
               size === "icon"
                 ? "justify-center"
                 : contentAlign === "between"
@@ -296,7 +299,11 @@ const PatternButton = React.forwardRef<HTMLButtonElement, PatternButtonProps>(
             {icon && iconPosition === "left" && (
               <span className="shrink-0">{icon}</span>
             )}
-            <span className="truncate">{children}</span>
+            {size === "icon" ? (
+              children
+            ) : (
+              <TruncatedText className="min-w-0">{children}</TruncatedText>
+            )}
             {icon && iconPosition === "right" && (
               <span className="shrink-0">{icon}</span>
             )}

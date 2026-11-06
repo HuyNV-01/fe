@@ -1,7 +1,9 @@
+// File: src/components/chat/chat-layout-client.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
 import ChatSidebar from "@/components/chat/chat-sidebar";
+import { ChannelShopRail } from "@/components/chat/channel-shop-rail";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "@/i18n/navigation";
@@ -10,6 +12,8 @@ import { VIEW_CONFIG } from "@/constant/chat";
 import config from "@/config";
 import { LiquidGlassCard } from "@/components/toolkit";
 import { STATIC_DETAIL_ROUTES } from "@/constant";
+import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
+import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 
 export default function ChatLayoutClient({
   children,
@@ -23,6 +27,32 @@ export default function ChatLayoutClient({
   const params = useParams();
   const pathname = usePathname();
   const router = useRouter();
+
+  const activeShopId = usePermissionStore((s) => s.activeShopId);
+  const channels = useChannelWorkspaceStore((s) => s.channels);
+  const selectedChannelIds = useChannelWorkspaceStore(
+    (s) => s.selectedChannelIds,
+  );
+  const isMergeMode = useChannelWorkspaceStore((s) => s.isMergeMode);
+  const fetchShopChannels = useChannelWorkspaceStore(
+    (s) => s.fetchShopChannels,
+  );
+  const selectSingleChannel = useChannelWorkspaceStore(
+    (s) => s.selectSingleChannel,
+  );
+  const toggleMergeChannel = useChannelWorkspaceStore(
+    (s) => s.toggleMergeChannel,
+  );
+  const selectAllChannelsMerge = useChannelWorkspaceStore(
+    (s) => s.selectAllChannelsMerge,
+  );
+
+  useEffect(() => {
+    if (activeShopId) {
+      fetchShopChannels(activeShopId);
+    }
+  }, [activeShopId, fetchShopChannels]);
+
   const isDetailPage = useMemo(() => {
     if (params.id) return true;
 
@@ -49,9 +79,9 @@ export default function ChatLayoutClient({
   }, [pathname]);
 
   const handleSwitchMode = useCallback(() => {
-    const config = VIEW_CONFIG[viewMode];
-    router.push(config.targetRoute);
-    setViewMode(config.targetMode);
+    const cfg = VIEW_CONFIG[viewMode];
+    router.push(cfg.targetRoute);
+    setViewMode(cfg.targetMode);
   }, [viewMode, router]);
 
   return (
@@ -62,6 +92,17 @@ export default function ChatLayoutClient({
         className="h-full w-full overflow-hidden rounded-none sm:rounded-2xl border-0 sm:border"
       >
         <div className="h-full w-full flex flex-row items-stretch overflow-hidden">
+          {activeShopId && channels.length > 0 && (
+            <ChannelShopRail
+              channels={channels}
+              selectedChannelIds={selectedChannelIds}
+              isMergeMode={isMergeMode}
+              onSelectSingleChannel={selectSingleChannel}
+              onToggleMergeChannel={toggleMergeChannel}
+              onSelectAllChannelsMerge={selectAllChannelsMerge}
+            />
+          )}
+
           <aside
             className={`
               h-full flex-none border-r border-white/15 dark:border-white/5

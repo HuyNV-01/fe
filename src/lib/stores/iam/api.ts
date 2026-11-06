@@ -23,6 +23,19 @@ export type DataScopeType =
 
 export type ShiftStatusType = "ONLINE" | "BUSY" | "OFFLINE";
 
+export type RoutingStrategyType =
+  | "STICKY_AGENT"
+  | "LEAST_BUSY"
+  | "ROUND_ROBIN"
+  | "AI_FIRST";
+
+export interface SavedPageGroupPresetItem {
+  presetId: string;
+  name: string;
+  channelIntegrationIds: string[];
+  isDefault?: boolean;
+}
+
 export const getOnboardingOverviewApi = async () => {
   return apiClient.get("/onboarding/overview");
 };
@@ -62,6 +75,64 @@ export const switchActiveShopApi = async (shopId: string) => {
 
 export const getMyShopContextApi = async (shopId: string) => {
   return apiClient.get(`/iam/shops/${shopId}/me-context`);
+};
+
+export const updateShiftStatusApi = async (
+  shopId: string,
+  data: {
+    targetStatus: ShiftStatusType;
+    handoverMode?: "AUTO_REDISTRIBUTE" | "TRANSFER_TO_AGENT" | "KEEP_ASSIGNED";
+    targetHandoverAgentId?: string;
+  },
+) => {
+  return apiClient.patch(`/iam/shops/${shopId}/shift-status`, data);
+};
+
+export const forceMemberOfflineApi = async (
+  shopId: string,
+  userId: string,
+  data?: {
+    handoverMode?: "AUTO_REDISTRIBUTE" | "TRANSFER_TO_AGENT" | "KEEP_ASSIGNED";
+    targetHandoverAgentId?: string;
+  },
+) => {
+  return apiClient.post(
+    `/iam/shops/${shopId}/members/${userId}/force-offline`,
+    data || { handoverMode: "AUTO_REDISTRIBUTE" },
+  );
+};
+
+export const savePageGroupPresetsApi = async (
+  shopId: string,
+  presets: SavedPageGroupPresetItem[],
+) => {
+  return apiClient.patch(`/iam/shops/${shopId}/page-group-presets`, {
+    presets,
+  });
+};
+
+export const getWorkspaceSettingsApi = async (shopId: string) => {
+  return apiClient.get(`/iam/shops/${shopId}/workspace-settings`);
+};
+
+export const updateWorkspaceSettingsApi = async (
+  shopId: string,
+  data: {
+    slaResponseSeconds?: number;
+    ghostedAlertSeconds?: number;
+    autoReclaimMinutes?: number;
+    routingStrategy?: RoutingStrategyType;
+    lockOrderAfterPrint?: boolean;
+    requireDepositOnHighRisk?: boolean;
+    leadCollectorWeight?: number;
+    orderCloserWeight?: number;
+    deductOnReturnedOrder?: boolean;
+    autoReserveStockOnMarketplaceOrder?: boolean;
+    safetyBufferStockQty?: number;
+    pushAvailableStockToShopeeTikTok?: boolean;
+  },
+) => {
+  return apiClient.patch(`/iam/shops/${shopId}/workspace-settings`, data);
 };
 
 export const getShopMembersAndInvitationsApi = async (shopId: string) => {
@@ -130,8 +201,11 @@ export const updateMemberPermissionsApi = async (
     dataScope: DataScopeType;
     maxDiscountPercent: number;
     unmaskPhoneHourlyLimit: number;
+    maxConcurrentChats?: number;
     grantedPermissionsJson?: string[];
     revokedPermissionsJson?: string[];
+    allowedChannelIdsJson?: string[];
+    allowedWarehouseIdsJson?: string[];
   },
 ) => {
   return apiClient.patch(

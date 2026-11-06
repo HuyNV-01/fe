@@ -72,9 +72,15 @@ export function resolveNotificationI18n(
 
   if (meta.titleKey && meta.contentKey) {
     try {
+      const normalizedTitleKey = meta.titleKey.startsWith("Notifications.")
+        ? meta.titleKey.replace(/^Notifications\./, "")
+        : meta.titleKey;
+      const normalizedContentKey = meta.contentKey.startsWith("Notifications.")
+        ? meta.contentKey.replace(/^Notifications\./, "")
+        : meta.contentKey;
       return {
-        title: t(meta.titleKey, mergedParams),
-        content: t(meta.contentKey, mergedParams),
+        title: t(normalizedTitleKey, mergedParams),
+        content: t(normalizedContentKey, mergedParams),
       };
     } catch {}
   }
@@ -177,6 +183,54 @@ export function resolveNotificationI18n(
       return {
         title: t("i18n.shopMemberStatusChanged.title", mergedParams),
         content: t("i18n.shopMemberStatusChanged.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_SHIFT_HANDOVER:
+      return {
+        title: t("i18n.shopShiftHandover.title", mergedParams),
+        content: t("i18n.shopShiftHandover.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_FORCE_OFFLINE:
+      return {
+        title: t("i18n.shopForceOffline.title", mergedParams),
+        content: t("i18n.shopForceOffline.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.SHOP_WORKSPACE_UPDATED:
+      return {
+        title: t("i18n.shopWorkspaceUpdated.title", mergedParams),
+        content: t("i18n.shopWorkspaceUpdated.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.CHANNEL_CONNECTED:
+      return {
+        title: t("i18n.channelConnected.title", mergedParams),
+        content: t("i18n.channelConnected.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.CHANNEL_TOKEN_WARNING:
+      return {
+        title: t("i18n.channelTokenWarning.title", mergedParams),
+        content: t("i18n.channelTokenWarning.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.INBOX_CONVERSATION_ASSIGNED:
+      return {
+        title: t("i18n.inboxConversationAssigned.title", mergedParams),
+        content: t("i18n.inboxConversationAssigned.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.INBOX_SLA_RECLAIMED:
+      return {
+        title: t("i18n.inboxSlaReclaimed.title", mergedParams),
+        content: t("i18n.inboxSlaReclaimed.content", mergedParams),
+      };
+
+    case NotificationTypeEnum.MARKETPLACE_ORDER_SYNCED:
+      return {
+        title: t("i18n.marketplaceOrderSynced.title", mergedParams),
+        content: t("i18n.marketplaceOrderSynced.content", mergedParams),
       };
 
     default:

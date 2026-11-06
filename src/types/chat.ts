@@ -35,6 +35,15 @@ export interface IConversation {
   readReceiptsEnabled?: boolean;
   isRestricted?: boolean;
   disappearingTtl?: number | null;
+  shopId?: string | null;
+  channelType?: string;
+  channelIntegrationId?: string | null;
+  externalThreadId?: string | null;
+  assignedAgentId?: string | null;
+  supportStatus?: string;
+  slaDeadlineAt?: string | null;
+  hasPhoneCollected?: boolean;
+  hasOrderCreated?: boolean;
 }
 
 export interface IPollOption {
@@ -380,7 +389,7 @@ export interface AttachmentE2EEWrappedKey {
 }
 
 export interface AttachmentE2EEMeta {
-  algorithm: 'AES-256-GCM';
+  algorithm: "AES-256-GCM";
   fileIvB64: string;
   originalMimeType: string;
   senderUserId: string;

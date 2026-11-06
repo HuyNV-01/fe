@@ -1,4 +1,6 @@
 import { createPersistedStore } from "@/lib/stores/create-persisted-store";
+import { tStore } from "@/i18n/translate-store";
+import { showErrorToast, showSuccessToast } from "@/utils/toast";
 import {
   acceptRoleInvitationApi,
   createShopAsOwnerApi,
@@ -6,10 +8,21 @@ import {
   getOnboardingOverviewApi,
   joinShopByCodeApi,
   type MembershipStatusType,
+  type SavedPageGroupPresetItem,
+  savePageGroupPresetsApi,
   type ShiftStatusType,
   type ShopRoleType,
   switchActiveShopApi,
+  updateShiftStatusApi,
 } from "./api";
+
+export type {
+  DataScopeType,
+  MembershipStatusType,
+  SavedPageGroupPresetItem,
+  ShiftStatusType,
+  ShopRoleType,
+};
 
 export interface ShopMembershipSummary {
   memberId: string;
@@ -44,6 +57,7 @@ export interface EffectiveMemberContextPayload {
   permissions: string[];
   allowedChannelIds: string[];
   allowedWarehouseIds: string[];
+  savedPageGroupPresets?: SavedPageGroupPresetItem[];
 }
 
 export interface PermissionStoreState {
@@ -61,11 +75,16 @@ export interface PermissionStoreState {
   permissions: string[];
   allowedChannelIds: string[];
   allowedWarehouseIds: string[];
+  savedPageGroupPresets: SavedPageGroupPresetItem[];
   memberships: ShopMembershipSummary[];
   pendingInvitations: PendingInvitationSummary[];
+  pendingHandoverCount: number;
+  isHandoverModalOpen: boolean;
+  isSwitchingShift: boolean;
   isLoadingOverview: boolean;
   membersRefreshTick: number;
 
+  setActiveShopContext: (payload: Partial<PermissionStoreState>) => void;
   fetchOnboardingOverview: () => Promise<void>;
   applyRealtimeEffectiveContext: (ctx: EffectiveMemberContextPayload) => void;
   triggerMembersRefresh: () => void;
@@ -80,6 +99,17 @@ export interface PermissionStoreState {
   }) => Promise<boolean>;
   acceptInvitation: (idOrToken: string) => Promise<boolean>;
   switchShopWorkspace: (shopId: string) => Promise<boolean>;
+  switchShiftStatus: (
+    targetStatus: ShiftStatusType,
+    handoverOptions?: {
+      handoverMode: "AUTO_REDISTRIBUTE" | "TRANSFER_TO_AGENT" | "KEEP_ASSIGNED";
+      targetHandoverAgentId?: string;
+    },
+  ) => Promise<boolean>;
+  closeHandoverModal: () => void;
+  savePageGroupPresets: (
+    presets: SavedPageGroupPresetItem[],
+  ) => Promise<boolean>;
   hasPermission: (code: string | string[]) => boolean;
   resetPermissionState: () => void;
 }
@@ -97,10 +127,20 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
     permissions: [],
     allowedChannelIds: [],
     allowedWarehouseIds: [],
+    savedPageGroupPresets: [],
     memberships: [],
     pendingInvitations: [],
+    pendingHandoverCount: 0,
+    isHandoverModalOpen: false,
+    isSwitchingShift: false,
     isLoadingOverview: false,
     membersRefreshTick: 0,
+
+    setActiveShopContext: (payload) => {
+      set((state) => {
+        Object.assign(state, payload);
+      });
+    },
 
     fetchOnboardingOverview: async () => {
       set((state) => {
@@ -138,8 +178,8 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
             state.permissions = ctx.permissions || [];
             state.allowedChannelIds = ctx.allowedChannelIds || [];
             state.allowedWarehouseIds = ctx.allowedWarehouseIds || [];
+            state.savedPageGroupPresets = ctx.savedPageGroupPresets || [];
           } else {
-            // Trạng thái ban đầu chưa gắn quán hoặc đang chờ phê duyệt -> Quyền trống 100%
             state.role = null;
             state.membershipStatus = null;
             state.dataScope = "ASSIGNED_ONLY";
@@ -149,6 +189,7 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
             state.permissions = [];
             state.allowedChannelIds = [];
             state.allowedWarehouseIds = [];
+            state.savedPageGroupPresets = [];
           }
         });
       } finally {
@@ -178,6 +219,7 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
           ctx.membershipStatus === "ACTIVE" ? ctx.permissions || [] : [];
         state.allowedChannelIds = ctx.allowedChannelIds || [];
         state.allowedWarehouseIds = ctx.allowedWarehouseIds || [];
+        state.savedPageGroupPresets = ctx.savedPageGroupPresets || [];
         if (ctx.membershipStatus === "ACTIVE") {
           state.onboardingState = "HAS_ACTIVE_SHOPS";
         }
@@ -231,6 +273,88 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
       return true;
     },
 
+    switchShiftStatus: async (targetStatus, handoverOptions) => {
+      const { activeShopId } = get();
+      if (!activeShopId) return false;
+
+      set((state) => {
+        state.isSwitchingShift = true;
+      });
+
+      try {
+        const res: any = await updateShiftStatusApi(activeShopId, {
+          targetStatus,
+          ...handoverOptions,
+        });
+        const nextStatus: ShiftStatusType =
+          res?.data?.shiftStatus || targetStatus;
+        const reassignedCount = Number(
+          res?.data?.reassignedConversationCount || 0,
+        );
+
+        set((state) => {
+          state.shiftStatus = nextStatus;
+          state.isHandoverModalOpen = false;
+          state.pendingHandoverCount = 0;
+          state.memberships = state.memberships.map((m) =>
+            m.shopId === activeShopId ? { ...m, shiftStatus: nextStatus } : m,
+          );
+        });
+
+        if (handoverOptions && reassignedCount > 0) {
+          showSuccessToast(
+            tStore("ShiftAndIam.handoverModal.handoverSuccessToast", {
+              count: reassignedCount,
+            }),
+            {
+              title: tStore(`ShiftAndIam.status.${nextStatus}`),
+            },
+          );
+        }
+
+        return true;
+      } catch (err: any) {
+        const errData = err?.response?.data;
+        if (errData?.code === "SHIFT_HANDOVER_REQUIRED") {
+          set((state) => {
+            state.pendingHandoverCount = Number(
+              errData.pendingConversationCount || 1,
+            );
+            state.isHandoverModalOpen = true;
+          });
+          return false;
+        }
+        showErrorToast(errData?.message || "Failed", {
+          title: tStore(`ShiftAndIam.status.${targetStatus}`),
+        });
+        return false;
+      } finally {
+        set((state) => {
+          state.isSwitchingShift = false;
+        });
+      }
+    },
+
+    closeHandoverModal: () => {
+      set((state) => {
+        state.isHandoverModalOpen = false;
+      });
+    },
+
+    savePageGroupPresets: async (presets) => {
+      const { activeShopId } = get();
+      if (!activeShopId) return false;
+      const res: any = await savePageGroupPresetsApi(activeShopId, presets);
+      if (res?.data) {
+        get().applyRealtimeEffectiveContext(res.data);
+      } else {
+        set((state) => {
+          state.savedPageGroupPresets = presets;
+        });
+      }
+      return true;
+    },
+
     hasPermission: (code) => {
       const state = get();
       if (state.membershipStatus !== "ACTIVE") return false;
@@ -252,8 +376,11 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
         state.role = null;
         state.membershipStatus = null;
         state.permissions = [];
+        state.savedPageGroupPresets = [];
         state.memberships = [];
         state.pendingInvitations = [];
+        state.pendingHandoverCount = 0;
+        state.isHandoverModalOpen = false;
         state.membersRefreshTick = 0;
       });
     },

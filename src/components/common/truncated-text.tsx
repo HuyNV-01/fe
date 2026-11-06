@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/correctness/useExhaustiveDependencies: <explanation> */
 "use client";
 
 import React, {
@@ -21,8 +22,7 @@ type TruncateElementType =
   | "h5"
   | "h6";
 
-export interface TruncatedTextProps
-  extends React.HTMLAttributes<HTMLElement> {
+export interface TruncatedTextProps extends React.HTMLAttributes<HTMLElement> {
   /** Chuỗi văn bản truyền trực tiếp (tương thích ngược với các màn hình cũ) */
   text?: string | null;
   /** Nội dung bọc bên trong <TruncatedText>...</TruncatedText> */

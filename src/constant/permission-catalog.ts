@@ -1,0 +1,381 @@
+import type { DataScopeType, ShopRoleType } from "@/lib/stores/iam/api";
+
+export type PermissionGroupKey =
+  | "IAM_WORKSPACE_CHANNELS"
+  | "OMNICHANNEL_INBOX_TAG_VOIP"
+  | "CRM_PII_ADS"
+  | "CATALOG_WAREHOUSE"
+  | "POS_OMS_FULFILLMENT"
+  | "AUTOMATION_LIVESTREAM_AI_FINANCE";
+
+export interface PermissionGroupDefinition {
+  groupKey: PermissionGroupKey;
+  codes: string[];
+}
+
+/**
+ * Danh mục chuẩn đầy đủ 92 mã quyền (chia làm 6 phân nhóm nghiệp vụ)
+ * Khớp 100% với PermissionCodeEnum trên Backend (src/common/enum/permission.enum.ts).
+ */
+export const PERMISSION_CATALOG_GROUPS: PermissionGroupDefinition[] = [
+  {
+    groupKey: "IAM_WORKSPACE_CHANNELS",
+    codes: [
+      "WORKSPACE_SETTINGS_MANAGE",
+      "CHANNEL_INTEGRATION_CONNECT",
+      "CHANNEL_WEBHOOK_INSPECT_REPLAY",
+      "IAM_MEMBER_INVITE_MANAGE",
+      "IAM_ROLE_MATRIX_CONFIGURE",
+      "IAM_SHIFT_FORCE_HANDOVER",
+      "IAM_SECURITY_AUDIT_VIEW",
+      "INBOX_MULTI_PAGE_MERGE",
+      "INBOX_MARKETPLACE_SYNC_MANAGE",
+      "INBOX_ROUTING_RULES_CONFIGURE",
+      "INBOX_SLA_CONFIG_MANAGE",
+      "INBOX_COLLISION_FORCE_TAKEOVER",
+    ],
+  },
+  {
+    groupKey: "OMNICHANNEL_INBOX_TAG_VOIP",
+    codes: [
+      "INBOX_CONVERSATION_VIEW",
+      "INBOX_CONVERSATION_REPLY",
+      "INBOX_INTERNAL_NOTE_WRITE",
+      "INBOX_CONVERSATION_TRANSFER",
+      "INBOX_CONVERSATION_SNOOZE",
+      "INBOX_CONVERSATION_DELETE",
+      "INBOX_QUICK_REPLY_MANAGE",
+      "INBOX_TRANSLATION_USE",
+      "INBOX_VOIP_CALL_MASKED",
+      "INBOX_VOIP_CALL_UNMASKED",
+      "INBOX_VOIP_LISTEN_RECORDING",
+      "INBOX_VOIP_DOWNLOAD_RECORDING",
+      "TAG_SCHEMA_CREATE_EDIT",
+      "TAG_SCHEMA_DELETE",
+      "TAG_CONVERSATION_ASSIGN",
+      "TAG_CONVERSATION_BULK_ASSIGN",
+      "TAG_MESSAGE_BOOKMARK_ASSIGN",
+      "TAG_AUTO_RULE_CONFIGURE",
+    ],
+  },
+  {
+    groupKey: "CRM_PII_ADS",
+    codes: [
+      "CRM_CUSTOMER_PROFILE_VIEW",
+      "CRM_CUSTOMER_PROFILE_EDIT",
+      "CRM_CUSTOMER_MERGE_DUPLICATE",
+      "CRM_CUSTOMER_BLACKLIST_TOGGLE",
+      "CRM_PHONE_UNMASK",
+      "CRM_CUSTOMER_EXPORT_FILE",
+      "CRM_TRUST_SCORE_VIEW",
+      "CRM_TRUST_SCORE_OVERRIDE",
+      "CRM_RFM_SEGMENT_VIEW",
+      "CRM_RFM_SEGMENT_CONFIGURE",
+      "CRM_LOYALTY_WALLET_VIEW",
+      "CRM_LOYALTY_WALLET_ADJUST",
+      "ADS_CAPI_CONFIG_MANAGE",
+      "ADS_ATTRIBUTION_REPORT_VIEW",
+    ],
+  },
+  {
+    groupKey: "CATALOG_WAREHOUSE",
+    codes: [
+      "CATALOG_PRODUCT_VIEW",
+      "CATALOG_PRODUCT_CREATE_EDIT",
+      "CATALOG_PRODUCT_DELETE",
+      "CATALOG_COST_PRICE_VIEW",
+      "CATALOG_COST_PRICE_EDIT",
+      "CATALOG_BUNDLE_BOM_MANAGE",
+      "CATALOG_SERIAL_IMEI_SCAN",
+      "WAREHOUSE_MANAGE",
+      "WAREHOUSE_STOCK_VIEW",
+      "WAREHOUSE_STOCKTAKE_ADJUST",
+      "WAREHOUSE_TRANSFER_CREATE",
+      "WAREHOUSE_TRANSFER_RECEIVE",
+      "WAREHOUSE_LEDGER_AUDIT_VIEW",
+      "WAREHOUSE_RESERVATION_RELEASE",
+    ],
+  },
+  {
+    groupKey: "POS_OMS_FULFILLMENT",
+    codes: [
+      "POS_DRAFT_CART_CREATE",
+      "POS_ORDER_CONFIRM_SUBMIT",
+      "POS_COUNTER_CHECKOUT",
+      "POS_DISCOUNT_WITHIN_LIMIT",
+      "POS_DISCOUNT_APPROVE_OVERRIDE",
+      "POS_FREE_SHIPPING_GRANT",
+      "POS_ORDER_MERGE_SPLIT",
+      "POS_VIETQR_MANUAL_VERIFY",
+      "OMS_ORDER_LIST_VIEW",
+      "OMS_CONFIRMED_ORDER_MODIFY",
+      "OMS_ORDER_CANCEL",
+      "OMS_BARCODE_PACK_VERIFY",
+      "OMS_SHIPPING_LABEL_PRINT",
+      "OMS_SHIPPING_LABEL_REPRINT",
+      "OMS_CARRIER_DISPATCH_PUSH",
+      "OMS_CARRIER_TICKET_ESCALATE",
+      "OMS_FAILED_DELIVERY_RESCUE",
+      "OMS_RETURN_BARCODE_RESTOCK",
+      "OMS_RMA_EXCHANGE_CREATE",
+      "OMS_COD_RECONCILIATION_EXECUTE",
+    ],
+  },
+  {
+    groupKey: "AUTOMATION_LIVESTREAM_AI_FINANCE",
+    codes: [
+      "BOT_FLOW_BUILDER_MANAGE",
+      "BOT_SEQUENCE_24H_MANAGE",
+      "BOT_BROADCAST_EXECUTE",
+      "LIVESTREAM_CONSOLE_OPERATE",
+      "LIVESTREAM_SYNTAX_CONFIG",
+      "AI_AGENT_BRIDGE_CONFIGURE",
+      "AI_KNOWLEDGE_BASE_MANAGE",
+      "PROCUREMENT_SUPPLIER_MANAGE",
+      "PROCUREMENT_PO_CREATE",
+      "PROCUREMENT_PO_VIEW_COST",
+      "FINANCE_CASHBOOK_MANAGE",
+      "FINANCE_DEBT_LEDGER_VIEW",
+      "FINANCE_COMMISSION_REPORT_VIEW",
+      "FINANCE_PNL_STATEMENT_VIEW",
+    ],
+  },
+];
+
+export const ALL_92_PERMISSION_CODES: string[] =
+  PERMISSION_CATALOG_GROUPS.flatMap((g) => g.codes);
+
+export const DEFAULT_ROLE_PERMISSIONS_FALLBACK: Record<ShopRoleType, string[]> =
+  {
+    SHOP_OWNER: ALL_92_PERMISSION_CODES,
+    SHOP_MANAGER: [
+      "WORKSPACE_SETTINGS_MANAGE",
+      "CHANNEL_INTEGRATION_CONNECT",
+      "CHANNEL_WEBHOOK_INSPECT_REPLAY",
+      "IAM_MEMBER_INVITE_MANAGE",
+      "IAM_ROLE_MATRIX_CONFIGURE",
+      "IAM_SHIFT_FORCE_HANDOVER",
+      "IAM_SECURITY_AUDIT_VIEW",
+      "INBOX_MULTI_PAGE_MERGE",
+      "INBOX_MARKETPLACE_SYNC_MANAGE",
+      "INBOX_ROUTING_RULES_CONFIGURE",
+      "INBOX_SLA_CONFIG_MANAGE",
+      "INBOX_COLLISION_FORCE_TAKEOVER",
+      "INBOX_CONVERSATION_VIEW",
+      "INBOX_CONVERSATION_REPLY",
+      "INBOX_INTERNAL_NOTE_WRITE",
+      "INBOX_CONVERSATION_TRANSFER",
+      "INBOX_CONVERSATION_SNOOZE",
+      "INBOX_QUICK_REPLY_MANAGE",
+      "INBOX_VOIP_CALL_MASKED",
+      "INBOX_VOIP_LISTEN_RECORDING",
+      "TAG_SCHEMA_CREATE_EDIT",
+      "TAG_CONVERSATION_ASSIGN",
+      "TAG_CONVERSATION_BULK_ASSIGN",
+      "TAG_MESSAGE_BOOKMARK_ASSIGN",
+      "CRM_CUSTOMER_PROFILE_VIEW",
+      "CRM_CUSTOMER_PROFILE_EDIT",
+      "CRM_PHONE_UNMASK",
+      "CRM_TRUST_SCORE_VIEW",
+      "CRM_RFM_SEGMENT_VIEW",
+      "CATALOG_PRODUCT_VIEW",
+      "CATALOG_PRODUCT_CREATE_EDIT",
+      "WAREHOUSE_STOCK_VIEW",
+      "POS_DRAFT_CART_CREATE",
+      "POS_ORDER_CONFIRM_SUBMIT",
+      "POS_COUNTER_CHECKOUT",
+      "POS_DISCOUNT_WITHIN_LIMIT",
+      "POS_DISCOUNT_APPROVE_OVERRIDE",
+      "POS_FREE_SHIPPING_GRANT",
+      "POS_ORDER_MERGE_SPLIT",
+      "OMS_ORDER_LIST_VIEW",
+      "OMS_CONFIRMED_ORDER_MODIFY",
+      "OMS_ORDER_CANCEL",
+      "OMS_FAILED_DELIVERY_RESCUE",
+      "OMS_RMA_EXCHANGE_CREATE",
+      "OMS_CARRIER_TICKET_ESCALATE",
+    ],
+    SENIOR_SALE: [
+      "INBOX_MULTI_PAGE_MERGE",
+      "INBOX_CONVERSATION_VIEW",
+      "INBOX_CONVERSATION_REPLY",
+      "INBOX_INTERNAL_NOTE_WRITE",
+      "INBOX_CONVERSATION_TRANSFER",
+      "INBOX_CONVERSATION_SNOOZE",
+      "INBOX_TRANSLATION_USE",
+      "INBOX_VOIP_CALL_MASKED",
+      "TAG_CONVERSATION_ASSIGN",
+      "TAG_MESSAGE_BOOKMARK_ASSIGN",
+      "CRM_CUSTOMER_PROFILE_VIEW",
+      "CRM_CUSTOMER_PROFILE_EDIT",
+      "CRM_PHONE_UNMASK",
+      "CRM_TRUST_SCORE_VIEW",
+      "CATALOG_PRODUCT_VIEW",
+      "WAREHOUSE_STOCK_VIEW",
+      "POS_DRAFT_CART_CREATE",
+      "POS_ORDER_CONFIRM_SUBMIT",
+      "POS_COUNTER_CHECKOUT",
+      "POS_DISCOUNT_WITHIN_LIMIT",
+      "POS_ORDER_MERGE_SPLIT",
+      "OMS_ORDER_LIST_VIEW",
+      "OMS_FAILED_DELIVERY_RESCUE",
+      "OMS_RMA_EXCHANGE_CREATE",
+      "OMS_CARRIER_TICKET_ESCALATE",
+      "LIVESTREAM_CONSOLE_OPERATE",
+    ],
+    SALE_AGENT: [
+      "INBOX_MULTI_PAGE_MERGE",
+      "INBOX_CONVERSATION_VIEW",
+      "INBOX_CONVERSATION_REPLY",
+      "INBOX_INTERNAL_NOTE_WRITE",
+      "INBOX_CONVERSATION_TRANSFER",
+      "INBOX_CONVERSATION_SNOOZE",
+      "INBOX_TRANSLATION_USE",
+      "INBOX_VOIP_CALL_MASKED",
+      "TAG_CONVERSATION_ASSIGN",
+      "TAG_MESSAGE_BOOKMARK_ASSIGN",
+      "CRM_CUSTOMER_PROFILE_VIEW",
+      "CRM_CUSTOMER_PROFILE_EDIT",
+      "CRM_TRUST_SCORE_VIEW",
+      "CATALOG_PRODUCT_VIEW",
+      "WAREHOUSE_STOCK_VIEW",
+      "POS_DRAFT_CART_CREATE",
+      "POS_ORDER_CONFIRM_SUBMIT",
+      "POS_COUNTER_CHECKOUT",
+      "POS_DISCOUNT_WITHIN_LIMIT",
+      "OMS_ORDER_LIST_VIEW",
+      "LIVESTREAM_CONSOLE_OPERATE",
+    ],
+    WAREHOUSE_PACKER: [
+      "CATALOG_PRODUCT_VIEW",
+      "CATALOG_SERIAL_IMEI_SCAN",
+      "WAREHOUSE_STOCK_VIEW",
+      "WAREHOUSE_STOCKTAKE_ADJUST",
+      "WAREHOUSE_TRANSFER_CREATE",
+      "WAREHOUSE_TRANSFER_RECEIVE",
+      "WAREHOUSE_LEDGER_AUDIT_VIEW",
+      "OMS_ORDER_LIST_VIEW",
+      "OMS_BARCODE_PACK_VERIFY",
+      "OMS_SHIPPING_LABEL_PRINT",
+      "OMS_CARRIER_DISPATCH_PUSH",
+      "OMS_RETURN_BARCODE_RESTOCK",
+    ],
+    ACCOUNTANT: [
+      "CATALOG_PRODUCT_VIEW",
+      "CATALOG_COST_PRICE_VIEW",
+      "CATALOG_COST_PRICE_EDIT",
+      "WAREHOUSE_STOCK_VIEW",
+      "WAREHOUSE_LEDGER_AUDIT_VIEW",
+      "POS_VIETQR_MANUAL_VERIFY",
+      "OMS_ORDER_LIST_VIEW",
+      "OMS_COD_RECONCILIATION_EXECUTE",
+      "OMS_CARRIER_TICKET_ESCALATE",
+      "CRM_LOYALTY_WALLET_VIEW",
+      "CRM_LOYALTY_WALLET_ADJUST",
+      "PROCUREMENT_SUPPLIER_MANAGE",
+      "PROCUREMENT_PO_CREATE",
+      "PROCUREMENT_PO_VIEW_COST",
+      "FINANCE_CASHBOOK_MANAGE",
+      "FINANCE_DEBT_LEDGER_VIEW",
+      "FINANCE_COMMISSION_REPORT_VIEW",
+      "FINANCE_PNL_STATEMENT_VIEW",
+    ],
+    MARKETING_AI_OPS: [
+      "CHANNEL_INTEGRATION_CONNECT",
+      "INBOX_MARKETPLACE_SYNC_MANAGE",
+      "INBOX_CONVERSATION_VIEW",
+      "TAG_SCHEMA_CREATE_EDIT",
+      "TAG_AUTO_RULE_CONFIGURE",
+      "CRM_RFM_SEGMENT_VIEW",
+      "CRM_RFM_SEGMENT_CONFIGURE",
+      "ADS_CAPI_CONFIG_MANAGE",
+      "ADS_ATTRIBUTION_REPORT_VIEW",
+      "CATALOG_PRODUCT_VIEW",
+      "CATALOG_BUNDLE_BOM_MANAGE",
+      "BOT_FLOW_BUILDER_MANAGE",
+      "BOT_SEQUENCE_24H_MANAGE",
+      "BOT_BROADCAST_EXECUTE",
+      "LIVESTREAM_SYNTAX_CONFIG",
+      "AI_AGENT_BRIDGE_CONFIGURE",
+      "AI_KNOWLEDGE_BASE_MANAGE",
+    ],
+  };
+
+export function resolveRolePresetDefaults(selectedRole: ShopRoleType): {
+  defaultScope: DataScopeType;
+  defaultDiscount: number;
+  defaultUnmask: number;
+} {
+  let defaultScope: DataScopeType = "ASSIGNED_PLUS_POOL";
+  let defaultDiscount = 5;
+  let defaultUnmask = 15;
+
+  if (
+    selectedRole === "SHOP_OWNER" ||
+    selectedRole === "SHOP_MANAGER" ||
+    selectedRole === "WAREHOUSE_PACKER" ||
+    selectedRole === "ACCOUNTANT" ||
+    selectedRole === "MARKETING_AI_OPS"
+  ) {
+    defaultScope = "ALL_SHOP";
+  } else if (selectedRole === "SENIOR_SALE") {
+    defaultScope = "TEAM_SHIFT";
+  }
+
+  if (selectedRole === "SHOP_OWNER") {
+    defaultDiscount = 100;
+    defaultUnmask = 999999;
+  } else if (selectedRole === "SHOP_MANAGER") {
+    defaultDiscount = 30;
+    defaultUnmask = 100;
+  } else if (selectedRole === "SENIOR_SALE") {
+    defaultDiscount = 15;
+    defaultUnmask = 30;
+  } else if (
+    selectedRole === "WAREHOUSE_PACKER" ||
+    selectedRole === "ACCOUNTANT"
+  ) {
+    defaultDiscount = 0;
+    defaultUnmask = selectedRole === "ACCOUNTANT" ? 20 : 0;
+  } else if (selectedRole === "MARKETING_AI_OPS") {
+    defaultDiscount = 10;
+    defaultUnmask = 0;
+  }
+
+  return { defaultScope, defaultDiscount, defaultUnmask };
+}
+
+export function resolveEffectivePermissionsForMember(
+  member: {
+    role?: ShopRoleType;
+    grantedPermissionsJson?: string[];
+    revokedPermissionsJson?: string[];
+  } | null,
+  rolePresets?: Record<string, { defaultPermissions?: string[] }>,
+): string[] {
+  if (!member?.role) return [];
+  if (member.role === "SHOP_OWNER") {
+    return ALL_92_PERMISSION_CODES;
+  }
+
+  const baseRolePerms =
+    rolePresets?.[member.role]?.defaultPermissions ||
+    DEFAULT_ROLE_PERMISSIONS_FALLBACK[member.role] ||
+    [];
+
+  const granted = Array.isArray(member.grantedPermissionsJson)
+    ? member.grantedPermissionsJson
+    : [];
+  const revoked = new Set<string>(
+    Array.isArray(member.revokedPermissionsJson)
+      ? member.revokedPermissionsJson
+      : [],
+  );
+
+  const combined = new Set<string>([...baseRolePerms, ...granted]);
+  for (const r of revoked) {
+    combined.delete(r);
+  }
+
+  return Array.from(combined);
+}

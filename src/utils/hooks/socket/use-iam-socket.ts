@@ -5,12 +5,20 @@ import { socketService } from "@/services/socket/socket-client";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import {
   type EffectiveMemberContextPayload,
+  type ShiftStatusType,
   usePermissionStore,
 } from "@/lib/stores/iam/use-permission-store";
+import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { SocketNamespaceEnum } from "@/common/enum";
 import { SOCKET_EVENTS } from "@/constant/socket-events";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import config from "@/config";
+import { tStore } from "@/i18n/translate-store";
+import {
+  showInfoToast,
+  showSuccessToast,
+  showWarningToast,
+} from "@/utils/toast";
 
 export const useIamSocket = () => {
   const currentUser = useAuthStore((s) => s.currentAccount);
@@ -18,6 +26,9 @@ export const useIamSocket = () => {
 
   const applyRealtimeEffectiveContext = usePermissionStore(
     (s) => s.applyRealtimeEffectiveContext,
+  );
+  const setActiveShopContext = usePermissionStore(
+    (s) => s.setActiveShopContext,
   );
   const fetchOnboardingOverview = usePermissionStore(
     (s) => s.fetchOnboardingOverview,
@@ -32,20 +43,120 @@ export const useIamSocket = () => {
   useEffect(() => {
     if (!isAuthenticated || !currentUser?.user?.id) return;
 
-    // 1. Khi quyền hạn / vai trò của chính user hiện tại thay đổi (< 50ms Real-Time)
     const cleanPermissionsUpdated =
       socketService.on<EffectiveMemberContextPayload>(
         SocketNamespaceEnum.CHAT,
         SOCKET_EVENTS.IAM.PERMISSIONS_UPDATED,
         async (payload) => {
           if (!payload) return;
+          const prevRole = usePermissionStore.getState().role;
+          const prevPermCount =
+            usePermissionStore.getState().permissions?.length || 0;
+
           applyRealtimeEffectiveContext(payload);
           await fetchOnboardingOverview();
           triggerMembersRefresh();
+
+          const nextPermCount = payload.permissions?.length || 0;
+          if (
+            prevRole !== payload.role ||
+            Math.abs(prevPermCount - nextPermCount) > 0
+          ) {
+            showInfoToast(
+              tStore("ShiftAndIam.realtimeToast.permissionsUpdatedDesc", {
+                role: tStore(`OnboardingAndRoles.roles.${payload.role}`),
+                count: nextPermCount,
+              }),
+              {
+                title: tStore(
+                  "ShiftAndIam.realtimeToast.permissionsUpdatedTitle",
+                ),
+              },
+            );
+          }
         },
       );
 
-    // 2. Khi user nhận được lời mời tham gia cửa hàng mới từ Chủ quán
+    const cleanShiftStatusChanged = socketService.on<{
+      shopId: string;
+      userId: string;
+      shiftStatus: ShiftStatusType;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.IAM.SHIFT_STATUS_CHANGED,
+      async (payload) => {
+        if (!payload) return;
+        if (payload.userId === currentUser.user.id) {
+          setActiveShopContext({ shiftStatus: payload.shiftStatus });
+        }
+        triggerMembersRefresh();
+      },
+    );
+
+    const cleanShiftHandoverCompleted = socketService.on<{
+      shopId: string;
+      fromUserId: string;
+      toUserId: string;
+      conversationIds: string[];
+      count: number;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.IAM.SHIFT_HANDOVER_COMPLETED,
+      async (payload) => {
+        if (!payload) return;
+        showSuccessToast(
+          tStore("ShiftAndIam.handoverModal.receivedHandoverToast", {
+            count: payload.count || 1,
+          }),
+          {
+            title: tStore("ShiftAndIam.status.ONLINE"),
+          },
+        );
+        useChatStore.getState().fetchInbox({ page: 1 });
+        triggerMembersRefresh();
+      },
+    );
+
+    const cleanForceShiftHandover = socketService.on<{
+      shopId: string;
+      forcedByManagerId: string;
+      forcedByManagerName?: string;
+      reassignedConversationCount: number;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.IAM.FORCE_SHIFT_HANDOVER,
+      async (payload) => {
+        setActiveShopContext({
+          shiftStatus: "OFFLINE",
+          isHandoverModalOpen: false,
+          pendingHandoverCount: 0,
+        });
+        showWarningToast(
+          tStore("ShiftAndIam.handoverModal.forceOfflineWarning", {
+            managerName: payload?.forcedByManagerName || "Quản lý",
+            count: payload?.reassignedConversationCount || 0,
+          }),
+          {
+            title: tStore("ShiftAndIam.status.OFFLINE"),
+          },
+        );
+        await fetchOnboardingOverview();
+        triggerMembersRefresh();
+      },
+    );
+
+    const cleanWorkspaceSettingsUpdated = socketService.on<{
+      shopId: string;
+      settings: any;
+      updatedBy: string | null;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.IAM.WORKSPACE_SETTINGS_UPDATED,
+      async () => {
+        triggerMembersRefresh();
+      },
+    );
+
     const cleanInvitationReceived = socketService.on(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.IAM.INVITATION_RECEIVED,
@@ -55,7 +166,6 @@ export const useIamSocket = () => {
       },
     );
 
-    // 3. Khi lời mời bị Chủ quán thu hồi
     const cleanInvitationRevoked = socketService.on(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.IAM.INVITATION_REVOKED,
@@ -65,7 +175,6 @@ export const useIamSocket = () => {
       },
     );
 
-    // 4. Khi nhân viên được mời đã bấm Chấp nhận lời mời (Chủ quán / Quản lý nhận sự kiện)
     const cleanInvitationAccepted = socketService.on(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.IAM.INVITATION_ACCEPTED,
@@ -75,7 +184,6 @@ export const useIamSocket = () => {
       },
     );
 
-    // 5. Khi có nhân viên mới gửi yêu cầu xin vào quán qua mã joinCode (Chủ quán / Quản lý nhận sự kiện)
     const cleanJoinRequestReceived = socketService.on(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.IAM.JOIN_REQUEST_RECEIVED,
@@ -85,7 +193,6 @@ export const useIamSocket = () => {
       },
     );
 
-    // 6. Khi yêu cầu xin vào quán của nhân viên được Chủ quán Phê duyệt -> Tự động mở khóa màn hình /onboarding!
     const cleanJoinRequestApproved = socketService.on<{
       shopId: string;
       shopName: string;
@@ -107,7 +214,6 @@ export const useIamSocket = () => {
       },
     );
 
-    // 7. Khi yêu cầu xin vào quán bị Chủ quán Từ chối
     const cleanJoinRequestRejected = socketService.on(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.IAM.JOIN_REQUEST_REJECTED,
@@ -117,7 +223,6 @@ export const useIamSocket = () => {
       },
     );
 
-    // 8. Khi trạng thái làm việc của nhân sự thay đổi (SUSPENDED / TERMINATED / ACTIVE)
     const cleanMemberStatusChanged = socketService.on<{
       shopId: string;
       membershipStatus: string;
@@ -144,7 +249,6 @@ export const useIamSocket = () => {
       },
     );
 
-    // 9. Khi danh sách nhân sự / lời mời / mã joinCode của cửa hàng có bất kỳ thay đổi nào
     const cleanShopMembersChanged = socketService.on(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.IAM.SHOP_MEMBERS_CHANGED,
@@ -156,6 +260,10 @@ export const useIamSocket = () => {
 
     return () => {
       cleanPermissionsUpdated();
+      cleanShiftStatusChanged();
+      cleanShiftHandoverCompleted();
+      cleanForceShiftHandover();
+      cleanWorkspaceSettingsUpdated();
       cleanInvitationReceived();
       cleanInvitationRevoked();
       cleanInvitationAccepted();
@@ -171,6 +279,7 @@ export const useIamSocket = () => {
     pathname,
     router,
     applyRealtimeEffectiveContext,
+    setActiveShopContext,
     fetchOnboardingOverview,
     triggerMembersRefresh,
   ]);

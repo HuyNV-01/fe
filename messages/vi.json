@@ -87,75 +87,6 @@
       "logout": "Đăng xuất"
     }
   },
-  "Notifications": {
-    "ariaLabel": "Thông báo",
-    "title": "Thông báo",
-    "newBadge": "{count} mới",
-    "markAllRead": "Đọc tất cả",
-    "tabs": {
-      "all": "Tất cả",
-      "unread": "Chưa đọc"
-    },
-    "empty": {
-      "unreadTitle": "Không có thông báo chưa đọc",
-      "allTitle": "Chưa có thông báo nào",
-      "description": "Các cập nhật mới về tin nhắn, lời mời kết bạn và cuộc gọi sẽ xuất hiện tại đây."
-    },
-    "systemActor": "Hệ thống",
-    "deleteTitle": "Xóa thông báo",
-    "loadMore": "Xem thêm thông báo cũ",
-    "i18n": {
-      "defaultGroup": "nhóm",
-      "callType": {
-        "video": "video",
-        "audio": "thoại"
-      },
-      "preview": {
-        "image": "đã gửi một hình ảnh",
-        "video": "đã gửi một video",
-        "audio": "đã gửi một tin nhắn thoại",
-        "file": "đã gửi một tệp đính kèm"
-      },
-      "messageReply": {
-        "groupTitle": "{senderName} đã trả lời bạn trong {conversationName}",
-        "directTitle": "{senderName} đã trả lời tin nhắn của bạn"
-      },
-      "newMessage": {
-        "groupTitle": "Tin nhắn mới trong {conversationName}",
-        "directTitle": "Tin nhắn mới từ {senderName}",
-        "groupContent": "{senderName}: {preview}",
-        "directContent": "{preview}"
-      },
-      "messageReaction": {
-        "title": "{actorName} đã bày tỏ cảm xúc {emoji}",
-        "content": "Về tin nhắn của bạn: \"{preview}\""
-      },
-      "missedCall": {
-        "title": "Cuộc gọi {callTypeLabel} nhỡ",
-        "content": "Bạn có cuộc gọi {callTypeLabel} nhỡ từ {callerName}."
-      },
-      "groupMemberAdded": {
-        "title": "Được thêm vào nhóm trò chuyện",
-        "content": "{requesterName} đã thêm bạn vào nhóm \"{conversationName}\"."
-      },
-      "groupInvite": {
-        "title": "Nhóm trò chuyện mới",
-        "content": "{creatorName} đã thêm bạn vào nhóm \"{conversationName}\"."
-      },
-      "friendRequest": {
-        "title": "Lời mời kết bạn mới",
-        "content": "{senderName} đã gửi cho bạn một lời mời kết bạn."
-      },
-      "friendAccepted": {
-        "title": "Đã kết bạn",
-        "content": "{accepterName} đã chấp nhận lời mời kết bạn của bạn."
-      },
-      "messageMention": {
-        "title": "{senderName} đã nhắc đến bạn trong {conversationName}",
-        "content": "{preview}"
-      }
-    }
-  },
   "Form": {
     "Login": {
       "label": {
@@ -1034,7 +965,7 @@
     "empty": {
       "unreadTitle": "Không có thông báo chưa đọc",
       "allTitle": "Chưa có thông báo nào",
-      "description": "Các cập nhật mới về tin nhắn, lời mời kết bạn và cuộc gọi sẽ xuất hiện tại đây."
+      "description": "Các thông báo về tin nhắn mới, phân công khách hàng, ca trực, quyền hạn và trạng thái kênh bán hàng sẽ hiển thị tại đây."
     },
     "systemActor": "Hệ thống",
     "deleteTitle": "Xóa thông báo",
@@ -1093,176 +1024,875 @@
         "SHOP_OWNER": "Chủ cửa hàng",
         "SHOP_MANAGER": "Quản lý cửa hàng",
         "SENIOR_SALE": "Trưởng ca tư vấn",
-        "SALE_AGENT": "Nhân viên Sale",
-        "WAREHOUSE_PACKER": "Nhân viên Kho",
+        "SALE_AGENT": "Nhân viên tư vấn",
+        "WAREHOUSE_PACKER": "Nhân viên kho & đóng gói",
         "ACCOUNTANT": "Kế toán",
-        "MARKETING_AI_OPS": "Marketing & AI"
+        "MARKETING_AI_OPS": "Chuyên viên Marketing & AI"
       },
       "statuses": {
         "PENDING_APPROVAL": "Chờ phê duyệt",
-        "ACTIVE": "Đang hoạt động",
-        "SUSPENDED": "Tạm đình chỉ",
-        "TERMINATED": "Đã nghỉ việc"
+        "ACTIVE": "Đang làm việc",
+        "SUSPENDED": "Tạm khóa quyền",
+        "TERMINATED": "Đã ngừng làm việc"
       },
       "shopInvitationReceived": {
-        "title": "Lời mời nhận việc từ {shopName}",
+        "title": "Lời mời làm việc từ {shopName}",
         "content": "{actorName} đã mời bạn đảm nhận vị trí {roleLabel} tại cửa hàng \"{shopName}\"."
       },
       "shopInvitationAccepted": {
-        "title": "{accepterName} đã nhận việc tại {shopName}",
-        "content": "{accepterName} đã chấp nhận lời mời và kích hoạt vai trò {roleLabel}."
+        "title": "{accepterName} đã gia nhập {shopName}",
+        "content": "{accepterName} đã chấp nhận lời mời và bắt đầu làm việc với vai trò {roleLabel}."
       },
       "shopJoinRequest": {
-        "title": "Yêu cầu gia nhập cửa hàng {shopName}",
-        "content": "{requesterName} xin gia nhập cửa hàng \"{shopName}\" và đang chờ bạn phê duyệt vai trò."
+        "title": "Yêu cầu tham gia cửa hàng {shopName}",
+        "content": "{requesterName} vừa gửi yêu cầu tham gia \"{shopName}\" và đang chờ bạn phê duyệt vị trí làm việc."
       },
       "shopJoinApproved": {
-        "title": "Đã được duyệt vào {shopName}",
-        "content": "{actorName} đã phê duyệt bạn vào cửa hàng \"{shopName}\" với vai trò {roleLabel}."
+        "title": "Đã được phê duyệt vào {shopName}",
+        "content": "{actorName} đã phê duyệt bạn làm việc tại \"{shopName}\" với vai trò {roleLabel}."
       },
       "shopJoinRejected": {
-        "title": "Yêu cầu gia nhập {shopName} bị từ chối",
-        "content": "{actorName} đã từ chối yêu cầu xin vào cửa hàng \"{shopName}\"."
+        "title": "Yêu cầu tham gia {shopName} chưa được duyệt",
+        "content": "{actorName} đã từ chối yêu cầu tham gia cửa hàng \"{shopName}\"."
       },
       "shopRoleUpdated": {
-        "title": "Cập nhật phân quyền tại {shopName}",
-        "content": "{actorName} đã cập nhật vai trò của bạn tại \"{shopName}\" thành {roleLabel}."
+        "title": "Cập nhật quyền làm việc tại {shopName}",
+        "content": "{actorName} đã cập nhật vị trí của bạn tại \"{shopName}\" thành {roleLabel}."
       },
       "shopMemberStatusChanged": {
-        "title": "Trạng thái nhân sự tại {shopName}",
+        "title": "Cập nhật trạng thái nhân sự tại {shopName}",
         "content": "Trạng thái làm việc của bạn tại \"{shopName}\" đã chuyển sang: {statusLabel}."
       },
       "shopOwnershipTransferred": {
-        "title": "Chuyển nhượng quyền Chủ cửa hàng {shopName}",
-        "content": "{actorName} đã chuyển nhượng toàn quyền Chủ cửa hàng (SHOP_OWNER) tại \"{shopName}\" cho bạn."
+        "title": "Chuyển giao quyền Chủ cửa hàng {shopName}",
+        "content": "{actorName} đã chuyển nhượng toàn quyền Chủ cửa hàng tại \"{shopName}\" cho bạn."
+      },
+      "shopShiftHandover": {
+        "title": "Nhận bàn giao {count} cuộc hội thoại",
+        "content": "{actorName} vừa bàn giao {count} cuộc hội thoại khách hàng đang chờ phản hồi tại \"{shopName}\" cho bạn."
+      },
+      "shopForceOffline": {
+        "title": "Ca trực tại {shopName} đã chuyển sang Nghỉ ca",
+        "content": "{actorName} đã chuyển trạng thái ca trực của bạn sang Nghỉ ca và điều phối lại {count} cuộc hội thoại đang chờ."
+      },
+      "shopWorkspaceUpdated": {
+        "title": "Cập nhật quy tắc vận hành tại {shopName}",
+        "content": "Quy định cam kết phản hồi ({slaSeconds} giây) và tự động thu hồi khách ({reclaimMinutes} phút) vừa được cập nhật."
+      },
+      "channelConnected": {
+        "title": "Đã kết nối kênh {pageName}",
+        "content": "Kênh bán hàng {pageShortCode} đã được tích hợp thành công vào cửa hàng \"{shopName}\"."
+      },
+      "channelTokenWarning": {
+        "title": "Cảnh báo kết nối kênh {pageName}",
+        "content": "Phiên ủy quyền của kênh {pageShortCode} sắp hết hạn hoặc bị gián đoạn. Vui lòng kiểm tra và làm mới kết nối."
+      },
+      "inboxConversationAssigned": {
+        "title": "Khách hàng mới từ {pageShortCode}: {customerName}",
+        "content": "{preview} (Cam kết phản hồi trong {slaSeconds} giây)."
+      },
+      "inboxSlaReclaimed": {
+        "title": "Đã điều phối lại hội thoại quá hạn phản hồi",
+        "content": "Hội thoại với khách hàng \"{customerName}\" đã được chuyển cho đồng nghiệp khác do quá thời gian cam kết phản hồi."
+      },
+      "marketplaceOrderSynced": {
+        "title": "Đơn hàng mới #{orderSn} từ {pageShortCode}",
+        "content": "Khách {buyerUsername} vừa đặt đơn {totalFormatted}. Hệ thống đã tự động giữ chỗ {reservedQty} sản phẩm trong kho."
       }
     }
   },
   "OnboardingAndRoles": {
-    "pageTitle": "Khởi tạo Không gian Cửa hàng & Phân quyền Vai trò",
-    "pageSubtitle": "Tài khoản cá nhân của bạn đã sẵn sàng. Hãy tạo cửa hàng mới (Chủ quán) hoặc gia nhập cửa hàng hiện có (Nhân viên Sale, Kế toán, Kho).",
-    "initialAccountStatusNoticeTitle": "Trạng thái tài khoản mới: Chưa gắn quyền cửa hàng (Quyền trống [])",
-    "initialAccountStatusNoticeDesc": "Để bảo mật dữ liệu tuyệt đối, tài khoản mới đăng ký chưa có quyền truy cập dữ liệu bán hàng cho tới khi bạn khởi tạo cửa hàng của riêng mình hoặc được Chủ cửa hàng phê duyệt vai trò.",
+    "pageTitle": "Thiết lập cửa hàng & vai trò làm việc",
+    "pageSubtitle": "Khởi tạo không gian bán hàng mới với vai trò Chủ cửa hàng hoặc tham gia vào cửa hàng hiện có theo vị trí công việc của bạn.",
+    "initialAccountStatusNoticeTitle": "Tài khoản chưa kết nối với cửa hàng",
+    "initialAccountStatusNoticeDesc": "Để đảm bảo an toàn dữ liệu kinh doanh, tài khoản mới sẽ được cấp quyền truy cập ngay sau khi bạn tạo cửa hàng riêng hoặc được Chủ cửa hàng phê duyệt vị trí làm việc.",
     "roles": {
       "SHOP_OWNER": "Chủ cửa hàng",
       "SHOP_MANAGER": "Quản lý cửa hàng",
       "SENIOR_SALE": "Trưởng ca tư vấn",
-      "SALE_AGENT": "Nhân viên Sale",
-      "WAREHOUSE_PACKER": "Nhân viên Kho",
+      "SALE_AGENT": "Nhân viên tư vấn",
+      "WAREHOUSE_PACKER": "Nhân viên kho & đóng gói",
       "ACCOUNTANT": "Kế toán",
-      "MARKETING_AI_OPS": "Marketing & AI"
+      "MARKETING_AI_OPS": "Chuyên viên Marketing & AI"
     },
     "status": {
-      "PENDING_APPROVAL": "Đang chờ Chủ quán duyệt (Quyền trống)",
-      "ACTIVE": "Đang hoạt động",
-      "SUSPENDED": "Tạm đình chỉ",
-      "TERMINATED": "Đã nghỉ việc"
+      "PENDING_APPROVAL": "Chờ phê duyệt",
+      "ACTIVE": "Đang làm việc",
+      "SUSPENDED": "Tạm khóa quyền",
+      "TERMINATED": "Đã ngừng làm việc"
     },
     "scopes": {
-      "ALL_SHOP": "Toàn bộ cửa hàng",
-      "TEAM_SHIFT": "Trong nhóm / Ca trực",
-      "ASSIGNED_PLUS_POOL": "Khách của tôi & Hàng đợi chung",
-      "ASSIGNED_ONLY": "Chỉ khách được giao cho tôi"
+      "ALL_SHOP": "Toàn bộ dữ liệu cửa hàng",
+      "TEAM_SHIFT": "Dữ liệu trong nhóm & ca trực",
+      "ASSIGNED_PLUS_POOL": "Khách phụ trách & hàng đợi chung",
+      "ASSIGNED_ONLY": "Chỉ khách được phân công riêng"
     },
     "switcher": {
-      "setupShopBtn": "Thiết lập Cửa hàng / Nhận quyền",
-      "yourWorkspacesTitle": "Danh sách Cửa hàng của bạn",
-      "manageMembersBtn": "Quản lý Nhân sự & Phân quyền",
-      "createOrJoinShopBtn": "Tạo cửa hàng / Nhập mã gia nhập"
+      "setupShopBtn": "Thiết lập hoặc tham gia cửa hàng",
+      "yourWorkspacesTitle": "Cửa hàng đang tham gia",
+      "manageMembersBtn": "Quản lý nhân sự & lời mời",
+      "manageChannelsBtn": "Kết nối kênh bán & định tuyến",
+      "managePermissionsMatrixBtn": "Phân quyền chi tiết & ca trực",
+      "createOrJoinShopBtn": "Tạo mới hoặc nhập mã cửa hàng"
     },
     "invitationsSection": {
-      "title": "Lời mời nhận việc từ Chủ cửa hàng",
-      "invitedByLabel": "Người mời: {name}",
-      "acceptBtn": "Chấp nhận & Kích hoạt quyền ngay",
-      "acceptedToastTitle": "Đã kích hoạt quyền thành công",
-      "acceptedToastDesc": "Chào mừng bạn gia nhập cửa hàng!"
+      "title": "Lời mời làm việc từ cửa hàng",
+      "invitedByLabel": "Người gửi lời mời: {name}",
+      "acceptBtn": "Chấp nhận & bắt đầu làm việc",
+      "acceptedToastTitle": "Gia nhập cửa hàng thành công",
+      "acceptedToastDesc": "Chào mừng bạn! Quyền làm việc của bạn đã được kích hoạt."
     },
     "pendingRequestsSection": {
-      "title": "Yêu cầu gia nhập đang chờ phê duyệt",
-      "waitingOwnerNotice": "Chủ cửa hàng sẽ sớm chọn vai trò (Sale, Kế toán, Kho...) và kích hoạt tài khoản của bạn."
+      "title": "Yêu cầu tham gia đang chờ duyệt",
+      "waitingOwnerNotice": "Chủ cửa hàng hoặc Quản lý sẽ sớm duyệt yêu cầu và phân công vị trí làm việc cho bạn."
     },
     "createShopCard": {
-      "title": "Tôi là Chủ quán — Mở cửa hàng mới",
-      "description": "Hệ thống tự động khởi tạo Không gian cửa hàng, Kho tổng mặc định (WH-MAIN), Bộ 6 Tag màu chuẩn oklch và cấp toàn bộ 92 quyền Chủ cửa hàng (SHOP_OWNER) cho bạn.",
-      "shopNamePlaceholder": "Nhập tên cửa hàng / thương hiệu (VD: Thời trang Milano)...",
-      "phonePlaceholder": "Số điện thoại hotline cửa hàng...",
-      "addressPlaceholder": "Địa chỉ kho mặc định của cửa hàng...",
-      "submitBtn": "Khởi tạo Cửa hàng & Nhận quyền Chủ quán",
-      "successToastTitle": "Đã khởi tạo cửa hàng thành công",
-      "successToastDesc": "Tài khoản của bạn đã được cấp toàn quyền Chủ cửa hàng tại {shopName}."
+      "title": "Tạo cửa hàng mới",
+      "description": "Hệ thống tự động thiết lập không gian quản lý bán hàng, kho mặc định, bộ thẻ phân loại hội thoại và cấp toàn quyền Chủ cửa hàng cho tài khoản của bạn.",
+      "shopNamePlaceholder": "Nhập tên cửa hàng hoặc thương hiệu (VD: Thời trang Milano)...",
+      "phonePlaceholder": "Số điện thoại liên hệ của cửa hàng...",
+      "addressPlaceholder": "Địa chỉ kho hàng hoặc cửa hàng chính...",
+      "submitBtn": "Khởi tạo cửa hàng ngay",
+      "successToastTitle": "Khởi tạo cửa hàng thành công",
+      "successToastDesc": "Cửa hàng {shopName} đã sẵn sàng hoạt động."
     },
     "joinShopCard": {
-      "title": "Xin tham gia",
-      "roleBadge": "Sale / Kế toán / Kho",
-      "description": "Nhập Mã gia nhập cửa hàng (do Chủ quán cung cấp). Tài khoản của bạn sẽ ở trạng thái Chờ duyệt (Quyền trống) cho tới khi Chủ quán chọn đúng vai trò.",
+      "title": "Tham gia bằng mã cửa hàng",
+      "roleBadge": "Dành cho nhân sự",
+      "description": "Nhập mã gia nhập do Chủ cửa hàng hoặc Quản lý cung cấp. Yêu cầu của bạn sẽ được gửi tới quản lý để phê duyệt và cấp quyền phù hợp.",
       "joinCodePlaceholder": "Nhập mã cửa hàng (VD: PAN88291)...",
-      "notePlaceholder": "Ghi chú vị trí ứng tuyển (VD: Em Minh bộ phận Kế toán ca sáng)...",
-      "submitBtn": "Gửi yêu cầu gia nhập chờ duyệt",
-      "pendingToastTitle": "Đã gửi yêu cầu gia nhập cửa hàng",
-      "pendingToastDesc": "Vui lòng chờ Chủ cửa hàng phê duyệt và gán vai trò cho tài khoản của bạn."
+      "notePlaceholder": "Ghi chú vị trí làm việc (VD: Minh - Kế toán ca sáng)...",
+      "submitBtn": "Gửi yêu cầu tham gia",
+      "pendingToastTitle": "Đã gửi yêu cầu tham gia",
+      "pendingToastDesc": "Hệ thống đã thông báo cho Quản lý cửa hàng để xét duyệt tài khoản của bạn."
     },
     "membersPage": {
-      "title": "Quản lý Nhân sự",
-      "subtitle": "Cấp quyền Chủ quán, Quản lý, Nhân viên Sale, Nhân viên Kho, Kế toán, Marketing cho tài khoản mới hoặc tài khoản đã tồn tại.",
-      "shopJoinCodeLabel": "Mã cửa hàng: {code}",
-      "copiedJoinCode": "Đã sao chép Mã gia nhập cửa hàng",
-      "inviteBtn": "Thêm nhân viên",
+      "title": "Quản lý nhân sự & lời mời làm việc",
+      "subtitle": "Quản lý danh sách thành viên, phê duyệt nhân sự mới, gửi lời mời theo vị trí và thiết lập quyền hạn làm việc.",
+      "shopJoinCodeLabel": "Mã tham gia: {code}",
+      "copiedJoinCode": "Đã sao chép mã tham gia cửa hàng",
+      "inviteBtn": "Mời nhân sự mới",
       "tabs": {
-        "activeMembers": "Nhân sự chính thức",
-        "pendingApproval": "Chờ phê duyệt",
+        "activeMembers": "Nhân sự đang làm việc",
+        "pendingApproval": "Yêu cầu chờ duyệt",
         "invitations": "Lời mời đã gửi"
       },
-      "suspendBtn": "Đình chỉ",
-      "restoreBtn": "Mở lại",
-      "approveAndAssignRoleBtn": "Phê duyệt & Gán vai trò",
-      "emptyPendingTitle": "Không có yêu cầu xin vào quán nào đang chờ duyệt",
-      "emptyInvitationsTitle": "Chưa có lời mời nhân sự nào được gửi đi",
-      "inviteModalTitle": "Thêm nhân viên mới",
-      "inviteModalDesc": "Nếu email đã có tài khoản, họ sẽ nhận được thông báo kích hoạt ngay. Nếu chưa có tài khoản, khi đăng ký bằng email này sẽ tự động nhận đúng quyền đã chọn.",
-      "emailPlaceholder": "Nhập email nhân viên (VD: ketoan@shop.vn)...",
-      "namePlaceholder": "Họ và tên nhân viên...",
-      "selectRoleLabel": "Chọn Vai trò trong cửa hàng (Role)",
-      "selectScopeLabel": "Chọn Phạm vi dữ liệu được phép truy cập (Data Scope)",
-      "sendInviteConfirmBtn": "Gửi lời mời & Gán sẵn quyền",
-      "inviteSentToastTitle": "Đã gửi lời mời thành công",
-      "inviteSentToastDesc": "Đã gán sẵn vai trò {role} cho {email}.",
-      "approveModalTitle": "Phê duyệt Nhân sự & Cấp quyền",
-      "confirmApproveBtn": "Xác nhận Phê duyệt & Mở khóa quyền",
-      "approvedToastTitle": "Đã phê duyệt nhân viên",
-      "approvedToastDesc": "Nhân viên đã được cấp quyền và mở khóa giao diện làm việc tức thì.",
-      "roleUpdatedToast": "Đã cập nhật vai trò nhân sự",
-      "regenerateJoinCodeBtn": "Đổi mã mới",
-      "regeneratedJoinCodeTitle": "Đã tạo Mã gia nhập cửa hàng mới",
+      "suspendBtn": "Tạm khóa",
+      "restoreBtn": "Mở khóa",
+      "approveAndAssignRoleBtn": "Phê duyệt & phân vai trò",
+      "emptyPendingTitle": "Chưa có yêu cầu tham gia nào đang chờ duyệt",
+      "emptyInvitationsTitle": "Chưa có lời mời làm việc nào được gửi đi",
+      "inviteModalTitle": "Mời nhân sự tham gia cửa hàng",
+      "inviteModalDesc": "Gửi lời mời qua email kèm sẵn vai trò và phạm vi dữ liệu. Khi nhân sự xác nhận, quyền làm việc sẽ tự động có hiệu lực ngay.",
+      "emailPlaceholder": "Địa chỉ email nhân sự (VD: nhanvien@cửa-hàng.vn)...",
+      "namePlaceholder": "Họ và tên nhân sự...",
+      "selectRoleLabel": "Vai trò công việc",
+      "selectScopeLabel": "Phạm vi truy cập dữ liệu",
+      "sendInviteConfirmBtn": "Gửi lời mời làm việc",
+      "inviteSentToastTitle": "Đã gửi lời mời làm việc",
+      "inviteSentToastDesc": "Đã gửi lời mời vị trí {role} tới {email}.",
+      "approveModalTitle": "Phê duyệt nhân sự & cấp quyền làm việc",
+      "confirmApproveBtn": "Xác nhận phê duyệt",
+      "approvedToastTitle": "Phê duyệt nhân sự thành công",
+      "approvedToastDesc": "Tài khoản nhân sự đã được kích hoạt quyền làm việc ngay lập tức.",
+      "roleUpdatedToast": "Đã cập nhật phân quyền nhân sự",
+      "regenerateJoinCodeBtn": "Đổi mã tham gia",
+      "regeneratedJoinCodeTitle": "Đã cấp mã tham gia cửa hàng mới",
       "rejectBtn": "Từ chối",
-      "rejectedToastTitle": "Đã từ chối yêu cầu gia nhập",
-      "rejectedToastDesc": "Đã xóa yêu cầu gia nhập và gửi thông báo cho nhân sự.",
+      "rejectedToastTitle": "Đã từ chối yêu cầu tham gia",
+      "rejectedToastDesc": "Yêu cầu đã được gỡ bỏ và thông báo cho người gửi.",
       "revokeInviteBtn": "Thu hồi lời mời",
       "revokedInviteToastTitle": "Đã thu hồi lời mời",
-      "revokedInviteToastDesc": "Liên kết lời mời đã bị vô hiệu hóa.",
-      "customizePermissionsBtn": "Phân quyền chi tiết",
-      "customizeModalTitle": "Tinh chỉnh Ma trận 92 Quyền & Hạn mức Rủi ro",
+      "revokedInviteToastDesc": "Lời mời làm việc đã được hủy hiệu lực.",
+      "customizePermissionsBtn": "Tinh chỉnh 92 quyền & hạn mức",
+      "customizeModalTitle": "Tinh chỉnh 92 quyền hạn & hạn mức nghiệp vụ",
+      "customizeModalDesc": "Thiết lập chi tiết vai trò, phạm vi truy cập dữ liệu, hạn mức chiết khấu và bật/tắt từng quyền chức năng cho nhân sự.",
+      "selectMemberToCustomizeLabel": "Nhân sự đang thiết lập quyền",
       "maxDiscountLabel": "Hạn mức chiết khấu tối đa (%)",
-      "unmaskLimitLabel": "Giới hạn giải mã SĐT / giờ",
-      "maxDiscountShort": "CK tối đa: {percent}%",
-      "permissionCountBadge": "{count} quyền",
-      "granularPermissionsHeading": "Danh sách mã quyền chi tiết đang bật ({count})",
-      "savePermissionsBtn": "Lưu phân quyền & Đồng bộ Real-Time",
-      "transferOwnershipBtn": "Chuyển quyền Chủ quán",
-      "transferOwnershipModalTitle": "Chuyển nhượng quyền Chủ cửa hàng (SHOP_OWNER)",
-      "transferOwnershipModalDesc": "Đảm bảo nguyên tắc mỗi cửa hàng chỉ có duy nhất 1 Chủ cửa hàng tại mọi thời điểm.",
-      "transferOwnershipWarning": "Sau khi chuyển nhượng, thành viên được chọn sẽ nhận toàn quyền Chủ cửa hàng (SHOP_OWNER), còn tài khoản của bạn sẽ chuyển xuống vai trò Quản lý cửa hàng (SHOP_MANAGER).",
-      "selectNewOwnerLabel": "Chọn nhân sự chính thức nhận quyền Chủ cửa hàng",
-      "confirmTransferOwnershipBtn": "Xác nhận Chuyển nhượng Chủ quán",
-      "transferOwnershipSuccessTitle": "Đã chuyển nhượng quyền Chủ cửa hàng",
-      "transferOwnershipSuccessDesc": "Quyền Chủ cửa hàng đã được cập nhật tức thì qua WebSocket."
+      "unmaskLimitLabel": "Giới hạn mở xem SĐT (lượt/giờ)",
+      "maxConcurrentChatsLabel": "Hội thoại nhận tối đa cùng lúc",
+      "maxDiscountShort": "Chiết khấu tối đa: {percent}%",
+      "unmaskLimitShort": "Mở SĐT: {limit} lượt/giờ",
+      "maxChatsShort": "Tối đa: {count} khách/lúc",
+      "permissionCountBadge": "Đang bật {count}/92 quyền",
+      "granularPermissionsHeading": "Danh sách quyền chức năng ({count}/92 quyền đang bật)",
+      "searchPermissionsPlaceholder": "Tìm nhanh theo tên quyền hoặc mô tả nghiệp vụ...",
+      "resetRoleDefaultBtn": "Khôi phục mặc định theo vai trò",
+      "enableAllGroupBtn": "Bật cả nhóm",
+      "disableAllGroupBtn": "Tắt cả nhóm",
+      "allGroupsTab": "Tất cả quyền",
+      "ownerFullPermissionsNotice": "Chủ cửa hàng luôn sở hữu trọn vẹn 92 quyền hạn cao nhất và không bị giới hạn hạn mức nghiệp vụ.",
+      "savePermissionsBtn": "Lưu thiết lập & áp dụng ngay",
+      "permissionsSavedToastTitle": "Đã cập nhật quyền & hạn mức",
+      "permissionsSavedToastDesc": "Đã áp dụng {count}/92 quyền cho {name} theo thời gian thực.",
+      "transferOwnershipBtn": "Chuyển quyền Chủ cửa hàng",
+      "transferOwnershipModalTitle": "Chuyển nhượng quyền Chủ cửa hàng",
+      "transferOwnershipModalDesc": "Mỗi cửa hàng luôn có duy nhất một Chủ cửa hàng nắm toàn quyền quản trị cao nhất.",
+      "transferOwnershipWarning": "Sau khi xác nhận chuyển nhượng, nhân sự được chọn sẽ trở thành Chủ cửa hàng mới, còn tài khoản của bạn sẽ chuyển sang vai trò Quản lý cửa hàng.",
+      "selectNewOwnerLabel": "Chọn nhân sự tiếp nhận quyền Chủ cửa hàng",
+      "confirmTransferOwnershipBtn": "Xác nhận chuyển nhượng",
+      "transferOwnershipSuccessTitle": "Chuyển nhượng quyền thành công",
+      "transferOwnershipSuccessDesc": "Quyền Chủ cửa hàng đã được chuyển giao và đồng bộ ngay lập tức.",
+      "fieldSecurityStatusLabel": "Quyền xem Giá vốn & mở SĐT",
+      "fieldSecurityCostOn": "Xem giá vốn",
+      "fieldSecurityCostOff": "Ẩn giá vốn",
+      "fieldSecurityPhoneOn": "Mở xem SĐT",
+      "fieldSecurityPhoneOff": "Che SĐT gốc",
+      "cancelModalBtn": "Hủy bỏ",
+      "enableAll92Btn": "Bật toàn bộ",
+      "unsavedChangesBadge": "Có thay đổi chưa lưu",
+      "roleDefaultSyncedBadge": "Chuẩn theo vai trò",
+      "emptySearchPermissionsTitle": "Không tìm thấy quyền hạn phù hợp",
+      "emptySearchPermissionsDesc": "Thử tìm bằng từ khóa khác hoặc chuyển sang tab Tất cả quyền.",
+      "allowedChannelsScopeLabel": "Giới hạn kênh bán hàng được phép trực (4D Channel Scope)",
+      "allChannelsAllowedBadge": "Truy cập tất cả kênh của cửa hàng",
+      "selectedChannelsCountBadge": "Giới hạn {count} kênh chỉ định",
+      "allowAllChannelsBtn": "Cho phép tất cả kênh"
     },
-    "invitationReceivedTitle": "Lời mời làm việc từ cửa hàng {shopName}",
-    "invitationReceivedDesc": "Bạn được mời đảm nhận vị trí {roleName} tại cửa hàng {shopName}. Nhấn Chấp nhận để kích hoạt quyền ngay lập tức.",
+    "invitationReceivedTitle": "Lời mời làm việc từ {shopName}",
+    "invitationReceivedDesc": "Bạn được mời đảm nhận vị trí {roleName} tại {shopName}. Nhấn Chấp nhận để bắt đầu công việc.",
     "registerInviteBanner": {
-      "title": "Lời mời nhận việc tại {shopName}",
-      "description": "Bạn đang đăng ký tài khoản theo lời mời vị trí {role} tại cửa hàng {shopName}. Sau khi hoàn tất, quyền làm việc sẽ tự động kích hoạt ngay.",
-      "invalidTitle": "Liên kết lời mời không hợp lệ hoặc đã hết hạn",
-      "invalidDescription": "Lời mời này đã được sử dụng, bị thu hồi hoặc quá hạn 7 ngày. Bạn vẫn có thể đăng ký tài khoản thông thường."
+      "title": "Lời mời làm việc tại {shopName}",
+      "description": "Bạn đang đăng ký tài khoản theo lời mời vị trí {role} tại {shopName}. Quyền làm việc sẽ tự động kích hoạt ngay sau khi hoàn tất.",
+      "invalidTitle": "Liên kết lời mời không còn hiệu lực",
+      "invalidDescription": "Lời mời này đã được sử dụng, bị thu hồi hoặc đã hết hạn. Bạn vẫn có thể đăng ký tài khoản như bình thường."
+    }
+  },
+  "ShiftAndIam": {
+    "status": {
+      "ONLINE": "Đang nhận khách",
+      "BUSY": "Tạm bận",
+      "OFFLINE": "Nghỉ ca"
+    },
+    "scope": {
+      "ALL_SHOP": "Toàn bộ dữ liệu cửa hàng",
+      "TEAM_SHIFT": "Dữ liệu trong nhóm & ca trực",
+      "ASSIGNED_PLUS_POOL": "Khách phụ trách & hàng đợi chung",
+      "ASSIGNED_ONLY": "Chỉ khách được phân công riêng"
+    },
+    "handoverModal": {
+      "title": "Bàn giao khách hàng trước khi nghỉ ca",
+      "description": "Bạn đang có {count} cuộc hội thoại khách hàng chờ phản hồi. Vui lòng chọn cách bàn giao để khách được hỗ trợ kịp thời.",
+      "autoRedistributeBtn": "Chia đều tự động cho đồng nghiệp đang trực",
+      "transferToSpecificAgent": "Bàn giao toàn bộ cho một đồng nghiệp cụ thể",
+      "keepAssignedOption": "Giữ nguyên trong danh sách phụ trách của tôi",
+      "selectColleaguePlaceholder": "Chọn đồng nghiệp nhận bàn giao...",
+      "confirmHandoverBtn": "Xác nhận bàn giao & nghỉ ca",
+      "cancelBtn": "Tiếp tục trực ca",
+      "handoverSuccessToast": "Đã bàn giao {count} cuộc hội thoại và chuyển sang trạng thái Nghỉ ca.",
+      "forceOfflineWarning": "Quản lý {managerName} đã chuyển ca trực của bạn sang Nghỉ ca và điều phối lại {count} cuộc hội thoại đang chờ.",
+      "receivedHandoverToast": "Bạn vừa nhận bàn giao {count} cuộc hội thoại cần hỗ trợ từ đồng nghiệp."
+    },
+    "permissionDenied": {
+      "tooltipCostPrice": "Chỉ Chủ cửa hàng và Kế toán được cấp quyền mới có thể xem giá vốn và lợi nhuận ròng.",
+      "tooltipExportCustomer": "Tài khoản của bạn chưa được cấp quyền xuất danh sách khách hàng ra tệp ngoài.",
+      "tooltipDiscountExceed": "Mức giảm giá vượt hạn mức cho phép ({maxPercent}%). Đơn hàng sẽ cần Quản lý phê duyệt.",
+      "unmaskQuotaExceeded": "Bạn đã dùng hết hạn mức mở xem số điện thoại trong giờ này ({limit} lượt/giờ)."
+    },
+    "realtimeToast": {
+      "permissionsUpdatedTitle": "Quyền làm việc vừa được cập nhật",
+      "permissionsUpdatedDesc": "Vai trò {role} và {count}/92 quyền hạn của bạn vừa được Quản lý cập nhật.",
+      "shiftChangedByColleague": "Trạng thái ca trực của nhân sự vừa được cập nhật."
+    }
+  },
+  "OmnichannelInbox": {
+    "mergeMode": {
+      "title": "Chế độ gộp trang bán hàng đa kênh",
+      "subtitle": "Chọn nhiều Fanpage, Zalo OA, TikTok Shop, Shopee để theo dõi và trả lời khách hàng tập trung trên một luồng duy nhất.",
+      "selectPagesPlaceholder": "Chọn các kênh bán hàng muốn gộp...",
+      "activePagesBadge": "Đang gộp {count} kênh bán hàng",
+      "singlePageBadge": "Đang xem 1 kênh riêng lẻ",
+      "savePresetBtn": "Lưu nhóm kênh gộp",
+      "presetNamePlaceholder": "Đặt tên nhóm kênh (VD: Nhóm 5 Fanpage Thời trang nữ)...",
+      "savedPresetsHeading": "Nhóm kênh gộp đã lưu ({count})",
+      "applyPresetBtn": "Áp dụng",
+      "deletePresetBtn": "Xóa",
+      "selectAllChannelsBtn": "Chọn tất cả kênh ({count})",
+      "presetSavedToast": "Đã lưu nhóm kênh gộp thành công",
+      "openMergedConsoleBtn": "Mở bảng điều phối gộp trang (/chat/merged)",
+      "defaultPresetBadge": "Mặc định",
+      "setAsDefaultPresetLabel": "Đặt làm nhóm kênh gộp mặc định khi mở ca trực",
+      "refreshStreamBtn": "Làm mới luồng hội thoại",
+      "configureChannelsBtn": "Cấu hình kênh bán",
+      "repliedFilterTab": "Đã phản hồi",
+      "searchMergedPlaceholder": "Tìm khách hàng hoặc mã luồng xuyên suốt các trang...",
+      "emptyMergedStreamTitle": "Chưa có hội thoại nào trong các kênh đang chọn",
+      "emptyMergedStreamDesc": "Hãy chọn thêm kênh bán hàng trên thanh gộp trang hoặc gửi tin nhắn thử nghiệm từ trang cấu hình kênh.",
+      "marketplaceOrderBadge": "Có đơn sàn TMĐT",
+      "openConversationBtn": "Mở hội thoại"
+    },
+    "filters": {
+      "all": "Tất cả",
+      "unread": "Chưa đọc",
+      "unreplied": "Chờ phản hồi",
+      "ghosted": "Đã xem chưa trả lời ({count})",
+      "slaBreached": "Quá hạn phản hồi",
+      "window24hExpiring": "Sắp hết hạn 24h ({count})",
+      "hasPhone": "Đã có SĐT",
+      "noPhone": "Chưa có SĐT",
+      "unconfirmedOrder": "Chưa tạo đơn",
+      "tagIncludeLabel": "Lọc theo thẻ phân loại",
+      "tagExcludeLabel": "Loại trừ thẻ phân loại"
+    },
+    "collision": {
+      "lockedByAgent": "{agentName} đang trực tiếp tư vấn khách hàng này",
+      "takeOverBtn": "Tiếp quản cuộc trò chuyện"
+    },
+    "composer": {
+      "replyPlaceholder": "Nhập nội dung tư vấn (/ để chèn câu trả lời mẫu, Alt+N ghi chú nội bộ, Alt+O tạo đơn hàng)...",
+      "internalNotePlaceholder": "Nhập ghi chú nội bộ (Chỉ nhân sự cửa hàng nhìn thấy, gõ @ để nhắc đồng nghiệp)...",
+      "internalNoteBadge": "Ghi chú nội bộ (Alt+N)",
+      "quickReplyHint": "Nhấn Tab hoặc Enter để chèn nhanh câu trả lời mẫu",
+      "snoozeBtn": "Hẹn giờ nhắc lại",
+      "maskedCallBtn": "Gọi điện tư vấn (Bảo mật SĐT)"
+    },
+    "adAttribution": {
+      "fromAdBadge": "Đến từ Quảng cáo #{adId}",
+      "fromPostBadge": "Bình luận từ Bài viết #{postId}",
+      "capiSyncedBadge": "Đã ghi nhận chuyển đổi ({eventName})"
+    },
+    "realtimeToast": {
+      "newAssignedTitle": "Khách hàng mới từ {pageShortCode}",
+      "newAssignedDesc": "{customerName}: \"{preview}\" — Cần phản hồi trong {slaSeconds} giây.",
+      "slaReclaimedTitle": "Đã thu hồi hội thoại quá hạn phản hồi",
+      "slaReclaimedDesc": "Cuộc trò chuyện với \"{customerName}\" đã được chuyển cho đồng nghiệp khác hỗ trợ để đảm bảo cam kết phục vụ.",
+      "marketplaceOrderTitle": "Đơn hàng mới #{orderSn} trên {pageShortCode}",
+      "marketplaceOrderDesc": "Khách {buyerUsername} vừa đặt đơn {totalFormatted}. Đã tự động giữ chỗ {reservedQty} sản phẩm tồn kho."
+    }
+  },
+  "SettingsChannels": {
+    "title": "Kết nối đa kênh, Định tuyến khách hàng & Nhật ký đồng bộ",
+    "subtitle": "Tích hợp tập trung Fanpage Facebook, Instagram, Zalo OA, TikTok Shop, Shopee, Lazada với cơ chế bảo mật khóa kết nối và tự động phân bổ hội thoại.",
+    "tabs": {
+      "connectedChannels": "Kênh bán hàng đã kết nối",
+      "routingAndSla": "Quy tắc chia khách & thời gian phản hồi",
+      "webhookInspector": "Nhật ký đồng bộ & xử lý lỗi sự kiện",
+      "marketplaceBridge": "Đồng bộ đơn sàn & giữ tồn kho"
+    },
+    "platforms": {
+      "FACEBOOK_PAGE": "Facebook Fanpage",
+      "INSTAGRAM": "Instagram Business",
+      "ZALO_OA": "Zalo Official Account",
+      "TIKTOK_SHOP": "TikTok Shop",
+      "SHOPEE": "Sàn Shopee",
+      "LAZADA": "Sàn Lazada",
+      "WEBSITE_LIVECHAT": "Livechat Website"
+    },
+    "webhookStatuses": {
+      "HEALTHY": "Kết nối ổn định",
+      "TOKEN_EXPIRING_SOON": "Sắp hết hạn ủy quyền",
+      "TOKEN_EXPIRED": "Đã hết hạn ủy quyền",
+      "WEBHOOK_DISCONNECTED": "Mất kết nối sự kiện",
+      "RATE_LIMITED": "Đang giới hạn tần suất"
+    },
+    "processingStatuses": {
+      "RECEIVED": "Đã tiếp nhận",
+      "PROCESSED": "Xử lý thành công",
+      "DUPLICATE_SKIPPED": "Đã lọc trùng tự động",
+      "FAILED_DLQ": "Lỗi — Chờ chạy lại",
+      "REPLAYED_SUCCESS": "Đã chạy lại thành công"
+    },
+    "connectNewChannelBtn": "Kết nối kênh bán hàng",
+    "runTokenDoctorBtn": "Kiểm tra & gia hạn kết nối",
+    "tokenDoctorSuccessTitle": "Hoàn tất kiểm tra sức khỏe kết nối",
+    "tokenDoctorSuccessDesc": "Đã kiểm tra {total} kênh: {healthy} ổn định, {warning} sắp hết hạn, {expired} cần cấp lại quyền.",
+    "tokenWarningTitle": "Cảnh báo kết nối kênh {pageName}",
+    "tokenWarningDesc": "Phiên ủy quyền của kênh {pageShortCode} sắp hết hạn hoặc bị gián đoạn. Vui lòng kiểm tra và làm mới kết nối.",
+    "emptyChannelsTitle": "Chưa có kênh bán hàng nào được kết nối",
+    "emptyChannelsDesc": "Kết nối Fanpage Facebook, Zalo OA, TikTok Shop hoặc Shopee để gom toàn bộ tin nhắn và đơn hàng về một màn hình duy nhất.",
+    "connectModalTitle": "Kết nối kênh bán hàng mới",
+    "connectModalDesc": "Thông tin mã kết nối được mã hóa bảo mật cấp cao trước khi lưu trữ và tự động đồng bộ tin nhắn, đơn hàng theo thời gian thực.",
+    "channelTypeLabel": "Nền tảng kênh bán hàng",
+    "pageNameLabel": "Tên hiển thị của Trang hoặc Gian hàng",
+    "pageNamePlaceholder": "VD: Thời trang Milano — Fanpage chính thức...",
+    "pageShortCodeLabel": "Mã viết tắt (Hiển thị trên thẻ hội thoại khi gộp trang)",
+    "pageShortCodePlaceholder": "VD: FB-MILANO-01",
+    "externalPageIdLabel": "Mã định danh Trang / Shop ID trên nền tảng",
+    "externalPageIdPlaceholder": "VD: 108294819201948",
+    "accessTokenLabel": "Mã truy cập kết nối (Access Token)",
+    "accessTokenPlaceholder": "Nhập mã Access Token được cấp từ nền tảng...",
+    "refreshTokenLabel": "Mã tự động gia hạn (Refresh Token - nếu có)",
+    "refreshTokenPlaceholder": "Nhập mã Refresh Token để hệ thống tự động gia hạn...",
+    "metaDatasetIdLabel": "Mã Pixel / Dataset quảng cáo (Đồng bộ chuyển đổi)",
+    "metaDatasetIdPlaceholder": "VD: 9981726354123",
+    "submitConnectBtn": "Lưu bảo mật & kết nối kênh",
+    "connectedSuccessToast": "Đã kết nối thành công kênh {name}",
+    "disconnectBtn": "Ngắt kết nối",
+    "disconnectedToast": "Đã ngắt kết nối kênh bán hàng",
+    "simulateWebhookBtn": "Gửi tin nhắn thử",
+    "simulateMarketplaceOrderBtn": "Tạo đơn sàn thử",
+    "simulatedWebhookToast": "Đã gửi tin nhắn khách hàng mẫu và tự động phân bổ cho nhân viên đang trực!",
+    "simulatedMarketplaceOrderToast": "Đã đồng bộ đơn hàng sàn mẫu, giữ chỗ tồn kho và phân bổ hội thoại!",
+    "routingCardTitle": "Cấu hình tự động phân bổ khách hàng & cam kết phản hồi",
+    "routingCardDesc": "Thiết lập nguyên tắc chia tin nhắn mới cho nhân viên đang nhận khách, thời gian cam kết trả lời (SLA) và tự động thu hồi khách bị bỏ quên.",
+    "routingStrategyLabel": "Phương thức phân bổ khách hàng mặc định",
+    "strategies": {
+      "STICKY_AGENT": "Ưu tiên nhân viên từng chăm sóc khách cũ, nếu chưa có sẽ chia cho người đang ít việc nhất",
+      "LEAST_BUSY": "Ưu tiên chia cho nhân viên đang xử lý ít cuộc hội thoại chờ nhất",
+      "ROUND_ROBIN": "Chia xoay vòng lần lượt và đồng đều cho các nhân viên đang trực",
+      "AI_FIRST": "Trợ lý AI tự động tư vấn và thu thập SĐT trước khi chuyển cho nhân viên"
+    },
+    "slaResponseSecondsLabel": "Thời gian cam kết phản hồi khách hàng (Giây)",
+    "autoReclaimMinutesLabel": "Thời gian chờ tối đa trước khi tự động thu hồi khách chuyển cho người khác (Phút)",
+    "leadCollectorWeightLabel": "Tỷ lệ tính hoa hồng cho người thu thập SĐT (0.0 - 1.0)",
+    "orderCloserWeightLabel": "Tỷ lệ tính hoa hồng cho người chốt đơn thành công (0.0 - 1.0)",
+    "lockOrderAfterPrintLabel": "Khóa chỉnh sửa đơn hàng sau khi bộ phận Kho đã in phiếu xuất hàng",
+    "autoReserveMarketplaceLabel": "Tự động giữ chỗ tồn kho ngay khi có đơn hàng mới từ Shopee / TikTok Shop / Lazada",
+    "saveRoutingConfigBtn": "Lưu cấu hình vận hành",
+    "savedRoutingToast": "Đã lưu và đồng bộ cấu hình vận hành cửa hàng",
+    "webhookInspectorTitle": "Nhật ký đồng bộ sự kiện đa kênh & chạy lại tác vụ lỗi",
+    "webhookInspectorDesc": "Theo dõi toàn bộ sự kiện tin nhắn và đơn hàng đổ về từ các kênh, tự động chống trùng lặp và cho phép chạy lại sự kiện khi mạng gián đoạn.",
+    "replayWebhookBtn": "Chạy lại sự kiện",
+    "replayedSuccessToast": "Đã chạy lại sự kiện đồng bộ thành công!",
+    "emptyWebhookLogsTitle": "Chưa có sự kiện đồng bộ nào được ghi nhận",
+    "webhookLogSummary": "Loại sự kiện: {eventType} • Thời gian xử lý: {duration}ms • Số lần chạy lại: {replayed}",
+    "unreadBadgeCount": "{count} chờ trả lời",
+    "editChannelBtn": "Cấu hình",
+    "editChannelModalTitle": "Cập nhật cấu hình kênh & Meta CAPI Dataset",
+    "saveEditChannelBtn": "Lưu cập nhật kênh",
+    "newAccessTokenOptionalPlaceholder": "Để trống nếu giữ nguyên Access Token hiện tại...",
+    "channelActiveToggleLabel": "Kích hoạt nhận sự kiện Webhook thời gian thực cho kênh này",
+    "updatedChannelToast": "Đã cập nhật cấu hình kênh bán hàng thành công",
+    "ghostedAlertSecondsLabel": "Thời gian cảnh báo hội thoại đã xem nhưng bỏ quên (Giây)",
+    "safetyBufferStockQtyLabel": "Tồn kho đệm an toàn khi đồng bộ lên sàn TMĐT (Số lượng)",
+    "requireDepositOnHighRiskLabel": "Bắt buộc đặt cọc qua VietQR đối với khách hàng có cảnh báo rủi ro bom hàng cao",
+    "deductOnReturnedOrderLabel": "Tự động khấu trừ hoa hồng nhân viên nếu đơn hàng bị hoàn trả về kho",
+    "pushAvailableStockToMarketplaceLabel": "Tự động đẩy tồn kho khả dụng (availableQty) lên Shopee / TikTok Shop / Lazada",
+    "allWebhookStatusesFilter": "Tất cả sự kiện",
+    "inspectPayloadBtn": "Xem Payload",
+    "webhookPayloadModalTitle": "Chi tiết sự kiện Webhook & Dead-Letter Queue (T01)",
+    "webhookPayloadLabel": "Nội dung JSON Payload gốc từ nền tảng:",
+    "webhookErrorStackLabel": "Chi tiết lỗi xử lý (Error Stack):",
+    "marketplaceBridge": {
+      "title": "Đơn hàng Sàn TMĐT vừa đồng bộ & giữ chỗ tồn kho (Shopee / TikTok Shop / Lazada)",
+      "emptyTitle": "Chưa có đơn hàng sàn TMĐT nào đang giữ chỗ tồn kho",
+      "emptyDesc": "Khi có đơn hàng mới từ Shopee, TikTok Shop hoặc Lazada, hệ thống sẽ tự động quy chiếu SKU và giữ chỗ tồn kho tại đây.",
+      "openChatBtn": "Mở hội thoại đơn sàn"
+    }
+  },
+  "SettingsPermissions": {
+    "title": "Phân quyền chi tiết & Giám sát ca trực",
+    "subtitle": "Quản lý trực tiếp 92 quyền hạn nghiệp vụ, hạn mức chiết khấu, bảo mật thông tin nhạy cảm và điều phối trạng thái ca trực theo thời gian thực.",
+    "tabs": {
+      "shiftMonitor": "Giám sát ca trực & điều phối hội thoại",
+      "roleMatrix": "Tinh chỉnh 92 quyền & hạn mức nhân sự"
+    },
+    "forceOfflineBtn": "Cho nghỉ ca & thu hồi khách",
+    "forceOfflineSuccessToast": "Đã chuyển nhân sự sang Nghỉ ca và điều phối lại {count} cuộc hội thoại đang chờ.",
+    "openMembersDirectoryBtn": "Quản lý nhân sự",
+    "quickCustomizeHeaderBtn": "Tinh chỉnh nhanh 92 quyền",
+    "customizeMemberBtn": "Tinh chỉnh 92 quyền & hạn mức",
+    "flsProtectionBadge": "Đang bật bảo mật giá vốn & số điện thoại khách hàng",
+    "searchMemberPlaceholder": "Tìm nhân sự theo tên, email hoặc vai trò...",
+    "emptyMembersTitle": "Chưa tìm thấy nhân sự phù hợp",
+    "emptyMembersDesc": "Hãy kiểm tra lại từ khóa tìm kiếm hoặc mời thêm nhân sự mới vào cửa hàng.",
+    "ownerLockedBadge": "Toàn quyền Chủ cửa hàng (92/92 quyền)",
+    "activePermissionsPreviewLabel": "Quyền tiêu biểu đang bật:",
+    "morePermissionsBadge": "+{count} quyền khác",
+    "lastShiftUpdateLabel": "Cập nhật ca gần nhất: {time}"
+  },
+  "PermissionCatalog": {
+    "groups": {
+      "IAM_WORKSPACE_CHANNELS": {
+        "title": "1. Quản trị cửa hàng, nhân sự & kết nối kênh",
+        "description": "Thiết lập quy tắc vận hành chung, kết nối Fanpage/Sàn TMĐT, phân quyền nhân sự và điều phối ca trực.",
+        "shortTitle": "Quản trị & Kênh"
+      },
+      "OMNICHANNEL_INBOX_TAG_VOIP": {
+        "title": "2. Hộp thư đa kênh, gắn thẻ & tổng đài gọi",
+        "description": "Xem, trả lời tin nhắn khách hàng, ghi chú nội bộ, gọi điện tư vấn và phân loại thẻ hội thoại.",
+        "shortTitle": "Hộp thư & Thẻ"
+      },
+      "CRM_PII_ADS": {
+        "title": "3. Hồ sơ khách hàng, bảo mật SĐT & quảng cáo",
+        "description": "Quản lý thông tin khách hàng, mở xem số điện thoại gốc, điểm uy tín mua hàng và báo cáo quảng cáo.",
+        "shortTitle": "Khách hàng & SĐT"
+      },
+      "CATALOG_WAREHOUSE": {
+        "title": "4. Sản phẩm, giá vốn & tồn kho đa kho",
+        "description": "Quản lý danh mục hàng hóa, bảo mật giá nhập kho, kiểm kho, điều chuyển và lịch sử xuất nhập tồn.",
+        "shortTitle": "Sản phẩm & Kho"
+      },
+      "POS_OMS_FULFILLMENT": {
+        "title": "5. Tạo đơn bán hàng, xử lý đơn & vận chuyển",
+        "description": "Lên đơn trong khung chat hoặc tại quầy, duyệt giảm giá, đóng gói mã vạch, in vận đơn và đối soát thu hộ COD.",
+        "shortTitle": "Bán hàng & Vận đơn"
+      },
+      "AUTOMATION_LIVESTREAM_AI_FINANCE": {
+        "title": "6. Tự động hóa, Livestream, trợ lý AI & tài chính",
+        "description": "Kịch bản chăm sóc tự động, chốt đơn Livestream, huấn luyện AI, nhập hàng nhà cung cấp và báo cáo lãi lỗ.",
+        "shortTitle": "AI, Live & Tài chính"
+      }
+    },
+    "permissions": {
+      "WORKSPACE_SETTINGS_MANAGE": {
+        "label": "Quản lý cài đặt chung cửa hàng",
+        "desc": "Thay đổi thông tin cửa hàng, tỷ lệ chia hoa hồng, khóa sửa đơn sau khi in và quy tắc vận hành."
+      },
+      "CHANNEL_INTEGRATION_CONNECT": {
+        "label": "Kết nối & quản lý kênh bán hàng",
+        "desc": "Liên kết, làm mới khóa kết nối hoặc ngắt kết nối Fanpage, Zalo OA, TikTok Shop, Shopee, Lazada."
+      },
+      "CHANNEL_WEBHOOK_INSPECT_REPLAY": {
+        "label": "Kiểm tra & chạy lại sự kiện đồng bộ",
+        "desc": "Xem nhật ký sự kiện đổ về từ các kênh và chạy lại các bản tin bị gián đoạn mạng."
+      },
+      "IAM_MEMBER_INVITE_MANAGE": {
+        "label": "Mời, phê duyệt & quản lý nhân sự",
+        "desc": "Gửi lời mời làm việc, duyệt yêu cầu tham gia cửa hàng, tạm khóa hoặc mở lại tài khoản nhân viên."
+      },
+      "IAM_ROLE_MATRIX_CONFIGURE": {
+        "label": "Tinh chỉnh bảng phân quyền & hạn mức",
+        "desc": "Thay đổi vai trò, phạm vi dữ liệu, hạn mức chiết khấu và bật/tắt 92 quyền chi tiết của nhân sự."
+      },
+      "IAM_SHIFT_FORCE_HANDOVER": {
+        "label": "Cưỡng chế nghỉ ca & thu hồi hội thoại",
+        "desc": "Chuyển nhân sự đang vắng mặt sang trạng thái nghỉ ca và tự động chia lại khách đang chờ phản hồi."
+      },
+      "IAM_SECURITY_AUDIT_VIEW": {
+        "label": "Xem nhật ký bảo mật & lịch sử thao tác",
+        "desc": "Tra cứu lịch sử đăng nhập, thay đổi quyền hạn và các thao tác nhạy cảm của nhân viên trong cửa hàng."
+      },
+      "INBOX_MULTI_PAGE_MERGE": {
+        "label": "Sử dụng chế độ gộp trang đa kênh",
+        "desc": "Gộp chung nhiều Fanpage, Zalo OA, TikTok Shop, Shopee vào một màn hình trực chat và lưu bộ lọc kênh."
+      },
+      "INBOX_MARKETPLACE_SYNC_MANAGE": {
+        "label": "Cấu hình đồng bộ sàn thương mại điện tử",
+        "desc": "Thiết lập đồng bộ tin nhắn, đơn hàng và tự động giữ chỗ tồn kho từ Shopee, TikTok Shop, Lazada."
+      },
+      "INBOX_ROUTING_RULES_CONFIGURE": {
+        "label": "Thiết lập quy tắc tự động chia khách",
+        "desc": "Chọn phương thức phân bổ tin nhắn mới (ưu tiên người chăm sóc cũ, chia theo tải hoặc xoay vòng)."
+      },
+      "INBOX_SLA_CONFIG_MANAGE": {
+        "label": "Cấu hình thời gian cam kết phản hồi (SLA)",
+        "desc": "Thiết lập thời hạn trả lời khách hàng và số phút chờ tối đa trước khi tự động thu hồi cuộc hội thoại."
+      },
+      "INBOX_COLLISION_FORCE_TAKEOVER": {
+        "label": "Tiếp quản hội thoại đồng nghiệp đang mở",
+        "desc": "Cho phép giành quyền trả lời cuộc hội thoại ngay cả khi đang có nhân viên khác mở xem."
+      },
+      "INBOX_CONVERSATION_VIEW": {
+        "label": "Xem danh sách & nội dung hội thoại",
+        "desc": "Truy cập hộp thư và đọc lịch sử tin nhắn của khách hàng theo phạm vi dữ liệu được phân công."
+      },
+      "INBOX_CONVERSATION_REPLY": {
+        "label": "Gửi tin nhắn & trả lời khách hàng",
+        "desc": "Soạn thảo văn bản, gửi hình ảnh, tệp đính kèm và phản hồi bình luận/tin nhắn của khách hàng."
+      },
+      "INBOX_INTERNAL_NOTE_WRITE": {
+        "label": "Viết ghi chú nội bộ trên hội thoại",
+        "desc": "Thêm ghi chú trao đổi riêng giữa các nhân viên ngay trong luồng chat mà khách hàng không nhìn thấy."
+      },
+      "INBOX_CONVERSATION_TRANSFER": {
+        "label": "Chuyển giao hội thoại cho đồng nghiệp",
+        "desc": "Chuyển quyền phụ trách cuộc trò chuyện đang tư vấn sang một nhân viên hoặc bộ phận khác."
+      },
+      "INBOX_CONVERSATION_SNOOZE": {
+        "label": "Hẹn giờ nhắc chăm sóc lại hội thoại",
+        "desc": "Tạm ẩn hội thoại đã tư vấn và tự động nhắc lại vào khung giờ hẹn trước."
+      },
+      "INBOX_CONVERSATION_DELETE": {
+        "label": "Xóa cuộc hội thoại khỏi hệ thống",
+        "desc": "Xóa vĩnh viễn các cuộc hội thoại rác hoặc trùng lặp khỏi danh sách hộp thư cửa hàng."
+      },
+      "INBOX_QUICK_REPLY_MANAGE": {
+        "label": "Tạo & chỉnh sửa thư viện câu trả lời mẫu",
+        "desc": "Thêm mới, sửa hoặc xóa các mẫu câu trả lời nhanh dùng chung cho đội ngũ tư vấn."
+      },
+      "INBOX_TRANSLATION_USE": {
+        "label": "Sử dụng dịch tự động đa ngôn ngữ",
+        "desc": "Dịch nhanh tin nhắn của khách nước ngoài và gợi ý câu trả lời song ngữ ngay trong khung chat."
+      },
+      "INBOX_VOIP_CALL_MASKED": {
+        "label": "Gọi điện cho khách (Ẩn số điện thoại gốc)",
+        "desc": "Thực hiện cuộc gọi tư vấn qua tổng đài mà không làm lộ các chữ số đầy đủ của SĐT khách hàng."
+      },
+      "INBOX_VOIP_CALL_UNMASKED": {
+        "label": "Gọi điện hiển thị số điện thoại đầy đủ",
+        "desc": "Thực hiện cuộc gọi trực tiếp kèm hiển thị trọn vẹn số điện thoại của khách hàng."
+      },
+      "INBOX_VOIP_LISTEN_RECORDING": {
+        "label": "Nghe lại ghi âm cuộc gọi tư vấn",
+        "desc": "Nghe lại tệp ghi âm cuộc gọi giữa nhân viên và khách hàng để kiểm tra chất lượng phục vụ."
+      },
+      "INBOX_VOIP_DOWNLOAD_RECORDING": {
+        "label": "Tải xuống tệp ghi âm cuộc gọi",
+        "desc": "Tải tệp âm thanh ghi âm cuộc gọi về máy tính để lưu trữ hoặc đối chiếu khiếu nại."
+      },
+      "TAG_SCHEMA_CREATE_EDIT": {
+        "label": "Tạo & chỉnh sửa danh mục thẻ phân loại",
+        "desc": "Thêm mới, đổi tên, đổi màu sắc hoặc phím tắt của bộ thẻ (Tag) dùng trong cửa hàng."
+      },
+      "TAG_SCHEMA_DELETE": {
+        "label": "Xóa thẻ phân loại khỏi danh mục",
+        "desc": "Xóa các thẻ phân loại không còn sử dụng khỏi hệ thống quản lý của cửa hàng."
+      },
+      "TAG_CONVERSATION_ASSIGN": {
+        "label": "Gắn & gỡ thẻ phân loại trên từng hội thoại",
+        "desc": "Đánh dấu trạng thái tư vấn (Đang tư vấn, Đã có SĐT, Đã chốt đơn...) cho cuộc trò chuyện."
+      },
+      "TAG_CONVERSATION_BULK_ASSIGN": {
+        "label": "Gắn thẻ hàng loạt cho nhiều hội thoại",
+        "desc": "Chọn nhiều cuộc hội thoại cùng lúc để gắn hoặc gỡ thẻ phân loại nhanh."
+      },
+      "TAG_MESSAGE_BOOKMARK_ASSIGN": {
+        "label": "Đánh dấu tin nhắn quan trọng (Địa chỉ / Bill)",
+        "desc": "Ghim và gắn nhãn các tin nhắn chứa địa chỉ giao hàng hoặc ảnh chụp biên lai chuyển khoản."
+      },
+      "TAG_AUTO_RULE_CONFIGURE": {
+        "label": "Thiết lập quy tắc tự động gắn thẻ",
+        "desc": "Cấu hình tự động gắn thẻ khi tin nhắn khách hàng chứa từ khóa hoặc số điện thoại."
+      },
+      "CRM_CUSTOMER_PROFILE_VIEW": {
+        "label": "Xem hồ sơ & lịch sử mua hàng của khách",
+        "desc": "Tra cứu thông tin liên hệ, lịch sử đơn hàng và các ghi chú chăm sóc khách hàng."
+      },
+      "CRM_CUSTOMER_PROFILE_EDIT": {
+        "label": "Cập nhật thông tin hồ sơ khách hàng",
+        "desc": "Chỉnh sửa họ tên, địa chỉ nhận hàng, ngày sinh và ghi chú sở thích của khách hàng."
+      },
+      "CRM_CUSTOMER_MERGE_DUPLICATE": {
+        "label": "Gộp các hồ sơ khách hàng bị trùng lặp",
+        "desc": "Hợp nhất nhiều hồ sơ cùng một khách hàng từ các kênh khác nhau về một hồ sơ duy nhất."
+      },
+      "CRM_CUSTOMER_BLACKLIST_TOGGLE": {
+        "label": "Đưa khách vào / gỡ khỏi danh sách hạn chế",
+        "desc": "Cảnh báo hoặc chặn các tài khoản khách hàng thường xuyên đặt đơn ảo, bom hàng."
+      },
+      "CRM_PHONE_UNMASK": {
+        "label": "Mở xem số điện thoại gốc của khách hàng",
+        "desc": "Hiển thị đầy đủ số điện thoại bị che (••••) trong giới hạn số lượt cho phép mỗi giờ."
+      },
+      "CRM_CUSTOMER_EXPORT_FILE": {
+        "label": "Xuất danh sách khách hàng ra tệp Excel/CSV",
+        "desc": "Tải dữ liệu danh sách khách hàng của cửa hàng ra tệp ngoài (Quyền nhạy cảm cao)."
+      },
+      "CRM_TRUST_SCORE_VIEW": {
+        "label": "Xem điểm uy tín & tỷ lệ nhận hàng",
+        "desc": "Xem chỉ số cảnh báo rủi ro hoàn hàng và lịch sử giao nhận thành công của khách."
+      },
+      "CRM_TRUST_SCORE_OVERRIDE": {
+        "label": "Điều chỉnh thủ công mức độ uy tín khách hàng",
+        "desc": "Xác nhận khách quen uy tín hoặc bỏ qua cảnh báo yêu cầu đặt cọc đối với khách hàng."
+      },
+      "CRM_RFM_SEGMENT_VIEW": {
+        "label": "Xem phân nhóm khách hàng tiềm năng & VIP",
+        "desc": "Xem danh sách phân loại khách hàng theo tần suất mua, giá trị chi tiêu và độ gắn bó."
+      },
+      "CRM_RFM_SEGMENT_CONFIGURE": {
+        "label": "Thiết lập tiêu chí phân nhóm khách hàng",
+        "desc": "Tùy chỉnh ngưỡng doanh thu và chu kỳ mua sắm để tự động xếp hạng khách hàng VIP."
+      },
+      "CRM_LOYALTY_WALLET_VIEW": {
+        "label": "Xem số dư điểm thưởng & hạng thành viên",
+        "desc": "Tra cứu số điểm tích lũy và lịch sử cộng/trừ điểm thưởng của khách hàng."
+      },
+      "CRM_LOYALTY_WALLET_ADJUST": {
+        "label": "Cộng / trừ điểm thưởng khách hàng thủ công",
+        "desc": "Điều chỉnh số dư điểm tích lũy hoặc tặng điểm tri ân cho khách hàng."
+      },
+      "ADS_CAPI_CONFIG_MANAGE": {
+        "label": "Cấu hình kết nối dữ liệu quảng cáo (Meta CAPI / TikTok)",
+        "desc": "Thiết lập Pixel/Dataset để gửi sự kiện khách để lại SĐT và chốt đơn về trình quản lý quảng cáo."
+      },
+      "ADS_ATTRIBUTION_REPORT_VIEW": {
+        "label": "Xem báo cáo hiệu quả chuyển đổi quảng cáo",
+        "desc": "Theo dõi số lượng khách nhắn tin, tỷ lệ xin SĐT và doanh thu theo từng chiến dịch quảng cáo."
+      },
+      "CATALOG_PRODUCT_VIEW": {
+        "label": "Xem danh sách sản phẩm & giá bán lẻ",
+        "desc": "Tra cứu thông tin sản phẩm, mẫu mã, kích cỡ, màu sắc và giá bán niêm yết khi tư vấn."
+      },
+      "CATALOG_PRODUCT_CREATE_EDIT": {
+        "label": "Thêm mới & chỉnh sửa thông tin sản phẩm",
+        "desc": "Tạo sản phẩm mới, cập nhật hình ảnh, mô tả, phân loại mẫu mã và giá bán lẻ."
+      },
+      "CATALOG_PRODUCT_DELETE": {
+        "label": "Xóa hoặc ngừng kinh doanh sản phẩm",
+        "desc": "Xóa sản phẩm hoặc biến thể hàng hóa khỏi danh mục đang kinh doanh của cửa hàng."
+      },
+      "CATALOG_COST_PRICE_VIEW": {
+        "label": "Xem giá vốn nhập hàng & lợi nhuận ước tính",
+        "desc": "Cho phép nhìn thấy giá vốn, giá nhập kho và lãi gộp trên từng sản phẩm, đơn hàng."
+      },
+      "CATALOG_COST_PRICE_EDIT": {
+        "label": "Cập nhật giá vốn sản phẩm",
+        "desc": "Thay đổi đơn giá vốn hoặc điều chỉnh giá trị tồn kho của sản phẩm."
+      },
+      "CATALOG_BUNDLE_BOM_MANAGE": {
+        "label": "Quản lý combo sản phẩm & định mức quà tặng",
+        "desc": "Thiết lập gói sản phẩm bán kèm (Combo) để tự động trừ tồn kho các mặt hàng thành phần."
+      },
+      "CATALOG_SERIAL_IMEI_SCAN": {
+        "label": "Quản lý & quét mã Serial / IMEI sản phẩm",
+        "desc": "Quét và định danh mã Serial/IMEI cho từng đơn vị sản phẩm khi nhập kho, bán hàng và bảo hành."
+      },
+      "WAREHOUSE_MANAGE": {
+        "label": "Tạo mới & cấu hình danh sách kho hàng",
+        "desc": "Thêm chi nhánh kho mới, đổi địa chỉ kho, cài đặt thứ tự ưu tiên xuất kho và quy tắc tồn âm."
+      },
+      "WAREHOUSE_STOCK_VIEW": {
+        "label": "Xem số lượng tồn kho khả dụng các kho",
+        "desc": "Kiểm tra số lượng hàng còn có thể bán, hàng đang giữ chỗ và hàng đang về tại từng kho."
+      },
+      "WAREHOUSE_STOCKTAKE_ADJUST": {
+        "label": "Tạo phiếu kiểm kho & cân bằng tồn kho thực tế",
+        "desc": "Thực hiện kiểm đếm hàng hóa và điều chỉnh chênh lệch tồn kho thực tế so với sổ sách."
+      },
+      "WAREHOUSE_TRANSFER_CREATE": {
+        "label": "Tạo phiếu xuất điều chuyển hàng giữa các kho",
+        "desc": "Lập lệnh chuyển hàng hóa từ kho tổng sang các kho chi nhánh hoặc cửa hàng."
+      },
+      "WAREHOUSE_TRANSFER_RECEIVE": {
+        "label": "Xác nhận nhập hàng điều chuyển đến kho",
+        "desc": "Kiểm nhận số lượng hàng thực tế chuyển đến và cộng vào tồn kho kho nhận."
+      },
+      "WAREHOUSE_LEDGER_AUDIT_VIEW": {
+        "label": "Xem sổ cái thẻ kho & lịch sử biến động tồn",
+        "desc": "Tra cứu chi tiết từng giao dịch cộng/trừ tồn kho theo thời gian và nhân sự thực hiện."
+      },
+      "WAREHOUSE_RESERVATION_RELEASE": {
+        "label": "Giải phóng tồn kho đang bị giữ chỗ quá hạn",
+        "desc": "Hủy giữ chỗ tồn kho của các giỏ hàng nháp hoặc đơn hàng treo để trả lại hàng có thể bán."
+      },
+      "POS_DRAFT_CART_CREATE": {
+        "label": "Tạo giỏ hàng nháp & báo giá trong khung chat",
+        "desc": "Chọn sản phẩm, tính phí vận chuyển và gửi phiếu báo giá tạm tính cho khách ngay khi đang chat."
+      },
+      "POS_ORDER_CONFIRM_SUBMIT": {
+        "label": "Xác nhận chốt đơn hàng & giữ chỗ tồn kho",
+        "desc": "Chuyển giỏ hàng thành đơn hàng chính thức, tự động trừ số lượng có thể bán và đẩy sang kho."
+      },
+      "POS_COUNTER_CHECKOUT": {
+        "label": "Bán hàng & thanh toán trực tiếp tại quầy (POS)",
+        "desc": "Sử dụng màn hình bán hàng nhanh tại cửa hàng, quét mã vạch và in hóa đơn bán lẻ tại chỗ."
+      },
+      "POS_DISCOUNT_WITHIN_LIMIT": {
+        "label": "Áp dụng chiết khấu trong hạn mức cho phép",
+        "desc": "Giảm giá đơn hàng cho khách trong phạm vi tỷ lệ % chiết khấu tối đa được cấp cho nhân viên."
+      },
+      "POS_DISCOUNT_APPROVE_OVERRIDE": {
+        "label": "Phê duyệt giảm giá vượt hạn mức của nhân viên",
+        "desc": "Duyệt hoặc áp dụng mức chiết khấu cao hơn trần giới hạn thông thường cho các đơn hàng đặc biệt."
+      },
+      "POS_FREE_SHIPPING_GRANT": {
+        "label": "Tặng miễn phí vận chuyển (Freeship) cho đơn hàng",
+        "desc": "Cho phép miễn hoặc hỗ trợ phí giao hàng cho khách trên đơn hàng đang chốt."
+      },
+      "POS_ORDER_MERGE_SPLIT": {
+        "label": "Gộp nhiều đơn hoặc tách đơn giao từng phần",
+        "desc": "Gộp nhiều đơn cùng một khách để tiết kiệm phí ship hoặc tách đơn giao trước các món có sẵn."
+      },
+      "POS_VIETQR_MANUAL_VERIFY": {
+        "label": "Xác nhận thủ công giao dịch chuyển khoản VietQR",
+        "desc": "Kiểm tra biên lai và đánh dấu đơn hàng đã thanh toán chuyển khoản khi ngân hàng báo chậm."
+      },
+      "OMS_ORDER_LIST_VIEW": {
+        "label": "Xem danh sách & hành trình đơn hàng",
+        "desc": "Tra cứu trạng thái xử lý, mã vận đơn và tiến trình giao hàng của các đơn hàng."
+      },
+      "OMS_CONFIRMED_ORDER_MODIFY": {
+        "label": "Chỉnh sửa đơn hàng đã xác nhận",
+        "desc": "Thay đổi sản phẩm, số lượng hoặc địa chỉ nhận hàng của đơn đã chốt trước khi xuất kho."
+      },
+      "OMS_ORDER_CANCEL": {
+        "label": "Hủy đơn hàng & hoàn trả tồn kho giữ chỗ",
+        "desc": "Hủy các đơn khách đổi ý hoặc đặt trùng và tự động cộng trả lại số lượng hàng vào kho."
+      },
+      "OMS_BARCODE_PACK_VERIFY": {
+        "label": "Quét mã vạch kiểm hàng & xác nhận đóng gói",
+        "desc": "Quét mã sản phẩm để kiểm tra đúng mẫu, đủ số lượng trước khi niêm phong kiện hàng."
+      },
+      "OMS_SHIPPING_LABEL_PRINT": {
+        "label": "In phiếu gửi hàng & mã vận đơn lần đầu",
+        "desc": "Xuất và in tem vận đơn giao hàng cho các đơn đang chờ đóng gói tại kho."
+      },
+      "OMS_SHIPPING_LABEL_REPRINT": {
+        "label": "In lại phiếu giao hàng (Kiểm soát chống in trùng)",
+        "desc": "Cho phép in lại tem vận đơn khi bị rách/mờ sau khi đơn hàng đã bị khóa trạng thái in."
+      },
+      "OMS_CARRIER_DISPATCH_PUSH": {
+        "label": "Đẩy đơn sang hãng vận chuyển (GHN, GHTK, ViettelPost...)",
+        "desc": "Truyền dữ liệu đơn hàng qua kết nối hãng vận chuyển để lấy mã vận đơn và gọi bưu tá lấy hàng."
+      },
+      "OMS_CARRIER_TICKET_ESCALATE": {
+        "label": "Gửi yêu cầu giục giao / khiếu nại hãng vận chuyển",
+        "desc": "Tạo phiếu yêu cầu hãng vận chuyển giao lại, đổi thông tin người nhận hoặc khiếu nại đền bù."
+      },
+      "OMS_FAILED_DELIVERY_RESCUE": {
+        "label": "Xử lý cứu đơn giao thất bại / khách hẹn giao lại",
+        "desc": "Liên hệ khách hàng khi bưu tá báo không liên lạc được và xác nhận lịch giao lại để tránh hoàn hàng."
+      },
+      "OMS_RETURN_BARCODE_RESTOCK": {
+        "label": "Quét nhận hàng hoàn & nhập lại kho",
+        "desc": "Quét mã vận đơn kiện hàng bị hoàn về, kiểm tra tình trạng hàng hóa và cộng lại vào tồn kho."
+      },
+      "OMS_RMA_EXCHANGE_CREATE": {
+        "label": "Tạo đơn đổi trả hàng & bảo hành cho khách",
+        "desc": "Lập phiếu đổi size/màu hoặc đổi sản phẩm lỗi và theo dõi thu hồi hàng cũ từ khách."
+      },
+      "OMS_COD_RECONCILIATION_EXECUTE": {
+        "label": "Đối soát & xác nhận tiền thu hộ COD với hãng vận chuyển",
+        "desc": "Tải bảng kê đối soát COD, kiểm tra chênh lệch phí vận chuyển và xác nhận tiền về quỹ."
+      },
+      "BOT_FLOW_BUILDER_MANAGE": {
+        "label": "Thiết kế kịch bản trả lời tự động (Chatbot)",
+        "desc": "Xây dựng luồng hội thoại tự động chào mừng, trả lời câu hỏi thường gặp và xin SĐT khách."
+      },
+      "BOT_SEQUENCE_24H_MANAGE": {
+        "label": "Quản lý chuỗi tin nhắn chăm sóc tự động 24h",
+        "desc": "Cài đặt kịch bản tự động nhắn nhắc khách chưa chốt đơn hoặc chăm sóc sau khi nhận hàng."
+      },
+      "BOT_BROADCAST_EXECUTE": {
+        "label": "Gửi chiến dịch tin nhắn hàng loạt cho khách cũ",
+        "desc": "Phát thông báo khuyến mãi, ra mắt sản phẩm mới tới tệp khách hàng theo quy định nền tảng."
+      },
+      "LIVESTREAM_CONSOLE_OPERATE": {
+        "label": "Vận hành màn hình chốt đơn Livestream",
+        "desc": "Theo dõi bình luận trực tiếp, lọc bình luận có SĐT/mã hàng và bấm tạo đơn ngay trên phiên Live."
+      },
+      "LIVESTREAM_SYNTAX_CONFIG": {
+        "label": "Cấu hình cú pháp chốt đơn tự động trên Livestream",
+        "desc": "Thiết lập mã sản phẩm và cú pháp bình luận (VD: A1 + SĐT) để hệ thống tự động gom giỏ hàng."
+      },
+      "AI_AGENT_BRIDGE_CONFIGURE": {
+        "label": "Cấu hình trợ lý AI tư vấn & tự động trả lời",
+        "desc": "Thiết lập chế độ hoạt động của AI (Gợi ý câu trả lời cho nhân viên hoặc AI tự động tư vấn)."
+      },
+      "AI_KNOWLEDGE_BASE_MANAGE": {
+        "label": "Cập nhật kho kiến thức & chính sách cho trợ lý AI",
+        "desc": "Tải lên tài liệu tư vấn, bảng size, chính sách đổi trả để AI trả lời khách chính xác."
+      },
+      "PROCUREMENT_SUPPLIER_MANAGE": {
+        "label": "Quản lý danh sách nhà cung cấp & xưởng sản xuất",
+        "desc": "Thêm mới, cập nhật thông tin liên hệ và điều khoản thanh toán của các nhà cung cấp."
+      },
+      "PROCUREMENT_PO_CREATE": {
+        "label": "Tạo đơn đặt hàng nhập kho từ nhà cung cấp",
+        "desc": "Lập phiếu đặt hàng nhập kho và theo dõi tiến độ giao hàng của nhà cung cấp."
+      },
+      "PROCUREMENT_PO_VIEW_COST": {
+        "label": "Xem đơn giá nhập & công nợ trên phiếu nhập hàng",
+        "desc": "Cho phép nhìn thấy chi tiết giá mua vào, chiết khấu thương mại và chi phí vận chuyển nhập hàng."
+      },
+      "FINANCE_CASHBOOK_MANAGE": {
+        "label": "Quản lý sổ quỹ thu chi tiền mặt & ngân hàng",
+        "desc": "Lập phiếu thu, phiếu chi, theo dõi dòng tiền ra vào hàng ngày của cửa hàng."
+      },
+      "FINANCE_DEBT_LEDGER_VIEW": {
+        "label": "Xem sổ công nợ khách hàng, nhà cung cấp & vận chuyển",
+        "desc": "Tra cứu tổng hợp các khoản phải thu từ khách/đối tác ship và các khoản phải trả nhà cung cấp."
+      },
+      "FINANCE_COMMISSION_REPORT_VIEW": {
+        "label": "Xem bảng tính hoa hồng & hiệu suất nhân viên",
+        "desc": "Theo dõi doanh số chốt đơn, số SĐT thu thập được và tiền thưởng hoa hồng của từng nhân sự."
+      },
+      "FINANCE_PNL_STATEMENT_VIEW": {
+        "label": "Xem báo cáo kết quả kinh doanh & lãi lỗ ròng (P&L)",
+        "desc": "Truy cập báo cáo doanh thu, giá vốn, chi phí quảng cáo, vận hành và lợi nhuận ròng toàn cửa hàng."
+      }
     }
   }
 }
