@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, forwardRef, type ReactNode } from "react";
+import React, { useState, useRef, forwardRef, type ReactNode } from "react";
 import {
   CheckCircle2,
   AlertCircle,
@@ -63,8 +63,15 @@ import {
   type StepConfig,
   type StepComponentProps,
 } from "@/components/steps/base-steps";
-import { ToastCard, type ToastCardProps } from "@/components/toast/custom-toast";
-import { Truncate, TruncatedText, TruncatedTextProps } from "@/components/common/truncated-text";
+import {
+  ToastCard,
+  type ToastCardProps,
+} from "@/components/toast/custom-toast";
+import {
+  Truncate,
+  TruncatedText,
+  TruncatedTextProps,
+} from "@/components/common/truncated-text";
 import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
 import DropdownMenuSubContentCus from "@/components/dropdown-menu/dropdown-menu-sub-content-cus";
 import ItemMenu from "@/components/dropdown-menu/item-menu";
@@ -73,7 +80,7 @@ import TriggerSelect from "@/components/select/select-trigger";
 import ItemSelect from "@/components/select/select-item";
 import { getInitials } from "@/utils/helper";
 import { useTranslations } from "next-intl";
-import { ScrollArea } from "../ui/scroll-area";
+import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 
 // ============================================================================
 // 1. RE-EXPORT EXISTING STANDARDIZED COMPONENTS INTO THE TOOLKIT
@@ -113,6 +120,8 @@ export {
   Switch,
   Skeleton,
   Truncate,
+  ScrollArea,
+  ScrollBar,
 };
 
 export type {
@@ -134,7 +143,7 @@ export type {
 // ============================================================================
 
 /**
- * 2.1. GlassModal: Standardized responsive dialog with Liquid Glass surface
+ * 2.1. GlassModal: Standardized responsive dialog with Liquid Glass surface and shadcn ScrollArea
  */
 export interface GlassModalProps {
   open: boolean;
@@ -178,9 +187,12 @@ export const GlassModal = ({
           className,
         )}
       >
-        <LiquidGlassModal className="p-5 sm:p-6 max-h-[88dvh] overflow-y-auto">
+        <LiquidGlassModal
+          className="p-5 sm:p-6 max-h-[90dvh] overflow-hidden"
+          contentClassName="flex flex-col max-h-[calc(90dvh-2.5rem)] min-h-0 overflow-hidden"
+        >
           {(title || description) && (
-            <DialogHeader className="mb-4">
+            <DialogHeader className="mb-3.5 shrink-0 pr-6">
               {title && (
                 <DialogTitle className="text-base sm:text-lg font-bold">
                   {title}
@@ -193,9 +205,16 @@ export const GlassModal = ({
               )}
             </DialogHeader>
           )}
-          {children && <div>{children}</div>}
+          {children && (
+            <ScrollArea className="flex-1 min-h-0 pr-1">
+              {children}
+              <ScrollBar orientation="vertical" />
+            </ScrollArea>
+          )}
           {footer && (
-            <DialogFooter className="mt-5 gap-2">{footer}</DialogFooter>
+            <DialogFooter className="mt-4 gap-2 shrink-0 w-full">
+              {footer}
+            </DialogFooter>
           )}
         </LiquidGlassModal>
       </DialogContent>
@@ -259,8 +278,7 @@ export const GlassConfirmDialog = ({
 
   const resolvedConfirmLabel =
     confirmLabel ?? confirmText ?? tConfirm("confirm");
-  const resolvedCancelLabel =
-    cancelLabel ?? cancelText ?? tConfirm("cancel");
+  const resolvedCancelLabel = cancelLabel ?? cancelText ?? tConfirm("cancel");
 
   const handleConfirm = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -365,6 +383,7 @@ export const GlassSheet = ({
           )}
           <ScrollArea className="flex-1 min-h-0 py-3 pr-2">
             {children}
+            <ScrollBar orientation="vertical" />
           </ScrollArea>
           {footer && (
             <SheetFooter className="p-0 pt-3 border-t border-border/40 shrink-0">
@@ -378,7 +397,7 @@ export const GlassSheet = ({
 };
 
 /**
- * 2.4. GlassTabs: Segmented control & tab switcher with smooth active pill
+ * 2.4. GlassTabs: Segmented control & tab switcher with shadcn horizontal ScrollArea support to prevent overflow
  */
 export interface GlassTabItem<T extends string = string> {
   key: T;
@@ -405,6 +424,8 @@ export function GlassTabs<T extends string = string>({
   fullWidth = false,
   className,
 }: GlassTabsProps<T>) {
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
   return (
     <LiquidGlass
       variant="secondary"
@@ -413,51 +434,78 @@ export function GlassTabs<T extends string = string>({
       rounded="full"
       fluid={fullWidth}
       isolate={false}
-      contentClassName={cn(
-        "p-1 flex items-center gap-1 overflow-x-auto scrollbar-hide",
-        fullWidth ? "w-full justify-between" : "w-fit",
-      )}
-      className={className}
+      className={cn("max-w-full overflow-hidden", className)}
     >
-      {items.map((item) => {
-        const isActive = item.key === value;
-        return (
-          <button
-            key={item.key}
-            type="button"
-            disabled={item.disabled}
-            onClick={() => onValueChange(item.key)}
-            className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition-all duration-200 cursor-pointer whitespace-nowrap select-none",
-              size === "sm"
-                ? "px-3 py-1 text-xs"
-                : "px-4 py-1.5 text-xs sm:text-sm",
-              fullWidth && "flex-1",
-              isActive
-                ? "bg-primary text-primary-foreground shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/20 dark:hover:bg-white/5",
-              item.disabled && "opacity-50 cursor-not-allowed",
-            )}
-          >
-            {item.icon && <span className="shrink-0">{item.icon}</span>}
-            <span>{item.label}</span>
-            {typeof item.badge === "number" && item.badge > 0 ? (
-              <span
+      <ScrollArea className="w-full max-w-full whitespace-nowrap">
+        <div
+          className={cn(
+            "p-1 flex items-center gap-1",
+            fullWidth ? "w-full justify-between" : "w-max",
+          )}
+        >
+          {items.map((item) => {
+            const isActive = item.key === value;
+            return (
+              <button
+                key={item.key}
+                ref={(el) => {
+                  tabRefs.current[item.key] = el;
+                }}
+                type="button"
+                disabled={item.disabled}
+                onClick={() => {
+                  onValueChange(item.key);
+                  tabRefs.current[item.key]?.scrollIntoView({
+                    behavior: "smooth",
+                    inline: "center",
+                    block: "nearest",
+                  });
+                }}
                 className={cn(
-                  "rounded-full px-1.5 py-0.2 text-[10px] font-bold",
+                  "inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition-all duration-200 cursor-pointer whitespace-nowrap select-none shrink-0",
+                  size === "sm"
+                    ? "px-3 py-1 text-xs"
+                    : "px-4 py-1.5 text-xs sm:text-sm",
+                  fullWidth && "flex-1",
                   isActive
-                    ? "bg-white/20 text-primary-foreground"
-                    : "bg-primary/15 text-primary",
+                    ? "bg-primary text-primary-foreground shadow-xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/20 dark:hover:bg-white/5",
+                  item.disabled && "opacity-50 cursor-not-allowed",
                 )}
               >
-                {item.badge > 99 ? "99+" : item.badge}
-              </span>
-            ) : (
-              item.badge
-            )}
-          </button>
-        );
-      })}
+                {item.icon && <span className="shrink-0">{item.icon}</span>}
+                <span>{item.label}</span>
+                {typeof item.badge === "number" && item.badge > 0 ? (
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 py-0.2 text-[10px] font-bold",
+                      isActive
+                        ? "bg-white/20 text-primary-foreground"
+                        : "bg-primary/15 text-primary",
+                    )}
+                  >
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                ) : typeof item.badge === "string" ? (
+                  <span
+                    className={cn(
+                      "rounded-full px-1.5 py-0.2 text-[10px] font-bold",
+                      isActive
+                        ? "bg-white/20 text-primary-foreground"
+                        : "bg-primary/15 text-primary",
+                    )}
+                  >
+                    {item.badge}
+                  </span>
+                ) : (
+                  item.badge
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <ScrollBar orientation="horizontal" className="h-1.5" />
+      </ScrollArea>
     </LiquidGlass>
   );
 }

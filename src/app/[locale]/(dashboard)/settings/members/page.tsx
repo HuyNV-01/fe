@@ -18,8 +18,6 @@ import {
   XCircle,
   Sliders,
   Crown,
-  Percent,
-  PhoneCall,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useForm } from "@tanstack/react-form";
@@ -33,13 +31,7 @@ import {
   FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   LiquidGlassInput,
   GlassSurfaceCard,
@@ -54,8 +46,13 @@ import {
   ContentSelect,
   ItemSelect,
 } from "@/components/toolkit";
+import { MemberPermissionsCustomizeModal } from "@/components/iam/member-permissions-customize-modal";
 import { EMPTY_STRING } from "@/constant";
 import { MESSAGES } from "@/constant/messages";
+import {
+  resolveEffectivePermissionsForMember,
+  resolveRolePresetDefaults,
+} from "@/constant/permission-catalog";
 import {
   approvePendingMemberApi,
   createRoleInvitationApi,
@@ -71,11 +68,7 @@ import {
   updateMemberStatusApi,
 } from "@/lib/stores/iam/api";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
-import {
-  showErrorToast,
-  showInfoToast,
-  showSuccessToast,
-} from "@/utils/toast";
+import { showErrorToast, showInfoToast, showSuccessToast } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 
 type MembersTabMode = "ACTIVE_MEMBERS" | "PENDING_APPROVAL" | "INVITATIONS";
@@ -100,72 +93,6 @@ const DATA_SCOPES: DataScopeType[] = [
   "TEAM_SHIFT",
   "ASSIGNED_PLUS_POOL",
   "ASSIGNED_ONLY",
-];
-
-const PERMISSION_GROUPS: Array<{
-  groupKey: string;
-  codes: string[];
-}> = [
-  {
-    groupKey: "IAM_AND_CHANNEL",
-    codes: [
-      "CHANNEL_INTEGRATION_CONNECT",
-      "CHANNEL_WEBHOOK_INSPECT_REPLAY",
-      "IAM_MEMBER_INVITE_MANAGE",
-      "IAM_ROLE_MATRIX_EDIT",
-      "IAM_SECURITY_AUDIT_LOG_VIEW",
-      "IAM_SHIFT_FORCE_HANDOVER",
-    ],
-  },
-  {
-    groupKey: "INBOX_AND_TAG",
-    codes: [
-      "INBOX_MULTI_PAGE_MERGE",
-      "INBOX_ROUTING_RULES_CONFIGURE",
-      "INBOX_COLLISION_FORCE_TAKEOVER",
-      "INBOX_CONVERSATION_VIEW",
-      "INBOX_CONVERSATION_REPLY",
-      "INBOX_INTERNAL_NOTE_WRITE",
-      "INBOX_CONVERSATION_TRANSFER",
-      "INBOX_CONVERSATION_SNOOZE",
-      "INBOX_VOIP_CALL_MASKED",
-      "TAG_SCHEMA_CREATE_EDIT",
-      "TAG_CONVERSATION_ASSIGN",
-      "TAG_MESSAGE_BOOKMARK_ASSIGN",
-    ],
-  },
-  {
-    groupKey: "CRM_AND_POS",
-    codes: [
-      "CRM_CUSTOMER_PROFILE_VIEW",
-      "CRM_CUSTOMER_PROFILE_EDIT",
-      "CRM_PHONE_UNMASK",
-      "CRM_TRUST_SCORE_VIEW",
-      "POS_DRAFT_CART_CREATE",
-      "POS_ORDER_CONFIRM_SUBMIT",
-      "POS_COUNTER_CHECKOUT",
-      "POS_DISCOUNT_WITHIN_LIMIT",
-      "POS_DISCOUNT_APPROVE_OVERRIDE",
-      "POS_VIETQR_MANUAL_VERIFY",
-    ],
-  },
-  {
-    groupKey: "WAREHOUSE_OMS_FINANCE",
-    codes: [
-      "CATALOG_PRODUCT_VIEW",
-      "CATALOG_PRODUCT_CREATE_EDIT",
-      "CATALOG_COST_PRICE_VIEW",
-      "CATALOG_COST_PRICE_EDIT",
-      "WAREHOUSE_STOCK_VIEW",
-      "WAREHOUSE_STOCKTAKE_ADJUST",
-      "OMS_ORDER_LIST_VIEW",
-      "OMS_BARCODE_PACK_VERIFY",
-      "OMS_SHIPPING_LABEL_PRINT",
-      "OMS_COD_RECONCILIATION_EXECUTE",
-      "FINANCE_CASHBOOK_MANAGE",
-      "FINANCE_PNL_STATEMENT_VIEW",
-    ],
-  },
 ];
 
 const inviteMemberSchema = z.object({
@@ -208,65 +135,9 @@ const approveMemberSchema = z.object({
   ]),
 });
 
-const customizePermissionsSchema = z.object({
-  role: z.enum([
-    "SHOP_MANAGER",
-    "SENIOR_SALE",
-    "SALE_AGENT",
-    "WAREHOUSE_PACKER",
-    "ACCOUNTANT",
-    "MARKETING_AI_OPS",
-  ]),
-  dataScope: z.enum([
-    "ALL_SHOP",
-    "TEAM_SHIFT",
-    "ASSIGNED_PLUS_POOL",
-    "ASSIGNED_ONLY",
-  ]),
-  maxDiscountPercent: z.number().min(0).max(100),
-  unmaskPhoneHourlyLimit: z.number().min(0).max(999999),
-});
-
 const transferOwnershipSchema = z.object({
   targetMemberId: z.string().trim().min(1),
 });
-
-function resolveRolePresetDefaults(selectedRole: ShopRoleType): {
-  defaultScope: DataScopeType;
-  defaultDiscount: number;
-  defaultUnmask: number;
-} {
-  let defaultScope: DataScopeType = "ASSIGNED_PLUS_POOL";
-  let defaultDiscount = 5;
-  let defaultUnmask = 15;
-
-  if (
-    selectedRole === "SHOP_MANAGER" ||
-    selectedRole === "WAREHOUSE_PACKER" ||
-    selectedRole === "ACCOUNTANT" ||
-    selectedRole === "MARKETING_AI_OPS"
-  ) {
-    defaultScope = "ALL_SHOP";
-  } else if (selectedRole === "SENIOR_SALE") {
-    defaultScope = "TEAM_SHIFT";
-  }
-
-  if (selectedRole === "SHOP_MANAGER") {
-    defaultDiscount = 30;
-    defaultUnmask = 100;
-  } else if (selectedRole === "SENIOR_SALE") {
-    defaultDiscount = 15;
-    defaultUnmask = 30;
-  } else if (
-    selectedRole === "WAREHOUSE_PACKER" ||
-    selectedRole === "ACCOUNTANT"
-  ) {
-    defaultDiscount = 0;
-    defaultUnmask = selectedRole === "ACCOUNTANT" ? 20 : 0;
-  }
-
-  return { defaultScope, defaultDiscount, defaultUnmask };
-}
 
 export default function ShopMembersManagementPage() {
   const t = useTranslations("OnboardingAndRoles");
@@ -283,17 +154,14 @@ export default function ShopMembersManagementPage() {
   const [invitations, setInvitations] = useState<any[]>([]);
   const [rolePresets, setRolePresets] = useState<Record<string, any>>({});
 
-  // Chỉ cho phép mở tối đa 1 Modal Form tại 1 thời điểm
   const [activeModalMode, setActiveModalMode] = useState<ActiveModalMode>(null);
   const [selectedMember, setSelectedMember] = useState<any | null>(null);
-  const [customGrantedPerms, setCustomGrantedPerms] = useState<string[]>([]);
 
   const [isSubmittingInvite, setIsSubmittingInvite] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejectingId, setIsRejectingId] = useState<string | null>(null);
   const [isRevokingId, setIsRevokingId] = useState<string | null>(null);
   const [isRegeneratingCode, setIsRegeneratingCode] = useState(false);
-  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
   const [isTransferringOwnership, setIsTransferringOwnership] = useState(false);
 
   const loadMembersData = useCallback(async () => {
@@ -312,12 +180,10 @@ export default function ShopMembersManagementPage() {
     } catch {}
   }, [activeShopId]);
 
-  // Tự động tải lại dữ liệu khi có sự kiện Socket Real-Time (membersRefreshTick tăng) mà không cần F5
   useEffect(() => {
     loadMembersData();
   }, [loadMembersData, membersRefreshTick]);
 
-  // Hỗ trợ điều hướng trực tiếp từ NotificationBell qua ?tab=PENDING_APPROVAL hoặc ?tab=ACTIVE_MEMBERS
   useEffect(() => {
     if (
       tabParam === "ACTIVE_MEMBERS" ||
@@ -328,7 +194,6 @@ export default function ShopMembersManagementPage() {
     }
   }, [tabParam]);
 
-  // FORM 1: MỜI NHÂN VIÊN / KẾ TOÁN / KHO QUA EMAIL (TANSTACK FORM + SHADCN FIELD)
   const inviteForm = useForm({
     defaultValues: {
       invitedEmail: EMPTY_STRING,
@@ -376,7 +241,6 @@ export default function ShopMembersManagementPage() {
     },
   });
 
-  // FORM 2: PHÊ DUYỆT NHÂN VIÊN ĐANG CHỜ DUYỆT (TANSTACK FORM + SHADCN FIELD)
   const approveForm = useForm({
     defaultValues: {
       assignedRole: "SALE_AGENT" as ShopRoleType,
@@ -415,47 +279,6 @@ export default function ShopMembersManagementPage() {
     },
   });
 
-  // FORM 3: TINH CHỈNH CHI TIẾT VAI TRÒ, HẠN MỨC & 92 MÃ QUYỀN (F00.5)
-  const customizePermissionsForm = useForm({
-    defaultValues: {
-      role: "SALE_AGENT" as ShopRoleType,
-      dataScope: "ASSIGNED_PLUS_POOL" as DataScopeType,
-      maxDiscountPercent: 5,
-      unmaskPhoneHourlyLimit: 15,
-    },
-    validators: {
-      onChange: customizePermissionsSchema,
-    },
-    onSubmit: async ({ value }) => {
-      if (!activeShopId || !selectedMember) return;
-      setIsSavingPermissions(true);
-      try {
-        await updateMemberPermissionsApi(activeShopId, selectedMember.id, {
-          role: value.role,
-          dataScope: value.dataScope,
-          maxDiscountPercent: Number(value.maxDiscountPercent),
-          unmaskPhoneHourlyLimit: Number(value.unmaskPhoneHourlyLimit),
-          grantedPermissionsJson: customGrantedPerms,
-          revokedPermissionsJson: [],
-        });
-        setSelectedMember(null);
-        setActiveModalMode(null);
-        await loadMembersData();
-        showSuccessToast(
-          `${selectedMember.user?.name || selectedMember.user?.email} -> ${t(`roles.${value.role}`)}`,
-          {
-            title: t("membersPage.roleUpdatedToast"),
-          },
-        );
-      } catch (err: any) {
-        showErrorToast(err?.response?.data?.message || "Failed");
-      } finally {
-        setIsSavingPermissions(false);
-      }
-    },
-  });
-
-  // FORM 4: CHUYỂN NHƯỢNG QUYỀN CHỦ CỬA HÀNG SHOP_OWNER (F00.6)
   const transferOwnershipForm = useForm({
     defaultValues: {
       targetMemberId: EMPTY_STRING,
@@ -484,35 +307,10 @@ export default function ShopMembersManagementPage() {
 
   const handleOpenCustomizePermissions = (member: any) => {
     setSelectedMember(member);
-    customizePermissionsForm.setFieldValue("role", member.role);
-    customizePermissionsForm.setFieldValue("dataScope", member.dataScope);
-    customizePermissionsForm.setFieldValue(
-      "maxDiscountPercent",
-      Number(member.maxDiscountPercent || 0),
-    );
-    customizePermissionsForm.setFieldValue(
-      "unmaskPhoneHourlyLimit",
-      Number(member.unmaskPhoneHourlyLimit || 0),
-    );
-
-    const existingPerms: string[] =
-      member.grantedPermissionsJson?.length > 0
-        ? member.grantedPermissionsJson
-        : rolePresets[member.role]?.defaultPermissions || [];
-    setCustomGrantedPerms(existingPerms);
     setActiveModalMode("CUSTOMIZE_PERMISSIONS");
   };
 
-  const handleTogglePermissionCode = (code: string, checked: boolean) => {
-    setCustomGrantedPerms((prev) =>
-      checked ? Array.from(new Set([...prev, code])) : prev.filter((c) => c !== code),
-    );
-  };
-
-  const handleQuickRoleUpdate = async (
-    member: any,
-    nextRole: ShopRoleType,
-  ) => {
+  const handleQuickRoleUpdate = async (member: any, nextRole: ShopRoleType) => {
     if (!activeShopId) return;
     const { defaultScope, defaultDiscount, defaultUnmask } =
       resolveRolePresetDefaults(nextRole);
@@ -525,7 +323,7 @@ export default function ShopMembersManagementPage() {
       });
       await loadMembersData();
       showSuccessToast(
-        `${member.user?.name || member.user?.email} -> ${t(`roles.${nextRole}`)}`,
+        `${member.user?.name || member.user?.email} → ${t(`roles.${nextRole}`)}`,
         {
           title: t("membersPage.roleUpdatedToast"),
         },
@@ -717,11 +515,11 @@ export default function ShopMembersManagementPage() {
         <div className="space-y-3">
           {activeMembers.map((m) => {
             const isOwner = m.role === "SHOP_OWNER";
-            const permCount = isOwner
-              ? 92
-              : (m.grantedPermissionsJson?.length ||
-                  rolePresets[m.role]?.defaultPermissions?.length ||
-                  0);
+            const effectivePerms = resolveEffectivePermissionsForMember(
+              m,
+              rolePresets,
+            );
+            const permCount = effectivePerms.length;
             return (
               <GlassSurfaceCard key={m.id} className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -729,6 +527,8 @@ export default function ShopMembersManagementPage() {
                     <GlassAvatar
                       name={m.user?.name || m.user?.email || "U"}
                       size="md"
+                      isOnline={m.shiftStatus === "ONLINE"}
+                      showStatus
                     />
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -767,7 +567,7 @@ export default function ShopMembersManagementPage() {
                   </div>
 
                   {!isOwner && (
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-row">
                       <Select
                         value={m.role}
                         onValueChange={(val) =>
@@ -797,6 +597,7 @@ export default function ShopMembersManagementPage() {
                       <PatternButton
                         type="button"
                         variant="glass"
+                        color="primary"
                         size="sm"
                         rounded="full"
                         onClick={() => handleOpenCustomizePermissions(m)}
@@ -958,7 +759,6 @@ export default function ShopMembersManagementPage() {
         </div>
       )}
 
-      {/* MODAL 1: MỜI NHÂN VIÊN QUA EMAIL */}
       {activeModalMode === "INVITE" && (
         <GlassModal
           open={true}
@@ -1177,7 +977,6 @@ export default function ShopMembersManagementPage() {
         </GlassModal>
       )}
 
-      {/* MODAL 2: PHÊ DUYỆT YÊU CẦU XIN VÀO QUÁN */}
       {activeModalMode === "APPROVE" && selectedMember && (
         <GlassModal
           open={true}
@@ -1314,258 +1113,22 @@ export default function ShopMembersManagementPage() {
         </GlassModal>
       )}
 
-      {/* MODAL 3: TINH CHỈNH CHI TIẾT VAI TRÒ, HẠN MỨC & 92 MÃ QUYỀN (F00.5) */}
-      {activeModalMode === "CUSTOMIZE_PERMISSIONS" && selectedMember && (
-        <GlassModal
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedMember(null);
-              setActiveModalMode(null);
-            }
-          }}
-          title={t("membersPage.customizeModalTitle")}
-          description={selectedMember?.user?.email}
-          size="lg"
-          footer={
-            <PatternButton
-              type="submit"
-              form="customize-permissions-form"
-              variant="solid"
-              color="primary"
-              size="sm"
-              rounded="full"
-              isLoading={isSavingPermissions}
-              icon={<CheckCircle2 className="w-4 h-4" />}
-            >
-              {t("membersPage.savePermissionsBtn")}
-            </PatternButton>
+      <MemberPermissionsCustomizeModal
+        open={activeModalMode === "CUSTOMIZE_PERMISSIONS"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedMember(null);
+            setActiveModalMode(null);
           }
-        >
-          <form
-            id="customize-permissions-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              customizePermissionsForm.handleSubmit();
-            }}
-          >
-            <FieldGroup>
-              <FieldSet>
-                <FieldGroup className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <customizePermissionsForm.Field name="role">
-                    {(field) => (
-                      <Field>
-                        <FieldLabel htmlFor={field.name}>
-                          {t("membersPage.selectRoleLabel")}
-                        </FieldLabel>
-                        <Select
-                          value={field.state.value}
-                          onValueChange={(val) => {
-                            const nextRole = val as ShopRoleType;
-                            field.handleChange(nextRole);
-                            const {
-                              defaultScope,
-                              defaultDiscount,
-                              defaultUnmask,
-                            } = resolveRolePresetDefaults(nextRole);
-                            customizePermissionsForm.setFieldValue(
-                              "dataScope",
-                              defaultScope,
-                            );
-                            customizePermissionsForm.setFieldValue(
-                              "maxDiscountPercent",
-                              defaultDiscount,
-                            );
-                            customizePermissionsForm.setFieldValue(
-                              "unmaskPhoneHourlyLimit",
-                              defaultUnmask,
-                            );
-                            if (rolePresets[nextRole]?.defaultPermissions) {
-                              setCustomGrantedPerms(
-                                rolePresets[nextRole].defaultPermissions,
-                              );
-                            }
-                          }}
-                        >
-                          <LiquidGlassInput className="w-full h-10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
-                            <SelectTrigger
-                              id={field.name}
-                              className="w-full h-full rounded-full cursor-pointer border-0 shadow-none bg-transparent px-3.5"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Shield className="h-4 w-4 text-primary shrink-0" />
-                                <SelectValue />
-                              </div>
-                            </SelectTrigger>
-                          </LiquidGlassInput>
-                          <ContentSelect>
-                            {ASSIGNABLE_ROLES.map((r) => (
-                              <ItemSelect key={r} value={r}>
-                                <span>{t(`roles.${r}`)}</span>
-                              </ItemSelect>
-                            ))}
-                          </ContentSelect>
-                        </Select>
-                      </Field>
-                    )}
-                  </customizePermissionsForm.Field>
+        }}
+        shopId={activeShopId}
+        member={selectedMember}
+        members={activeMembers}
+        rolePresets={rolePresets}
+        onSelectMember={(nextMember) => setSelectedMember(nextMember)}
+        onSaved={loadMembersData}
+      />
 
-                  <customizePermissionsForm.Field name="dataScope">
-                    {(field) => (
-                      <Field>
-                        <FieldLabel htmlFor={field.name}>
-                          {t("membersPage.selectScopeLabel")}
-                        </FieldLabel>
-                        <Select
-                          value={field.state.value}
-                          onValueChange={(val) =>
-                            field.handleChange(val as DataScopeType)
-                          }
-                        >
-                          <LiquidGlassInput className="w-full h-10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
-                            <SelectTrigger
-                              id={field.name}
-                              className="w-full h-full rounded-full cursor-pointer border-0 shadow-none bg-transparent px-3.5"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Layers className="h-4 w-4 text-indigo-500 shrink-0" />
-                                <SelectValue />
-                              </div>
-                            </SelectTrigger>
-                          </LiquidGlassInput>
-                          <ContentSelect>
-                            {DATA_SCOPES.map((s) => (
-                              <ItemSelect key={s} value={s}>
-                                <span>{t(`scopes.${s}`)}</span>
-                              </ItemSelect>
-                            ))}
-                          </ContentSelect>
-                        </Select>
-                      </Field>
-                    )}
-                  </customizePermissionsForm.Field>
-
-                  <customizePermissionsForm.Field name="maxDiscountPercent">
-                    {(field) => {
-                      const isInvalid =
-                        field.state.meta.isTouched && !field.state.meta.isValid;
-                      return (
-                        <Field data-invalid={isInvalid}>
-                          <FieldLabel htmlFor={field.name}>
-                            {t("membersPage.maxDiscountLabel")}
-                          </FieldLabel>
-                          <LiquidGlassInput className="w-full h-10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
-                            <div className="flex items-center px-3.5 w-full h-full">
-                              <Percent className="h-4 w-4 text-muted-foreground/50 mr-2.5 shrink-0" />
-                              <Input
-                                id={field.name}
-                                name={field.name}
-                                value={String(field.state.value)}
-                                onBlur={field.handleBlur}
-                                onChange={(e) =>
-                                  field.handleChange(
-                                    Number(e.target.value || 0),
-                                  )
-                                }
-                                type="number"
-                                min={0}
-                                max={100}
-                                className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                              />
-                            </div>
-                          </LiquidGlassInput>
-                          {isInvalid && (
-                            <FieldError errors={field.state.meta.errors} />
-                          )}
-                        </Field>
-                      );
-                    }}
-                  </customizePermissionsForm.Field>
-
-                  <customizePermissionsForm.Field name="unmaskPhoneHourlyLimit">
-                    {(field) => {
-                      const isInvalid =
-                        field.state.meta.isTouched && !field.state.meta.isValid;
-                      return (
-                        <Field data-invalid={isInvalid}>
-                          <FieldLabel htmlFor={field.name}>
-                            {t("membersPage.unmaskLimitLabel")}
-                          </FieldLabel>
-                          <LiquidGlassInput className="w-full h-10 overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all p-0">
-                            <div className="flex items-center px-3.5 w-full h-full">
-                              <PhoneCall className="h-4 w-4 text-muted-foreground/50 mr-2.5 shrink-0" />
-                              <Input
-                                id={field.name}
-                                name={field.name}
-                                value={String(field.state.value)}
-                                onBlur={field.handleBlur}
-                                onChange={(e) =>
-                                  field.handleChange(
-                                    Number(e.target.value || 0),
-                                  )
-                                }
-                                type="number"
-                                min={0}
-                                className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                              />
-                            </div>
-                          </LiquidGlassInput>
-                          {isInvalid && (
-                            <FieldError errors={field.state.meta.errors} />
-                          )}
-                        </Field>
-                      );
-                    }}
-                  </customizePermissionsForm.Field>
-                </FieldGroup>
-
-                <Field>
-                  <FieldLabel>
-                    {t("membersPage.granularPermissionsHeading", {
-                      count: customGrantedPerms.length,
-                    })}
-                  </FieldLabel>
-                  <ScrollArea className="h-56 rounded-xl border border-border/50 p-3">
-                    <div className="space-y-4">
-                      {PERMISSION_GROUPS.map((grp) => (
-                        <div key={grp.groupKey} className="space-y-2">
-                          <p className="text-xs font-bold text-primary">
-                            {grp.groupKey}
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {grp.codes.map((code) => {
-                              const isChecked =
-                                customGrantedPerms.includes(code);
-                              return (
-                                <div
-                                  key={code}
-                                  className="flex items-center justify-between gap-2 rounded-lg border border-border/40 px-2.5 py-1.5"
-                                >
-                                  <span className="text-[11px] font-mono truncate">
-                                    {code}
-                                  </span>
-                                  <Switch
-                                    checked={isChecked}
-                                    onCheckedChange={(checked) =>
-                                      handleTogglePermissionCode(code, checked)
-                                    }
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </Field>
-              </FieldSet>
-            </FieldGroup>
-          </form>
-        </GlassModal>
-      )}
-
-      {/* MODAL 4: CHUYỂN NHƯỢNG QUYỀN CHỦ CỬA HÀNG (F00.6) */}
       {activeModalMode === "TRANSFER_OWNERSHIP" && (
         <GlassModal
           open={true}

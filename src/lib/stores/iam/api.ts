@@ -201,6 +201,7 @@ export const updateMemberPermissionsApi = async (
     dataScope: DataScopeType;
     maxDiscountPercent: number;
     unmaskPhoneHourlyLimit: number;
+    maxConcurrentChats?: number;
     grantedPermissionsJson?: string[];
     revokedPermissionsJson?: string[];
     allowedChannelIdsJson?: string[];

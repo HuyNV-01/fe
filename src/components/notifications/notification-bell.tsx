@@ -21,6 +21,11 @@ import {
   ShieldCheck,
   ShieldAlert,
   MailCheck,
+  Share2,
+  ShoppingBag,
+  Clock,
+  PowerOff,
+  Sliders,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -132,6 +137,23 @@ export function NotificationBell() {
         router.push(
           `${config.routes.private.settingsMembers}?tab=ACTIVE_MEMBERS`,
         );
+        return;
+      }
+
+      if (
+        item.type === NotificationTypeEnum.CHANNEL_CONNECTED ||
+        item.type === NotificationTypeEnum.CHANNEL_TOKEN_WARNING ||
+        item.type === NotificationTypeEnum.SHOP_WORKSPACE_UPDATED
+      ) {
+        router.push(config.routes.private.settingsChannels);
+        return;
+      }
+
+      if (
+        item.type === NotificationTypeEnum.SHOP_FORCE_OFFLINE ||
+        item.type === NotificationTypeEnum.SHOP_ROLE_UPDATED
+      ) {
+        router.push(config.routes.private.settingsPermissions);
       }
     },
     [markAsRead, markConversationReadOptimistic, fetchMessages, router],
@@ -140,12 +162,14 @@ export function NotificationBell() {
   const renderTypeBadgeIcon = (type: NotificationTypeEnum) => {
     switch (type) {
       case NotificationTypeEnum.NEW_MESSAGE:
+      case NotificationTypeEnum.INBOX_CONVERSATION_ASSIGNED:
         return (
           <Badge className="p-1 rounded-full bg-cyan-500 text-white shadow-xs">
             <MessageSquare className="size-3.5" />
           </Badge>
         );
       case NotificationTypeEnum.MESSAGE_REPLY:
+      case NotificationTypeEnum.SHOP_SHIFT_HANDOVER:
         return (
           <Badge className="p-1 rounded-full bg-indigo-500 text-white shadow-xs">
             <Reply className="size-3.5" />
@@ -203,15 +227,46 @@ export function NotificationBell() {
         );
       case NotificationTypeEnum.SHOP_JOIN_REJECTED:
       case NotificationTypeEnum.SHOP_MEMBER_STATUS_CHANGED:
+      case NotificationTypeEnum.CHANNEL_TOKEN_WARNING:
         return (
           <Badge className="p-1 rounded-full bg-rose-500 text-white shadow-xs">
             <ShieldAlert className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.SHOP_FORCE_OFFLINE:
+        return (
+          <Badge className="p-1 rounded-full bg-rose-600 text-white shadow-xs">
+            <PowerOff className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.INBOX_SLA_RECLAIMED:
+        return (
+          <Badge className="p-1 rounded-full bg-amber-600 text-white shadow-xs">
+            <Clock className="size-3.5" />
           </Badge>
         );
       case NotificationTypeEnum.SHOP_ROLE_UPDATED:
         return (
           <Badge className="p-1 rounded-full bg-blue-600 text-white shadow-xs">
             <ShieldCheck className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.SHOP_WORKSPACE_UPDATED:
+        return (
+          <Badge className="p-1 rounded-full bg-sky-600 text-white shadow-xs">
+            <Sliders className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.CHANNEL_CONNECTED:
+        return (
+          <Badge className="p-1 rounded-full bg-emerald-500 text-white shadow-xs">
+            <Share2 className="size-3.5" />
+          </Badge>
+        );
+      case NotificationTypeEnum.MARKETPLACE_ORDER_SYNCED:
+        return (
+          <Badge className="p-1 rounded-full bg-orange-500 text-white shadow-xs">
+            <ShoppingBag className="size-3.5" />
           </Badge>
         );
       default:
@@ -258,7 +313,6 @@ export function NotificationBell() {
         collisionPadding={12}
         className="w-[calc(100vw-1.5rem)] max-w-[360px] sm:w-[380px] sm:max-w-[380px] p-0 overflow-hidden"
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5 border-b border-border/50">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-foreground">{t("title")}</h3>
@@ -281,7 +335,6 @@ export function NotificationBell() {
           )}
         </div>
 
-        {/* Filter Tabs */}
         <div className="px-4 py-2 bg-muted/30 border-b border-border/40">
           <GlassTabs
             size="sm"
@@ -294,7 +347,6 @@ export function NotificationBell() {
           />
         </div>
 
-        {/* Notification List */}
         <ScrollArea className="h-[min(360px,65dvh)] w-full">
           <div className="flex flex-col divide-y divide-border/30">
             {notifications.length === 0 && !isLoading && (
@@ -369,7 +421,6 @@ export function NotificationBell() {
                     </span>
                   </div>
 
-                  {/* Nút xóa thông báo */}
                   <div className="my-auto flex flex-col items-center justify-center gap-2 shrink-0">
                     <button
                       type="button"

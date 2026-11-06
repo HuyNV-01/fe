@@ -1,22 +1,31 @@
 "use client";
 
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollArea } from "../ui/scroll-area";
 import { ChatSidebarEmpty } from "./chat-sidebar-empty";
 import ChatItem, { ChatItemSkeleton } from "./chat-item";
 import { MAP_ARRAY, UNKNOWN } from "@/constant";
 import { useShallow } from "zustand/react/shallow";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
+import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 import config from "@/config";
 import { useRouter } from "@/i18n/navigation";
-import { Bell, BellOff, Trash2, EllipsisVertical, CheckCheck, Check } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  Trash2,
+  EllipsisVertical,
+  CheckCheck,
+  Check,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   DropdownMenuContentCus,
+  GlassBadge,
   ItemMenu,
   PatternButton,
   GlassConfirmDialog,
@@ -47,6 +56,36 @@ export default function ChatList() {
       typingUsers: state.typingUsers,
     })),
   );
+  const channels = useChannelWorkspaceStore((s) => s.channels);
+  const selectedChannelIds = useChannelWorkspaceStore(
+    (s) => s.selectedChannelIds,
+  );
+
+  const channelMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { pageShortCode: string; channelType: string }
+    >();
+    for (const ch of channels) {
+      map.set(ch.id, {
+        pageShortCode: ch.pageShortCode,
+        channelType: ch.channelType,
+      });
+    }
+    return map;
+  }, [channels]);
+
+  const filteredConversations = useMemo(() => {
+    if (channels.length === 0 || selectedChannelIds.length === 0) {
+      return conversations;
+    }
+    return conversations.filter(
+      (c) =>
+        !c.channelIntegrationId ||
+        selectedChannelIds.includes(c.channelIntegrationId),
+    );
+  }, [conversations, channels.length, selectedChannelIds]);
+
   const tHeader = useTranslations("Chat.Detail.header.actions");
   const [deleteTarget, setDeleteTarget] = useState<IConversation | null>(null);
 
@@ -57,8 +96,8 @@ export default function ChatList() {
     useChatStore();
 
   useEffect(() => {
-    const hasExpiringPreview = conversations.some(
-      (c) => Boolean(c.lastMessageExpiresAt || c.disappearingTtl),
+    const hasExpiringPreview = conversations.some((c) =>
+      Boolean(c.lastMessageExpiresAt || c.disappearingTtl),
     );
     if (!hasExpiringPreview) return;
 
@@ -101,13 +140,13 @@ export default function ChatList() {
   return (
     <ScrollArea className="h-full w-full flex-1" onScrollCapture={handleScroll}>
       <div className="flex flex-col gap-1.5 px-2.5 sm:px-3 pb-4 pt-1">
-        {!isLoadingInbox && conversations.length === 0 && (
+        {!isLoadingInbox && filteredConversations.length === 0 && (
           <div className="mt-10 animate-in fade-in zoom-in-95 duration-500">
             <ChatSidebarEmpty />
           </div>
         )}
 
-        {conversations.map((chat) => {
+        {filteredConversations.map((chat) => {
           const isSelected = activeConversationId === chat.id;
           const unreadBadge = isSelected
             ? 0
@@ -125,25 +164,42 @@ export default function ChatList() {
               chat.lastMessageSenderId === currentUserId,
           );
 
-          const formattedSubtitle = safeLastMessage ? (
-            isMyLastMsg ? (
-              <span className="inline-flex items-center gap-1 truncate w-full">
-                {chat.lastMessageStatus === "read" ? (
-                  <CheckCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                ) : chat.lastMessageStatus === "delivered" ? (
-                  <CheckCheck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          const channelInfo = chat.channelIntegrationId
+            ? channelMap.get(chat.channelIntegrationId)
+            : null;
+
+          const formattedSubtitle = (
+            <span className="inline-flex items-center gap-1.5 truncate w-full">
+              {channelInfo && (
+                <GlassBadge
+                  variant="primary"
+                  size="sm"
+                  className="px-1.5 py-0 text-[9px] shrink-0"
+                >
+                  {channelInfo.pageShortCode}
+                </GlassBadge>
+              )}
+              {safeLastMessage ? (
+                isMyLastMsg ? (
+                  <span className="inline-flex items-center gap-1 truncate min-w-0">
+                    {chat.lastMessageStatus === "read" ? (
+                      <CheckCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    ) : chat.lastMessageStatus === "delivered" ? (
+                      <CheckCheck className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    ) : (
+                      <Check className="w-3 h-3 text-muted-foreground/80 shrink-0" />
+                    )}
+                    <span className="truncate">
+                      {tConv("me")}: {safeLastMessage}
+                    </span>
+                  </span>
                 ) : (
-                  <Check className="w-3 h-3 text-muted-foreground/80 shrink-0" />
-                )}
-                <span className="truncate">
-                  {tConv("me")}: {safeLastMessage}
-                </span>
-              </span>
-            ) : (
-              safeLastMessage
-            )
-          ) : (
-            tSidebar("item.noMessages")
+                  <span className="truncate">{safeLastMessage}</span>
+                )
+              ) : (
+                <span className="truncate">{tSidebar("item.noMessages")}</span>
+              )}
+            </span>
           );
 
           return (

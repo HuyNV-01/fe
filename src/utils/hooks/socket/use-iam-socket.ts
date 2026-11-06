@@ -8,12 +8,17 @@ import {
   type ShiftStatusType,
   usePermissionStore,
 } from "@/lib/stores/iam/use-permission-store";
+import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { SocketNamespaceEnum } from "@/common/enum";
 import { SOCKET_EVENTS } from "@/constant/socket-events";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import config from "@/config";
 import { tStore } from "@/i18n/translate-store";
-import { showWarningToast } from "@/utils/toast";
+import {
+  showInfoToast,
+  showSuccessToast,
+  showWarningToast,
+} from "@/utils/toast";
 
 export const useIamSocket = () => {
   const currentUser = useAuthStore((s) => s.currentAccount);
@@ -44,9 +49,31 @@ export const useIamSocket = () => {
         SOCKET_EVENTS.IAM.PERMISSIONS_UPDATED,
         async (payload) => {
           if (!payload) return;
+          const prevRole = usePermissionStore.getState().role;
+          const prevPermCount =
+            usePermissionStore.getState().permissions?.length || 0;
+
           applyRealtimeEffectiveContext(payload);
           await fetchOnboardingOverview();
           triggerMembersRefresh();
+
+          const nextPermCount = payload.permissions?.length || 0;
+          if (
+            prevRole !== payload.role ||
+            Math.abs(prevPermCount - nextPermCount) > 0
+          ) {
+            showInfoToast(
+              tStore("ShiftAndIam.realtimeToast.permissionsUpdatedDesc", {
+                role: tStore(`OnboardingAndRoles.roles.${payload.role}`),
+                count: nextPermCount,
+              }),
+              {
+                title: tStore(
+                  "ShiftAndIam.realtimeToast.permissionsUpdatedTitle",
+                ),
+              },
+            );
+          }
         },
       );
 
@@ -59,7 +86,33 @@ export const useIamSocket = () => {
       SOCKET_EVENTS.IAM.SHIFT_STATUS_CHANGED,
       async (payload) => {
         if (!payload) return;
-        setActiveShopContext({ shiftStatus: payload.shiftStatus });
+        if (payload.userId === currentUser.user.id) {
+          setActiveShopContext({ shiftStatus: payload.shiftStatus });
+        }
+        triggerMembersRefresh();
+      },
+    );
+
+    const cleanShiftHandoverCompleted = socketService.on<{
+      shopId: string;
+      fromUserId: string;
+      toUserId: string;
+      conversationIds: string[];
+      count: number;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.IAM.SHIFT_HANDOVER_COMPLETED,
+      async (payload) => {
+        if (!payload) return;
+        showSuccessToast(
+          tStore("ShiftAndIam.handoverModal.receivedHandoverToast", {
+            count: payload.count || 1,
+          }),
+          {
+            title: tStore("ShiftAndIam.status.ONLINE"),
+          },
+        );
+        useChatStore.getState().fetchInbox({ page: 1 });
         triggerMembersRefresh();
       },
     );
@@ -67,6 +120,7 @@ export const useIamSocket = () => {
     const cleanForceShiftHandover = socketService.on<{
       shopId: string;
       forcedByManagerId: string;
+      forcedByManagerName?: string;
       reassignedConversationCount: number;
     }>(
       SocketNamespaceEnum.CHAT,
@@ -86,6 +140,18 @@ export const useIamSocket = () => {
           },
         );
         await fetchOnboardingOverview();
+        triggerMembersRefresh();
+      },
+    );
+
+    const cleanWorkspaceSettingsUpdated = socketService.on<{
+      shopId: string;
+      settings: any;
+      updatedBy: string | null;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.IAM.WORKSPACE_SETTINGS_UPDATED,
+      async () => {
         triggerMembersRefresh();
       },
     );
@@ -194,7 +260,9 @@ export const useIamSocket = () => {
     return () => {
       cleanPermissionsUpdated();
       cleanShiftStatusChanged();
+      cleanShiftHandoverCompleted();
       cleanForceShiftHandover();
+      cleanWorkspaceSettingsUpdated();
       cleanInvitationReceived();
       cleanInvitationRevoked();
       cleanInvitationAccepted();

@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/correctness/useExhaustiveDependencies: <explanation> */
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -14,6 +15,7 @@ import {
   RotateCcw,
   Hash,
   Globe,
+  ShoppingBag,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
@@ -73,6 +75,7 @@ export default function OmnichannelSettingsPage() {
   const t = useTranslations("SettingsChannels");
 
   const activeShopId = usePermissionStore((s) => s.activeShopId);
+  const membersRefreshTick = usePermissionStore((s) => s.membersRefreshTick);
   const channels = useChannelWorkspaceStore((s) => s.channels);
   const webhookLogs = useChannelWorkspaceStore((s) => s.webhookLogs);
   const fetchShopChannels = useChannelWorkspaceStore(
@@ -106,6 +109,9 @@ export default function OmnichannelSettingsPage() {
   const [simulatingChannelId, setSimulatingChannelId] = useState<string | null>(
     null,
   );
+  const [simulatingOrderChannelId, setSimulatingOrderChannelId] = useState<
+    string | null
+  >(null);
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [replayingLogId, setReplayingLogId] = useState<string | null>(null);
 
@@ -156,6 +162,7 @@ export default function OmnichannelSettingsPage() {
     fetchWebhookLogs(activeShopId);
   }, [
     activeShopId,
+    membersRefreshTick,
     fetchShopChannels,
     loadWorkspaceSettings,
     fetchWebhookLogs,
@@ -232,7 +239,7 @@ export default function OmnichannelSettingsPage() {
         externalPageId: ch.externalPageId,
         threadId: `thread_${Date.now()}`,
         senderName: `Khách ${ch.pageShortCode}`,
-        messageText: `Tư vấn mẫu mới trên kênh ${ch.pageName}`,
+        messageText: `Xin chào shop, tư vấn giúp mình mẫu mới trên ${ch.pageName} nhé!`,
         event: "MESSAGE_INBOUND",
       });
       await fetchShopChannels(activeShopId);
@@ -242,6 +249,38 @@ export default function OmnichannelSettingsPage() {
       showErrorToast(err?.response?.data?.message || "Failed");
     } finally {
       setSimulatingChannelId(null);
+    }
+  };
+
+  const handleSimulateMarketplaceOrder = async (ch: any) => {
+    if (!activeShopId) return;
+    setSimulatingOrderChannelId(ch.id);
+    try {
+      const orderSn = `${ch.pageShortCode.replace(/[^A-Z0-9]/g, "")}${String(Date.now()).slice(-6)}`;
+      await simulateOmnichannelWebhookApi(ch.channelType, {
+        externalPageId: ch.externalPageId,
+        order_sn: orderSn,
+        buyer_username: `Khách hàng ${ch.pageShortCode}`,
+        total_amount: 485000,
+        order_status: "READY_TO_SHIP",
+        event: "ORDER_CREATED",
+        items: [
+          {
+            externalItemId: `ITEM-${orderSn}`,
+            skuCode: `SKU-${ch.pageShortCode}-01`,
+            itemName: `Sản phẩm chủ lực ${ch.pageName}`,
+            quantity: 2,
+            unitPrice: 242500,
+          },
+        ],
+      });
+      await fetchShopChannels(activeShopId);
+      await fetchWebhookLogs(activeShopId);
+      showSuccessToast(t("simulatedMarketplaceOrderToast"));
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setSimulatingOrderChannelId(null);
     }
   };
 
@@ -306,7 +345,7 @@ export default function OmnichannelSettingsPage() {
               variant="glass"
               color="info"
               size="sm"
-              rounded={"full"}
+              rounded="full"
               isLoading={isRunningDoctor}
               onClick={handleRunTokenDoctor}
               icon={<RefreshCw className="w-3.5 h-3.5" />}
@@ -320,7 +359,7 @@ export default function OmnichannelSettingsPage() {
               variant="solid"
               color="primary"
               size="sm"
-              rounded={"full"}
+              rounded="full"
               onClick={() => setConnectModalOpen(true)}
               icon={<Plus className="w-4 h-4" />}
               iconPosition="left"
@@ -365,7 +404,7 @@ export default function OmnichannelSettingsPage() {
                   variant="solid"
                   color="primary"
                   size="md"
-                  rounded={"full"}
+                  rounded="full"
                   onClick={() => setConnectModalOpen(true)}
                   icon={<ArrowRight className="w-4 h-4" />}
                   iconPosition="right"
@@ -375,84 +414,112 @@ export default function OmnichannelSettingsPage() {
               }
             />
           ) : (
-            channels.map((ch) => (
-              <GlassSurfaceCard key={ch.id} className="p-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <GlassAvatar
-                      src={ch.avatarUrl}
-                      name={ch.pageShortCode}
-                      size="md"
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
+            channels.map((ch) => {
+              const isMarketplace =
+                ch.channelType === "SHOPEE" ||
+                ch.channelType === "TIKTOK_SHOP" ||
+                ch.channelType === "LAZADA";
+
+              return (
+                <GlassSurfaceCard key={ch.id} className="p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <GlassAvatar
+                        src={ch.avatarUrl}
+                        name={ch.pageShortCode}
+                        size="md"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <TruncatedText
+                            as="h4"
+                            className="font-bold text-sm max-w-64"
+                          >
+                            {ch.pageName}
+                          </TruncatedText>
+                          <GlassBadge variant="primary" size="sm">
+                            <TruncatedText>{ch.pageShortCode}</TruncatedText>
+                          </GlassBadge>
+                          <GlassBadge
+                            variant={
+                              ch.webhookStatus === "HEALTHY"
+                                ? "success"
+                                : ch.webhookStatus === "TOKEN_EXPIRING_SOON"
+                                  ? "warning"
+                                  : "danger"
+                            }
+                            size="sm"
+                            dot
+                          >
+                            <TruncatedText>
+                              {t(`webhookStatuses.${ch.webhookStatus}`)}
+                            </TruncatedText>
+                          </GlassBadge>
+                        </div>
                         <TruncatedText
-                          as="h4"
-                          className="font-bold text-sm max-w-64"
+                          as="p"
+                          className="text-xs text-muted-foreground mt-0.5"
                         >
-                          {ch.pageName}
+                          {t(`platforms.${ch.channelType}`)} • ID:{" "}
+                          {ch.externalPageId}
+                          {ch.metaDatasetId
+                            ? ` • Pixel/Dataset: ${ch.metaDatasetId}`
+                            : ""}
                         </TruncatedText>
-                        <GlassBadge variant="primary" size="sm">
-                          <TruncatedText>{ch.pageShortCode}</TruncatedText>
-                        </GlassBadge>
-                        <GlassBadge
-                          variant={
-                            ch.webhookStatus === "HEALTHY"
-                              ? "success"
-                              : ch.webhookStatus === "TOKEN_EXPIRING_SOON"
-                                ? "warning"
-                                : "danger"
-                          }
-                          size="sm"
-                          dot
-                        >
-                          <TruncatedText>{ch.webhookStatus}</TruncatedText>
-                        </GlassBadge>
                       </div>
-                      <TruncatedText
-                        as="p"
-                        className="text-xs text-muted-foreground mt-0.5"
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap shrink-0">
+                      <PatternButton
+                        type="button"
+                        variant="glass"
+                        color="primary"
+                        size="sm"
+                        rounded="full"
+                        isLoading={simulatingChannelId === ch.id}
+                        onClick={() => handleSimulateWebhook(ch)}
+                        icon={<Zap className="w-3.5 h-3.5" />}
+                        iconPosition="left"
                       >
-                        {ch.channelType} • ID: {ch.externalPageId}
-                        {ch.metaDatasetId
-                          ? ` • Meta Dataset: ${ch.metaDatasetId}`
-                          : ""}
-                      </TruncatedText>
+                        <TruncatedText>{t("simulateWebhookBtn")}</TruncatedText>
+                      </PatternButton>
+
+                      {isMarketplace && (
+                        <PatternButton
+                          type="button"
+                          variant="glass"
+                          color="success"
+                          size="sm"
+                          rounded="full"
+                          isLoading={simulatingOrderChannelId === ch.id}
+                          onClick={() => handleSimulateMarketplaceOrder(ch)}
+                          icon={<ShoppingBag className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>
+                            {t("simulateMarketplaceOrderBtn")}
+                          </TruncatedText>
+                        </PatternButton>
+                      )}
+
+                      <PatternButton
+                        type="button"
+                        variant="ghost"
+                        color="danger"
+                        size="sm"
+                        rounded="full"
+                        isLoading={disconnectingId === ch.id}
+                        onClick={() => handleDisconnectChannel(ch.id)}
+                        icon={<Trash2 className="w-3.5 h-3.5" />}
+                        iconPosition="left"
+                      >
+                        <TruncatedText>{t("disconnectBtn")}</TruncatedText>
+                      </PatternButton>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 flex-wrap shrink-0">
-                    <PatternButton
-                      type="button"
-                      variant="glass"
-                      color="primary"
-                      size="sm"
-                      rounded={"full"}
-                      isLoading={simulatingChannelId === ch.id}
-                      onClick={() => handleSimulateWebhook(ch)}
-                      icon={<Zap className="w-3.5 h-3.5" />}
-                      iconPosition="left"
-                    >
-                      <TruncatedText>{t("simulateWebhookBtn")}</TruncatedText>
-                    </PatternButton>
-
-                    <PatternButton
-                      type="button"
-                      variant="ghost"
-                      color="danger"
-                      size="sm"
-                      rounded={"full"}
-                      isLoading={disconnectingId === ch.id}
-                      onClick={() => handleDisconnectChannel(ch.id)}
-                      icon={<Trash2 className="w-3.5 h-3.5" />}
-                      iconPosition="left"
-                    >
-                      <TruncatedText>{t("disconnectBtn")}</TruncatedText>
-                    </PatternButton>
-                  </div>
-                </div>
-              </GlassSurfaceCard>
-            ))
+                </GlassSurfaceCard>
+              );
+            })
           )}
         </div>
       )}
@@ -476,7 +543,7 @@ export default function OmnichannelSettingsPage() {
               variant="solid"
               color="primary"
               size="md"
-              rounded={"full"}
+              rounded="full"
               fullWidth
               isLoading={isSavingRouting}
               icon={<ArrowRight className="w-4 h-4" />}
@@ -658,7 +725,9 @@ export default function OmnichannelSettingsPage() {
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <GlassBadge variant="primary" size="sm">
-                        <TruncatedText>{log.channelType}</TruncatedText>
+                        <TruncatedText>
+                          {t(`platforms.${log.channelType}`)}
+                        </TruncatedText>
                       </GlassBadge>
                       <GlassBadge
                         variant={
@@ -672,7 +741,9 @@ export default function OmnichannelSettingsPage() {
                         size="sm"
                         dot
                       >
-                        <TruncatedText>{log.processingStatus}</TruncatedText>
+                        <TruncatedText>
+                          {t(`processingStatuses.${log.processingStatus}`)}
+                        </TruncatedText>
                       </GlassBadge>
                       <TruncatedText className="text-xs font-mono text-muted-foreground max-w-60">
                         {log.idempotencyKey}
@@ -682,8 +753,11 @@ export default function OmnichannelSettingsPage() {
                       as="p"
                       className="text-xs text-muted-foreground"
                     >
-                      Event: {log.eventType} • {log.processingDurationMs}ms •
-                      Replayed: {log.replayedCount}
+                      {t("webhookLogSummary", {
+                        eventType: log.eventType,
+                        duration: log.processingDurationMs,
+                        replayed: log.replayedCount,
+                      })}
                     </TruncatedText>
                   </div>
 
@@ -692,7 +766,7 @@ export default function OmnichannelSettingsPage() {
                     variant="glass"
                     color="primary"
                     size="sm"
-                    rounded={"full"}
+                    rounded="full"
                     isLoading={replayingLogId === log.id}
                     onClick={() => handleReplayWebhook(log.id)}
                     icon={<RotateCcw className="w-3.5 h-3.5" />}
@@ -722,7 +796,7 @@ export default function OmnichannelSettingsPage() {
             variant="solid"
             color="primary"
             size="md"
-            rounded={"full"}
+            rounded="full"
             fullWidth
             isLoading={isConnecting}
             icon={<ArrowRight className="w-4 h-4" />}
@@ -760,7 +834,9 @@ export default function OmnichannelSettingsPage() {
                     <ContentSelect>
                       {CHANNEL_PLATFORMS.map((plat) => (
                         <ItemSelect key={plat} value={plat}>
-                          <TruncatedText>{plat}</TruncatedText>
+                          <TruncatedText>
+                            {t(`platforms.${plat}`)}
+                          </TruncatedText>
                         </ItemSelect>
                       ))}
                     </ContentSelect>
