@@ -1,6 +1,7 @@
+/** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Layers,
   Search,
@@ -12,6 +13,10 @@ import {
   Bookmark,
   ArrowRight,
   Settings2,
+  AlertTriangle,
+  Tag,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
@@ -29,14 +34,19 @@ import {
   TruncatedText,
 } from "@/components/toolkit";
 import { PermissionGate } from "@/components/iam/permission-gate";
+import { OmnichannelFilterBar } from "@/components/chat/omnichannel-filter-bar";
+import { CustomTagManagerModal } from "@/components/chat/custom-tag-manager-modal";
 import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
+import { useTagStore } from "@/lib/stores/tags/use-tag-store";
 import config from "@/config";
 import { cn } from "@/lib/utils";
+import type { ICustomTag } from "@/types/chat";
 
 type MergedStatusFilter =
   | "ALL"
   | "WAITING_AGENT_REPLY"
+  | "GHOSTED"
   | "WAITING_CUSTOMER_REPLY";
 
 export default function MultiPageMergedInboxPage() {
@@ -77,18 +87,33 @@ export default function MultiPageMergedInboxPage() {
   );
   const applySavedPreset = useChannelWorkspaceStore((s) => s.applySavedPreset);
 
+  const tags = useTagStore((s) => s.tags);
+  const fetchShopTags = useTagStore((s) => s.fetchShopTags);
+
   const [statusFilter, setStatusFilter] = useState<MergedStatusFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedConvIds, setSelectedConvIds] = useState<string[]>([]);
+  const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
+
+  const tagMap = useMemo(() => {
+    const map = new Map<string, ICustomTag>();
+    tags.forEach((tag) => map.set(tag.id, tag));
+    return map;
+  }, [tags]);
 
   const loadMergedStream = useCallback(async () => {
     if (!activeShopId) return;
     await Promise.all([
       fetchMergedConversations(activeShopId, {
         channelIds: selectedChannelIds,
-        supportStatus: statusFilter === "ALL" ? undefined : statusFilter,
+        supportStatus:
+          statusFilter === "ALL" || statusFilter === "GHOSTED"
+            ? undefined
+            : statusFilter,
         search: searchQuery,
       }),
       fetchMarketplaceReservations(activeShopId),
+      fetchShopTags(activeShopId),
     ]);
   }, [
     activeShopId,
@@ -97,6 +122,7 @@ export default function MultiPageMergedInboxPage() {
     searchQuery,
     fetchMergedConversations,
     fetchMarketplaceReservations,
+    fetchShopTags,
   ]);
 
   useEffect(() => {
@@ -107,6 +133,21 @@ export default function MultiPageMergedInboxPage() {
   useEffect(() => {
     loadMergedStream();
   }, [loadMergedStream]);
+
+  const displayedConversations = useMemo(() => {
+    if (statusFilter === "GHOSTED") {
+      return mergedConversations.filter((c: any) =>
+        Boolean(c.isGhostedByAgent),
+      );
+    }
+    return mergedConversations;
+  }, [mergedConversations, statusFilter]);
+
+  const toggleSelectConv = (id: string) => {
+    setSelectedConvIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
+    );
+  };
 
   return (
     <ScrollArea className="h-full w-full flex-1">
@@ -121,6 +162,20 @@ export default function MultiPageMergedInboxPage() {
           }
           actions={
             <div className="flex items-center gap-2 flex-wrap">
+              <PermissionGate can="TAG_SCHEMA_CREATE_EDIT" mode="hide">
+                <PatternButton
+                  type="button"
+                  variant="glass"
+                  color="neutral"
+                  size="sm"
+                  rounded="full"
+                  onClick={() => setIsTagManagerOpen(true)}
+                  icon={<Tag className="w-3.5 h-3.5" />}
+                >
+                  <TruncatedText>{t("mergeMode.manageTagsBtn")}</TruncatedText>
+                </PatternButton>
+              </PermissionGate>
+
               <PatternButton
                 type="button"
                 variant="glass"
@@ -243,6 +298,20 @@ export default function MultiPageMergedInboxPage() {
           </div>
         </GlassSurfaceCard>
 
+        {/* Bộ lọc 18 tiêu chí & Gắn Tag hàng loạt (F03.1, F03.2, F02.6) */}
+        {activeShopId && (
+          <GlassSurfaceCard noPadding className="overflow-hidden">
+            <OmnichannelFilterBar
+              shopId={activeShopId}
+              selectedConversationIds={selectedConvIds}
+              onClearBulkSelection={() => {
+                setSelectedConvIds([]);
+                loadMergedStream();
+              }}
+            />
+          </GlassSurfaceCard>
+        )}
+
         {/* Thanh Lọc Trạng Thái & Tìm Kiếm Xuyên Kênh */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <GlassTabs
@@ -260,6 +329,14 @@ export default function MultiPageMergedInboxPage() {
                 badge: mergedConversations.filter(
                   (c) => c.supportStatus === "WAITING_AGENT_REPLY",
                 ).length,
+              },
+              {
+                key: "GHOSTED",
+                label: t("filters.ghosted", {
+                  count: mergedConversations.filter((c: any) =>
+                    Boolean(c.isGhostedByAgent),
+                  ).length,
+                }),
               },
               {
                 key: "WAITING_CUSTOMER_REPLY",
@@ -286,20 +363,39 @@ export default function MultiPageMergedInboxPage() {
 
         {/* Danh sách Hội thoại Hợp nhất (Multi-Page Unified Stream) */}
         <div className="space-y-2.5">
-          {mergedConversations.length === 0 ? (
+          {displayedConversations.length === 0 ? (
             <GlassEmptyState
               icon={<MessageSquare className="w-6 h-6" />}
               title={t("mergeMode.emptyMergedStreamTitle")}
               description={t("mergeMode.emptyMergedStreamDesc")}
             />
           ) : (
-            mergedConversations.map((conv) => {
+            displayedConversations.map((conv: any) => {
               const isWaitingReply =
                 conv.supportStatus === "WAITING_AGENT_REPLY";
+              const isChecked = selectedConvIds.includes(conv.id);
+              const convTags = (conv.activeTagIdsJson || [])
+                .map((tid: string) => tagMap.get(tid))
+                .filter((item: ICustomTag | undefined): item is ICustomTag =>
+                  Boolean(item),
+                );
+
               return (
                 <GlassSurfaceCard key={conv.id} className="p-3.5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleSelectConv(conv.id)}
+                        className="text-muted-foreground hover:text-primary cursor-pointer shrink-0"
+                      >
+                        {isChecked ? (
+                          <CheckSquare className="w-4 h-4 text-primary" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                      </button>
+
                       <GlassAvatar
                         src={conv.avatar || conv.channelAvatarUrl}
                         name={conv.name}
@@ -334,6 +430,14 @@ export default function MultiPageMergedInboxPage() {
                               </>
                             )}
                           </GlassBadge>
+
+                          {conv.isGhostedByAgent && (
+                            <GlassBadge variant="danger" size="sm" dot pulse>
+                              <AlertTriangle className="w-3 h-3 mr-1 inline" />
+                              <span>{t("filters.ghosted", { count: 1 })}</span>
+                            </GlassBadge>
+                          )}
+
                           {conv.hasOrderCreated && (
                             <GlassBadge variant="info" size="sm">
                               <ShoppingBag className="w-3 h-3 mr-1 inline" />
@@ -342,6 +446,18 @@ export default function MultiPageMergedInboxPage() {
                               </span>
                             </GlassBadge>
                           )}
+
+                          {convTags.map((tag: ICustomTag) => (
+                            <span
+                              key={tag.id}
+                              style={{
+                                backgroundColor: tag.colorOklch || tag.colorHex,
+                              }}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-semibold text-white"
+                            >
+                              {tag.name}
+                            </span>
+                          ))}
                         </div>
                         <TruncatedText
                           as="p"
@@ -444,6 +560,14 @@ export default function MultiPageMergedInboxPage() {
           </GlassSurfaceCard>
         )}
       </div>
+
+      {activeShopId && (
+        <CustomTagManagerModal
+          open={isTagManagerOpen}
+          onOpenChange={setIsTagManagerOpen}
+          shopId={activeShopId}
+        />
+      )}
     </ScrollArea>
   );
 }

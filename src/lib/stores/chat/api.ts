@@ -269,3 +269,133 @@ export const getLinkPreviewApi = async (url: string) => {
 export const getConversationActiveCallApi = async (conversationId: string) => {
   return apiClient.get(`/chat/conversations/${conversationId}/active-call`);
 };
+
+// ============================================================================
+// SPRINT 2 — OMNICHANNEL INBOX 18-CRITERIA, INTERNAL NOTE, SNOOZE,
+// COLLISION LOCK, MASKED VOIP & REAL-TIME TRANSLATION APIs
+// ============================================================================
+
+export const queryOmnichannelInboxApi = async (payload: {
+  shopId: string;
+  channelIds?: string[];
+  unreadOnly?: boolean;
+  unrepliedOnly?: boolean;
+  ghostedByAgentOnly?: boolean;
+  slaBreachedOnly?: boolean;
+  window24hExpiringOnly?: boolean;
+  snoozedOnly?: boolean;
+  hasPhone?: boolean;
+  noPhone?: boolean;
+  hasOrder?: boolean;
+  noOrder?: boolean;
+  interactionType?: "INBOX" | "COMMENT" | "LIVESTREAM" | "MARKETPLACE";
+  sourcePostId?: string;
+  sourceAdId?: string;
+  assignedAgentId?: string;
+  includeTagIds?: string[];
+  includeTagOperator?: "AND" | "OR";
+  excludeTagIds?: string[];
+  searchKeyword?: string;
+  cursorLastMessageAt?: string;
+  limit?: number;
+}) => {
+  return apiClient.post("/chat/omnichannel/query", payload);
+};
+
+export const createInternalNoteApi = async (payload: {
+  conversationId: string;
+  content: string;
+  mentionedUserIds?: string[];
+  replyToMessageId?: string;
+}) => {
+  const { conversationId, ...body } = payload;
+  return apiClient.post(
+    `/chat/conversations/${conversationId}/internal-note`,
+    body,
+  );
+};
+
+export const snoozeConversationApi = async (payload: {
+  conversationId: string;
+  snoozedUntilAt: string;
+  snoozeNote?: string;
+}) => {
+  const { conversationId, ...body } = payload;
+  return apiClient.post(`/chat/conversations/${conversationId}/snooze`, body);
+};
+
+export const cancelSnoozeConversationApi = async (conversationId: string) => {
+  return apiClient.delete(`/chat/conversations/${conversationId}/snooze`);
+};
+
+export const transferConversationApi = async (payload: {
+  conversationId: string;
+  targetAgentId: string;
+  transferNote?: string;
+}) => {
+  const { conversationId, ...body } = payload;
+  return apiClient.post(`/chat/conversations/${conversationId}/transfer`, body);
+};
+
+export const getCollisionLockApi = async (conversationId: string) => {
+  return apiClient.get(`/chat/conversations/${conversationId}/collision-lock`);
+};
+
+export const acquireCollisionLockApi = async (conversationId: string) => {
+  return apiClient.post(`/chat/conversations/${conversationId}/collision-lock`);
+};
+
+export const releaseCollisionLockApi = async (conversationId: string) => {
+  return apiClient.delete(
+    `/chat/conversations/${conversationId}/collision-lock`,
+  );
+};
+
+export const forceTakeoverCollisionLockApi = async (payload: {
+  conversationId: string;
+  shopId: string;
+}) => {
+  return apiClient.post(
+    `/chat/conversations/${payload.conversationId}/collision-lock/takeover`,
+    { shopId: payload.shopId },
+  );
+};
+
+export const initiateMaskedVoipCallApi = async (payload: {
+  conversationId: string;
+  customerId?: string;
+  customerPhoneMasked?: string;
+  sipTrunkProvider?: string;
+}) => {
+  const { conversationId, ...body } = payload;
+  return apiClient.post(
+    `/chat/conversations/${conversationId}/masked-call`,
+    body,
+  );
+};
+
+export const finalizeMaskedVoipCallApi = async (payload: {
+  conversationId: string;
+  callSessionId: string;
+  durationSeconds: number;
+  recordingFileId?: string;
+  recordingFileUrl?: string;
+  callDispositionTag: string;
+  callNotes?: string;
+}) => {
+  const { conversationId, ...body } = payload;
+  return apiClient.post(
+    `/chat/conversations/${conversationId}/masked-call/finalize`,
+    body,
+  );
+};
+
+export const translateChatMessageApi = async (payload: {
+  text: string;
+  targetLang: string;
+  sourceLang?: string;
+  messageId?: string;
+  conversationId?: string;
+}) => {
+  return apiClient.post("/chat/translate", payload);
+};

@@ -1,4 +1,6 @@
 /** biome-ignore-all lint/a11y/useMediaCaption: <explanation> */
+/** biome-ignore-all lint/suspicious/noArrayIndexKey: <explanation> */
+/** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
 "use client";
 
@@ -29,10 +31,19 @@ import {
   Lock,
   Timer,
   Users,
+  Bookmark,
+  StickyNote,
+  Languages,
+  ShoppingBag,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
-import type { IConversationMemberDetail, IMessage } from "@/types/chat";
+import type {
+  IConversationMemberDetail,
+  ICustomTag,
+  IMessage,
+} from "@/types/chat";
 import { PollVotersModal } from "./poll-voters-modal";
+import { AudioWaveformPlayer } from "./audio-waveform-player";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
 import {
   downloadMediaFile,
@@ -62,6 +73,8 @@ interface MessageBubbleProps {
   displayName?: string;
   displayReaders?: { id: string; name: string; avatar: string | null }[];
   members?: IConversationMemberDetail[];
+  bookmarkTags?: ICustomTag[];
+  allTagsMap?: Map<string, ICustomTag>;
   uploadPercent?: number;
   onReply?: (message: IMessage) => void;
   onEdit?: (message: IMessage) => void;
@@ -69,6 +82,8 @@ interface MessageBubbleProps {
   onReact?: (message: IMessage, emoji: string) => void;
   onTogglePin?: (message: IMessage) => void;
   onForward?: (message: IMessage) => void;
+  onToggleBookmarkTag?: (messageId: string, tagId: string) => void;
+  onTranslateMessage?: (message: IMessage) => void;
   onCallbackCall?: (callType: CallTypeEnum) => void;
   onScrollToMessage?: (messageId: string) => void;
   onVotePoll?: (messageId: string, optionIds: string[]) => void;
@@ -110,6 +125,8 @@ export const MessageBubble = memo(
     displayName,
     displayReaders,
     members = [],
+    bookmarkTags = [],
+    allTagsMap,
     uploadPercent,
     onReply,
     onEdit,
@@ -117,14 +134,18 @@ export const MessageBubble = memo(
     onReact,
     onTogglePin,
     onForward,
+    onToggleBookmarkTag,
+    onTranslateMessage,
     onCallbackCall,
     onScrollToMessage,
     onVotePoll,
     onClosePoll,
   }: MessageBubbleProps) => {
     const t = useTranslations("Chat.Detail.conversation.bubble");
+    const tInbox = useTranslations("OmnichannelInbox");
     const { toMessageTime, toFullDateTime } = useDateFormat();
     const [showReactionPicker, setShowReactionPicker] = useState(false);
+    const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [pollModalOptionId, setPollModalOptionId] = useState<string | null>(
       null,
@@ -137,14 +158,21 @@ export const MessageBubble = memo(
     }, [members]);
 
     const isRecalled = message.status === "removed";
+    const isInternalNote = Boolean(
+      message.isInternalNote ||
+        message.direction === "INTERNAL_NOTE" ||
+        message.metadata?.isInternalNote,
+    );
     const attachments = message.metadata?.attachments || [];
     const replyPreview = message.metadata?.replyPreview;
     const forwardedFrom = message.metadata?.forwardedFrom;
     const reactions = message.metadata?.reactions || {};
     const callInfo = message.metadata?.callInfo;
-
     const pollInfo = message.metadata?.poll;
     const linkPreview = message.metadata?.linkPreview;
+    const productCards = message.metadata?.productCards || [];
+    const translation = message.metadata?.translation;
+    const messageTagIds = message.messageTagIdsJson || [];
 
     const imageGallery: LightboxImageItem[] = useMemo(() => {
       if (message.type !== MessageTypeEnum.IMAGE) return [];
@@ -189,21 +217,30 @@ export const MessageBubble = memo(
       switch (message.status) {
         case "sending":
           return (
-            <span className="inline-flex items-center gap-0.5" title={t("status.sending")}>
+            <span
+              className="inline-flex items-center gap-0.5"
+              title={t("status.sending")}
+            >
               <Clock className="w-3 h-3 text-current opacity-75 animate-pulse" />
               {isLastInGroup && <span>{t("status.sending")}</span>}
             </span>
           );
         case "sent":
           return (
-            <span className="inline-flex items-center gap-0.5" title={t("status.sent")}>
+            <span
+              className="inline-flex items-center gap-0.5"
+              title={t("status.sent")}
+            >
               <Check className="w-3 h-3 text-current opacity-80" />
               {isLastInGroup && <span>{t("status.sent")}</span>}
             </span>
           );
         case "delivered":
           return (
-            <span className="inline-flex items-center gap-0.5" title={t("status.delivered")}>
+            <span
+              className="inline-flex items-center gap-0.5"
+              title={t("status.delivered")}
+            >
               <CheckCheck className="w-3.5 h-3.5 text-current opacity-90" />
               {isLastInGroup && <span>{t("status.delivered")}</span>}
             </span>
@@ -220,13 +257,19 @@ export const MessageBubble = memo(
           );
         case "failed":
           return (
-            <span className="inline-flex items-center gap-0.5 text-red-200" title={t("status.failed")}>
+            <span
+              className="inline-flex items-center gap-0.5 text-red-200"
+              title={t("status.failed")}
+            >
               <AlertCircle className="w-3 h-3 text-red-200" />
             </span>
           );
         default:
           return (
-            <span className="inline-flex items-center gap-0.5" title={t("status.sent")}>
+            <span
+              className="inline-flex items-center gap-0.5"
+              title={t("status.sent")}
+            >
               <Check className="w-3 h-3 text-current opacity-75" />
               {isLastInGroup && <span>{t("status.sent")}</span>}
             </span>
@@ -249,6 +292,11 @@ export const MessageBubble = memo(
       return replyPreview.content;
     };
 
+    const isMaskedVoipCall =
+      message.type === MessageTypeEnum.CALL &&
+      (callInfo?.callDirection === "OUTBOUND_SIP_PSTN" ||
+        Boolean(callInfo?.recordingFileUrl));
+
     return (
       <div
         id={`msg-${message.id}`}
@@ -257,9 +305,11 @@ export const MessageBubble = memo(
           isMe ? "items-end" : "items-start",
           !isContinuous ? "mt-3" : "mt-0.5",
         )}
-        onMouseLeave={() => setShowReactionPicker(false)}
+        onMouseLeave={() => {
+          setShowReactionPicker(false);
+          setShowBookmarkPicker(false);
+        }}
       >
-        {/* Tên người gửi ở đầu nhóm tin nhắn nếu là chat nhóm */}
         {!isMe && isGroupChat && !isContinuous && displayName && (
           <span className="text-[11px] font-medium text-muted-foreground ml-10 mb-1 select-none">
             {displayName}
@@ -292,9 +342,11 @@ export const MessageBubble = memo(
               "relative px-3 sm:px-3.5 py-2 text-sm shadow-xs transition-all min-w-0",
               isRecalled
                 ? "bg-muted/40 text-muted-foreground italic border border-dashed border-border"
-                : isMe
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-white dark:bg-muted text-foreground border border-border/50",
+                : isInternalNote
+                  ? "bg-amber-500/20 dark:bg-amber-500/25 text-amber-950 dark:text-amber-100 border border-amber-500/45 backdrop-blur-md"
+                  : isMe
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-white dark:bg-muted text-foreground border border-border/50",
               "rounded-2xl",
               isMe &&
                 isContinuous &&
@@ -311,6 +363,14 @@ export const MessageBubble = memo(
               isHighlighted && "bg-primary/15 ring-2 ring-primary/40",
             )}
           >
+            {/* Huy hiệu Ghi chú nội bộ (Alt+N — F03.5) */}
+            {!isRecalled && isInternalNote && (
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 mb-1">
+                <StickyNote className="w-3 h-3 shrink-0" />
+                <span>{tInbox("composer.internalNoteBadge")}</span>
+              </div>
+            )}
+
             {/* Nhãn Đã ghim */}
             {!isRecalled &&
               (message.isPinned || message.metadata?.isPinned) && (
@@ -319,6 +379,30 @@ export const MessageBubble = memo(
                   <span>{t("pinnedLabel")}</span>
                 </div>
               )}
+
+            {/* Huy hiệu Bookmark Tag gắn trên bong bóng (F02.3) */}
+            {!isRecalled && messageTagIds.length > 0 && (
+              <div className="flex items-center gap-1 flex-wrap mb-1.5">
+                {messageTagIds.map((tId) => {
+                  const tagObj =
+                    allTagsMap?.get(tId) ||
+                    bookmarkTags.find((bt) => bt.id === tId);
+                  if (!tagObj) return null;
+                  return (
+                    <span
+                      key={tId}
+                      style={{
+                        backgroundColor: tagObj.colorOklch || tagObj.colorHex,
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[10px] font-semibold text-white shadow-2xs"
+                    >
+                      <Bookmark className="w-2.5 h-2.5" />
+                      <span>{tagObj.name}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Khung Trích dẫn tin nhắn trả lời (Reply Preview) */}
             {!isRecalled && replyPreview && (
@@ -354,7 +438,6 @@ export const MessageBubble = memo(
               </p>
             ) : (
               <>
-                {/* 1. Hiển thị Hình ảnh ngay trong Web + Nút Tải xuống nhanh */}
                 {message.type === MessageTypeEnum.IMAGE && (
                   <div
                     className={cn(
@@ -380,7 +463,6 @@ export const MessageBubble = memo(
                           />
                         </button>
 
-                        {/* Nút Xem lớn & Tải xuống trực tiếp không nhảy trang */}
                         <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
                           <button
                             type="button"
@@ -410,7 +492,6 @@ export const MessageBubble = memo(
                   </div>
                 )}
 
-                {/* 2. Hiển thị Video */}
                 {message.type === MessageTypeEnum.VIDEO &&
                   attachments.map((att) => (
                     <div
@@ -426,7 +507,6 @@ export const MessageBubble = memo(
                     </div>
                   ))}
 
-                {/* 3. Hiển thị Tin nhắn thoại / Âm thanh */}
                 {message.type === MessageTypeEnum.AUDIO &&
                   attachments.map((att) => (
                     <div
@@ -441,7 +521,6 @@ export const MessageBubble = memo(
                     </div>
                   ))}
 
-                {/* 4. Hiển thị Tệp tài liệu (FILE) */}
                 {message.type === MessageTypeEnum.FILE &&
                   attachments.map((att) => (
                     <button
@@ -470,43 +549,60 @@ export const MessageBubble = memo(
                     </button>
                   ))}
 
-                {/* 5. Hiển thị Thẻ Lịch sử Cuộc gọi (CALL) */}
+                {/* 5. Hiển thị Thẻ Lịch sử Cuộc gọi & Trình phát sóng âm Ghi âm VoIP Ẩn SĐT (F03.10 & T04) */}
                 {message.type === MessageTypeEnum.CALL && (
-                  <div className="flex items-center gap-3 py-1 min-w-[180px] sm:min-w-[200px]">
-                    <div
-                      className={cn(
-                        "p-2.5 rounded-full shrink-0",
-                        callInfo?.status === CallStatusEnum.COMPLETED
-                          ? isMe
-                            ? "bg-white/20 text-white"
-                            : "bg-emerald-500/15 text-emerald-500"
-                          : isMe
-                            ? "bg-red-500/30 text-red-100"
-                            : "bg-red-500/15 text-red-500",
-                      )}
-                    >
-                      {callInfo?.callType === CallTypeEnum.VIDEO ? (
-                        <Video className="w-4 h-4" />
-                      ) : callInfo?.status === CallStatusEnum.COMPLETED ? (
-                        <PhoneCall className="w-4 h-4" />
-                      ) : (
-                        <PhoneMissed className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold">{message.content}</p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onCallbackCall?.(
-                            callInfo?.callType || CallTypeEnum.AUDIO,
-                          )
-                        }
-                        className="text-[11px] font-medium underline opacity-90 hover:opacity-100 mt-0.5 cursor-pointer"
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-3 py-1 min-w-[180px] sm:min-w-[200px]">
+                      <div
+                        className={cn(
+                          "p-2.5 rounded-full shrink-0",
+                          callInfo?.status === CallStatusEnum.COMPLETED
+                            ? isMe
+                              ? "bg-white/20 text-white"
+                              : "bg-emerald-500/15 text-emerald-500"
+                            : isMe
+                              ? "bg-red-500/30 text-red-100"
+                              : "bg-red-500/15 text-red-500",
+                        )}
                       >
-                        {t("callAgain")}
-                      </button>
+                        {callInfo?.callType === CallTypeEnum.VIDEO ? (
+                          <Video className="w-4 h-4" />
+                        ) : callInfo?.status === CallStatusEnum.COMPLETED ? (
+                          <PhoneCall className="w-4 h-4" />
+                        ) : (
+                          <PhoneMissed className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold">
+                          {message.content}
+                        </p>
+                        {!isMaskedVoipCall && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onCallbackCall?.(
+                                callInfo?.callType || CallTypeEnum.AUDIO,
+                              )
+                            }
+                            className="text-[11px] font-medium underline opacity-90 hover:opacity-100 mt-0.5 cursor-pointer"
+                          >
+                            {t("callAgain")}
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {isMaskedVoipCall && (
+                      <AudioWaveformPlayer
+                        recordingUrl={callInfo?.recordingFileUrl}
+                        durationSeconds={callInfo?.durationSeconds || 0}
+                        maskedPhoneDisplay={callInfo?.maskedPhoneDisplay}
+                        callDispositionTag={callInfo?.callDispositionTag}
+                        waveformPeaks={callInfo?.waveformPeaks}
+                        isMe={isMe}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -535,7 +631,9 @@ export const MessageBubble = memo(
                       {pollInfo.allowMultipleAnswers
                         ? t("poll.multipleChoice")
                         : t("poll.singleChoice")}
-                      {pollInfo.isAnonymous ? ` • ${t("poll.anonymousTag")}` : ""}
+                      {pollInfo.isAnonymous
+                        ? ` • ${t("poll.anonymousTag")}`
+                        : ""}
                     </p>
 
                     <div className="space-y-1.5">
@@ -580,11 +678,14 @@ export const MessageBubble = memo(
                                   type="button"
                                   disabled={pollInfo.isClosed}
                                   onClick={() => {
-                                    if (pollInfo.isClosed || !onVotePoll) return;
+                                    if (pollInfo.isClosed || !onVotePoll)
+                                      return;
                                     let nextIds: string[];
                                     if (pollInfo.allowMultipleAnswers) {
                                       nextIds = isSelected
-                                        ? myVotedIds.filter((id) => id !== opt.id)
+                                        ? myVotedIds.filter(
+                                            (id) => id !== opt.id,
+                                          )
                                         : [...myVotedIds, opt.id];
                                     } else {
                                       nextIds = isSelected ? [] : [opt.id];
@@ -684,11 +785,71 @@ export const MessageBubble = memo(
                     message.type !== MessageTypeEnum.POLL &&
                     message.type !== MessageTypeEnum.IMAGE)) && (
                   <p className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere] max-w-full">
-                    {renderTextWithMentions(message.content, isMe)}
+                    {renderTextWithMentions(
+                      message.content,
+                      isMe && !isInternalNote,
+                    )}
                   </p>
                 )}
 
-                {/* 7. Thẻ Xem trước Liên kết (Rich OpenGraph Link Preview) */}
+                {/* Bản dịch tự động đa ngôn ngữ 2 chiều (F03.11) */}
+                {translation?.translatedText && (
+                  <div
+                    className={cn(
+                      "mt-2 pt-1.5 border-t text-xs italic space-y-0.5",
+                      isMe && !isInternalNote
+                        ? "border-white/25 text-white/95"
+                        : "border-border/50 text-muted-foreground",
+                    )}
+                  >
+                    <div className="flex items-center gap-1 text-[10px] font-semibold not-italic opacity-80">
+                      <Languages className="w-3 h-3" />
+                      <span>
+                        {translation.sourceLang.toUpperCase()} →{" "}
+                        {translation.targetLang.toUpperCase()}
+                      </span>
+                    </div>
+                    <p>{translation.translatedText}</p>
+                  </div>
+                )}
+
+                {/* Thẻ sản phẩm đính kèm (F03.3) */}
+                {productCards.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {productCards.map((card) => (
+                      <div
+                        key={card.skuCode}
+                        className={cn(
+                          "flex items-center justify-between gap-2.5 p-2 rounded-xl border text-xs",
+                          isMe && !isInternalNote
+                            ? "bg-black/20 border-white/20 text-white"
+                            : "bg-muted/60 border-border text-foreground",
+                        )}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="p-1.5 rounded-lg bg-primary/15 shrink-0">
+                            <ShoppingBag className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate">
+                              {card.name}
+                            </p>
+                            <p className="text-[10px] opacity-80 font-mono">
+                              SKU: {card.skuCode}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="font-bold shrink-0">
+                          {Number(card.retailPrice || 0).toLocaleString(
+                            "vi-VN",
+                          )}
+                          đ
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {linkPreview && (
                   <a
                     href={sanitizeMediaUrl(linkPreview.url)}
@@ -696,7 +857,7 @@ export const MessageBubble = memo(
                     rel="noopener noreferrer"
                     className={cn(
                       "mt-2 block rounded-xl overflow-hidden border transition-opacity hover:opacity-95 max-w-xs sm:max-w-sm",
-                      isMe
+                      isMe && !isInternalNote
                         ? "bg-black/20 border-white/20 text-primary-foreground"
                         : "bg-muted/60 border-border text-foreground",
                     )}
@@ -730,7 +891,6 @@ export const MessageBubble = memo(
                   </a>
                 )}
 
-                {/* Thanh tiến trình tải lên (Upload Progress) */}
                 {typeof uploadPercent === "number" && uploadPercent < 100 && (
                   <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden mt-2">
                     <div
@@ -746,7 +906,7 @@ export const MessageBubble = memo(
             <div
               className={cn(
                 "flex items-center gap-1.5 text-[10px] mt-1 select-none opacity-80",
-                isMe
+                isMe && !isInternalNote
                   ? "justify-end text-primary-foreground/90"
                   : "justify-start text-muted-foreground",
               )}
@@ -767,7 +927,6 @@ export const MessageBubble = memo(
               {StatusIcon}
             </div>
 
-            {/* Nhãn Tin nhắn được chuyển tiếp */}
             {!isRecalled && forwardedFrom && (
               <div className="flex items-center gap-1 text-[10px] opacity-80 mb-1 italic">
                 <Forward className="w-3 h-3 shrink-0" />
@@ -777,7 +936,6 @@ export const MessageBubble = memo(
               </div>
             )}
 
-            {/* Huy hiệu Cảm xúc (Reactions) dưới chân bong bóng */}
             {!isRecalled && reactionEntries.length > 0 && (
               <div
                 className={cn(
@@ -820,6 +978,79 @@ export const MessageBubble = memo(
                   "opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 bg-background/95 backdrop-blur border rounded-full px-1 sm:px-1.5 py-0.5 shadow-sm z-20 shrink-0",
                 )}
               >
+                {/* Nút Gắn Tag Đánh Dấu Bong Bóng Tin Nhắn (F02.3 Bookmark) */}
+                {bookmarkTags.length > 0 && onToggleBookmarkTag && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowBookmarkPicker((v) => !v)}
+                      className={cn(
+                        "p-1 sm:p-1.5 rounded-full hover:bg-muted cursor-pointer",
+                        messageTagIds.length > 0
+                          ? "text-sky-500"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                      title={tInbox("composer.bookmarkBubbleTooltip")}
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                    </button>
+
+                    {showBookmarkPicker && (
+                      <div
+                        className={cn(
+                          "absolute bottom-full mb-1.5 flex flex-col gap-1 bg-background border rounded-2xl p-2 shadow-xl z-40 min-w-44 animate-in fade-in zoom-in-95 duration-150",
+                          isMe ? "right-0" : "left-0",
+                        )}
+                      >
+                        {bookmarkTags.map((bTag) => {
+                          const active = messageTagIds.includes(bTag.id);
+                          return (
+                            <button
+                              key={bTag.id}
+                              type="button"
+                              onClick={() => {
+                                onToggleBookmarkTag(message.id, bTag.id);
+                                setShowBookmarkPicker(false);
+                              }}
+                              className={cn(
+                                "flex items-center justify-between gap-2 px-2.5 py-1 rounded-xl text-xs font-medium text-left cursor-pointer transition-colors",
+                                active
+                                  ? "bg-primary/15 text-primary font-semibold"
+                                  : "hover:bg-muted text-foreground",
+                              )}
+                            >
+                              <span className="inline-flex items-center gap-1.5 truncate">
+                                <span
+                                  className="w-2 h-2 rounded-full shrink-0"
+                                  style={{
+                                    backgroundColor:
+                                      bTag.colorOklch || bTag.colorHex,
+                                  }}
+                                />
+                                <span className="truncate">{bTag.name}</span>
+                              </span>
+                              {active && <Check className="w-3 h-3 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Nút Dịch Tin Nhắn 2 Chiều (F03.11) */}
+                {message.type === MessageTypeEnum.TEXT &&
+                  onTranslateMessage && (
+                    <button
+                      type="button"
+                      onClick={() => onTranslateMessage(message)}
+                      className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-sky-500 cursor-pointer"
+                      title={tInbox("translation.translateBubbleTooltip")}
+                    >
+                      <Languages className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
                 <div className="relative">
                   <button
                     type="button"

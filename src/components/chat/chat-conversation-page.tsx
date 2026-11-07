@@ -20,6 +20,12 @@ import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
 import { CreateGroupModal } from "@/components/chat/create-group-modal";
+import { AgentCollisionBanner } from "@/components/chat/agent-collision-banner";
+import { QuickTagShortcutBar } from "@/components/chat/quick-tag-shortcut-bar";
+import { CustomTagManagerModal } from "@/components/chat/custom-tag-manager-modal";
+import { TaggedMessagesSheet } from "@/components/chat/tagged-messages-sheet";
+import { ConversationSnoozeAndTimelineSheet } from "@/components/chat/conversation-snooze-popover";
+import { MaskedVoipCallModal } from "@/components/chat/masked-voip-call-modal";
 import {
   PatternButton,
   GlassIconButton,
@@ -28,6 +34,8 @@ import {
 
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
+import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
+import { useTagStore } from "@/lib/stores/tags/use-tag-store";
 import { useHydratedStore } from "@/utils/hooks/use-hydrated-store";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
 import { useChatScroll } from "@/utils/hooks/use-chat-scroll";
@@ -43,7 +51,11 @@ import config from "@/config";
 import { Input } from "@/components/ui/input";
 import { PinnedMessagesBar } from "@/components/chat/pinned-messages-bar";
 import { ConversationInfoDrawer } from "@/components/chat/conversation-info-drawer";
-import type { IMessage } from "@/types/chat";
+import type {
+  ICustomTag,
+  IMessage,
+  IQuickReplyProductCard,
+} from "@/types/chat";
 import { ForwardMessageModal } from "./forward-message-modal";
 import { OngoingCallBanner } from "./ongoing-call-banner";
 import { ScrollArea } from "../ui/scroll-area";
@@ -62,6 +74,7 @@ export default function ChatConversationPage({
   const tHeader = useTranslations("Chat.Detail.header");
 
   const currentUser = useHydratedStore(useAuthStore, (s) => s.currentAccount);
+  const activeShopId = usePermissionStore((s) => s.activeShopId);
 
   const {
     conversations,
@@ -73,6 +86,7 @@ export default function ChatConversationPage({
     fetchMessages,
     isLoadingMessages,
     sendMessage,
+    sendInternalNote,
     sendAttachmentMessage,
     editMessage,
     recallMessage,
@@ -95,8 +109,23 @@ export default function ChatConversationPage({
     deleteConversation,
     toggleBlockUser,
     purgeExpiredMessages,
-    ongoingCallsByConv
+    ongoingCallsByConv,
+    collisionLocksByConv,
+    acquireCollisionLock,
+    releaseCollisionLock,
+    forceTakeOverCollisionLock,
+    initiateMaskedVoipCall,
+    translateMessageOrDraft,
   } = useChatStore();
+
+  const {
+    tags,
+    bookmarkedMessagesByConv,
+    fetchShopTags,
+    toggleConversationTag,
+    toggleMessageBookmarkTag,
+    fetchBookmarkedMessages,
+  } = useTagStore();
 
   const [isInfoDrawerOpen, setIsInfoDrawerOpen] = useState(false);
   const [isSearchBarOpen, setIsSearchBarOpen] = useState(false);
@@ -109,6 +138,12 @@ export default function ChatConversationPage({
   >(null);
   const [isLeaveGroupConfirmOpen, setIsLeaveGroupConfirmOpen] = useState(false);
   const [isDeleteConvConfirmOpen, setIsDeleteConvConfirmOpen] = useState(false);
+
+  // Sprint 2 modals & drawers
+  const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
+  const [isBookmarksSheetOpen, setIsBookmarksSheetOpen] = useState(false);
+  const [isSnoozeSheetOpen, setIsSnoozeSheetOpen] = useState(false);
+
   const { groupMessagesTime } = useDateFormat();
   const conversationId = params?.id || "";
 
@@ -127,6 +162,69 @@ export default function ChatConversationPage({
   const currentConversation = useMemo(
     () => conversations.find((c) => c.id === conversationId),
     [conversations, conversationId],
+  );
+
+  const effectiveShopId =
+    currentConversation?.shopId || currentDetails?.shopId || activeShopId;
+
+  useEffect(() => {
+    if (effectiveShopId && conversationId) {
+      fetchShopTags(effectiveShopId);
+      fetchBookmarkedMessages(effectiveShopId, conversationId);
+    }
+  }, [effectiveShopId, conversationId, fetchShopTags, fetchBookmarkedMessages]);
+
+  // F03.7 & T03: Heartbeat khóa chống đụng độ nhân viên (Collision Lock 25s)
+  useEffect(() => {
+    if (!conversationId || !effectiveShopId) return;
+    acquireCollisionLock(conversationId);
+
+    const interval = setInterval(() => {
+      acquireCollisionLock(conversationId);
+    }, 25_000);
+
+    return () => {
+      clearInterval(interval);
+      releaseCollisionLock(conversationId);
+    };
+  }, [
+    conversationId,
+    effectiveShopId,
+    acquireCollisionLock,
+    releaseCollisionLock,
+  ]);
+
+  const activeCollisionLock = conversationId
+    ? collisionLocksByConv[conversationId]
+    : null;
+  const isCollisionLockedByOther = Boolean(
+    activeCollisionLock &&
+      currentUser?.user?.id &&
+      activeCollisionLock.holderAgentId !== currentUser.user.id,
+  );
+
+  const allTagsMap = useMemo(() => {
+    const map = new Map<string, ICustomTag>();
+    tags.forEach((tag) => map.set(tag.id, tag));
+    return map;
+  }, [tags]);
+
+  const bookmarkTags = useMemo(
+    () =>
+      tags.filter(
+        (tag) =>
+          tag.category === "MESSAGE_BOOKMARK" ||
+          tag.applicableScopesJson?.includes("MESSAGE"),
+      ),
+    [tags],
+  );
+
+  const activeTagIds = useMemo(
+    () =>
+      currentConversation?.activeTagIdsJson ||
+      currentDetails?.activeTagIdsJson ||
+      [],
+    [currentConversation?.activeTagIdsJson, currentDetails?.activeTagIdsJson],
   );
 
   const isGroupChat =
@@ -331,7 +429,12 @@ export default function ChatConversationPage({
   const handleSendMessage = useCallback(
     async (
       content: string,
-      options?: { mentionedUserIds?: string[]; mentionAll?: boolean },
+      options?: {
+        mentionedUserIds?: string[];
+        mentionAll?: boolean;
+        productCards?: IQuickReplyProductCard[];
+        quickReplyShortcutUsed?: string;
+      },
     ) => {
       if (!conversationId) return;
       await sendMessage({
@@ -340,10 +443,30 @@ export default function ChatConversationPage({
         type: MessageTypeEnum.TEXT,
         mentionedUserIds: options?.mentionedUserIds,
         mentionAll: options?.mentionAll,
+        metadata:
+          options?.productCards || options?.quickReplyShortcutUsed
+            ? {
+                productCards: options.productCards,
+                quickReplyShortcutUsed: options.quickReplyShortcutUsed,
+              }
+            : undefined,
       });
       scrollToBottom("smooth");
     },
     [conversationId, sendMessage, scrollToBottom],
+  );
+
+  const handleSendInternalNote = useCallback(
+    async (content: string, mentionedUserIds?: string[]) => {
+      if (!conversationId) return;
+      await sendInternalNote({
+        conversationId,
+        content,
+        mentionedUserIds,
+      });
+      scrollToBottom("smooth");
+    },
+    [conversationId, sendInternalNote, scrollToBottom],
   );
 
   const handleSendAttachments = useCallback(
@@ -403,6 +526,9 @@ export default function ChatConversationPage({
 
   if (!currentUser) return null;
 
+  const bookmarkedCount = (bookmarkedMessagesByConv[conversationId] || [])
+    .length;
+
   return (
     <div className="flex flex-col h-full bg-background w-full overflow-hidden relative">
       {/* Header */}
@@ -416,12 +542,39 @@ export default function ChatConversationPage({
           isGroupChat={isGroupChat}
           isAdmin={currentConversation?.isAdmin}
           partnerId={currentConversation?.partnerId}
+          shopId={effectiveShopId}
+          sourceAdId={
+            currentConversation?.sourceAdId || currentDetails?.sourceAdId
+          }
+          sourcePostId={
+            currentConversation?.sourcePostId || currentDetails?.sourcePostId
+          }
+          isGhostedByAgent={Boolean(
+            currentConversation?.isGhostedByAgent ||
+              currentDetails?.isGhostedByAgent,
+          )}
+          isSlaBreached={Boolean(
+            currentConversation?.isSlaBreached || currentDetails?.isSlaBreached,
+          )}
+          snoozedUntilAt={
+            currentConversation?.snoozedUntilAt ||
+            currentDetails?.snoozedUntilAt
+          }
           isBlocked={Boolean(
             currentDetails?.blockState?.isBlocked ||
               currentConversation?.isBlocked,
           )}
           onAudioCall={() => initiateCall(conversationId, CallTypeEnum.AUDIO)}
           onVideoCall={() => initiateCall(conversationId, CallTypeEnum.VIDEO)}
+          onMaskedVoipCall={() =>
+            initiateMaskedVoipCall({
+              conversationId,
+              customerId: currentConversation?.customerId || undefined,
+              customerPhoneMasked: "098***678",
+            })
+          }
+          onOpenSnoozeAndTimeline={() => setIsSnoozeSheetOpen(true)}
+          onOpenBookmarksSheet={() => setIsBookmarksSheetOpen(true)}
           onToggleMute={() =>
             toggleMuteConversation(
               conversationId,
@@ -434,6 +587,39 @@ export default function ChatConversationPage({
           onLeaveGroup={() => setIsLeaveGroupConfirmOpen(true)}
           onDeleteConversation={() => setIsDeleteConvConfirmOpen(true)}
         />
+
+        {/* Thanh phím tắt Tag màu oklch (Alt+1..9 — F02.1 & F02.2) */}
+        {effectiveShopId && tags.length > 0 && (
+          <QuickTagShortcutBar
+            tags={tags}
+            activeTagIds={activeTagIds}
+            bookmarkedCount={bookmarkedCount}
+            onToggleTag={(tagId) =>
+              toggleConversationTag({
+                shopId: effectiveShopId,
+                conversationId,
+                tagId,
+              })
+            }
+            onOpenTagManager={() => setIsTagManagerOpen(true)}
+            onOpenBookmarksSheet={() => setIsBookmarksSheetOpen(true)}
+          />
+        )}
+
+        {/* Thanh cảnh báo Chống đụng độ nhân viên (F03.7 & T03) */}
+        {activeCollisionLock && (
+          <AgentCollisionBanner
+            holderAgentId={activeCollisionLock.holderAgentId}
+            holderAgentName={activeCollisionLock.holderAgentName}
+            holderAgentAvatar={activeCollisionLock.holderAgentAvatar}
+            currentUserId={currentUser.user.id}
+            onForceTakeOver={() => {
+              if (effectiveShopId) {
+                forceTakeOverCollisionLock(effectiveShopId, conversationId);
+              }
+            }}
+          />
+        )}
 
         {isSearchBarOpen && (
           <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-muted/40 border-t">
@@ -528,14 +714,12 @@ export default function ChatConversationPage({
             ref={contentRef}
             className="flex flex-col min-h-full justify-end"
           >
-            {/* Top Loader */}
             {isLoadingMessages && currentPage > 1 && (
               <div className="flex justify-center w-full py-4 animate-in fade-in zoom-in duration-300">
                 <Loader2 className="h-5 w-5 text-primary/60 animate-spin" />
               </div>
             )}
 
-            {/* Message List */}
             {groupedMessages.map((group, gIndex) => (
               <div key={`${group.label}-${gIndex}`} className="mb-6">
                 <div className="flex justify-center mb-4 sticky top-0 z-10 pointer-events-none">
@@ -574,6 +758,8 @@ export default function ChatConversationPage({
                           }
                           displayName={isMe ? t("me") : msg.sender?.name}
                           displayReaders={readReceiptsMap[msg.id]}
+                          bookmarkTags={bookmarkTags}
+                          allTagsMap={allTagsMap}
                           uploadPercent={
                             msg.tempId ? uploadProgress[msg.tempId] : undefined
                           }
@@ -593,6 +779,25 @@ export default function ChatConversationPage({
                               conversationId,
                               messageId: m.id,
                               isPinned: !(m.isPinned || m.metadata?.isPinned),
+                            })
+                          }
+                          onToggleBookmarkTag={
+                            effectiveShopId
+                              ? (messageId, tagId) =>
+                                  toggleMessageBookmarkTag({
+                                    shopId: effectiveShopId,
+                                    conversationId,
+                                    messageId,
+                                    tagId,
+                                  })
+                              : undefined
+                          }
+                          onTranslateMessage={(m) =>
+                            translateMessageOrDraft({
+                              text: m.content,
+                              targetLang: isMe ? "en" : "vi",
+                              messageId: m.id,
+                              conversationId,
                             })
                           }
                           onVotePoll={(messageId, optionIds) =>
@@ -652,11 +857,10 @@ export default function ChatConversationPage({
               </div>
             ))}
 
-            {/* Bottom Anchor */}
             <div ref={bottomRef} className="h-px w-full shrink-0" />
           </div>
         </ScrollArea>
-        {/* Scroll Button */}
+
         {showScrollButton && (
           <div className="absolute bottom-4 right-1/2 translate-x-1/2 z-30 animate-in slide-in-from-bottom-2 fade-in">
             <PatternButton
@@ -685,9 +889,11 @@ export default function ChatConversationPage({
       <div className="flex-none bg-background p-2.5 sm:p-3 md:p-4 border-t">
         <ChatInput
           onSendMessage={handleSendMessage}
+          onSendInternalNote={handleSendInternalNote}
           onSendAttachments={handleSendAttachments}
           onConfirmEdit={handleConfirmEdit}
           onScrollToMessage={scrollToMessage}
+          isCollisionLockedByOther={isCollisionLockedByOther}
           blockState={currentDetails?.blockState}
           onUnblockPartner={() => {
             if (currentDetails?.blockState?.partnerId) {
@@ -723,6 +929,44 @@ export default function ChatConversationPage({
         conversationId={conversationId}
         onDeletedConversation={() => router.push(config.routes.private.chat)}
         onLeaveGroup={handleLeaveGroup}
+      />
+
+      {effectiveShopId && (
+        <>
+          <CustomTagManagerModal
+            open={isTagManagerOpen}
+            onOpenChange={setIsTagManagerOpen}
+            shopId={effectiveShopId}
+          />
+
+          <TaggedMessagesSheet
+            open={isBookmarksSheetOpen}
+            onOpenChange={setIsBookmarksSheetOpen}
+            shopId={effectiveShopId}
+            conversationId={conversationId}
+            onJumpToMessage={scrollToMessage}
+          />
+        </>
+      )}
+
+      <ConversationSnoozeAndTimelineSheet
+        open={isSnoozeSheetOpen}
+        onOpenChange={setIsSnoozeSheetOpen}
+        conversationId={conversationId}
+        currentSnoozedUntil={
+          currentConversation?.snoozedUntilAt || currentDetails?.snoozedUntilAt
+        }
+        currentSnoozeNote={
+          currentConversation?.snoozeNote || currentDetails?.snoozeNote
+        }
+        members={currentDetails?.members}
+        timeline={currentDetails?.accountabilityTimelineJson}
+        currentUserId={currentUser.user.id}
+      />
+
+      <MaskedVoipCallModal
+        customerName={resolvedHeaderName}
+        customerAvatar={currentConversation?.avatar}
       />
 
       <GlassConfirmDialog

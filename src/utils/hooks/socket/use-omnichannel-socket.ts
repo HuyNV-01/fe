@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
+import { useTagStore } from "@/lib/stores/tags/use-tag-store";
 import { SocketNamespaceEnum } from "@/common/enum";
 import { SOCKET_EVENTS } from "@/constant/socket-events";
 import { tStore } from "@/i18n/translate-store";
@@ -15,6 +16,11 @@ import {
   showWarningToast,
 } from "@/utils/toast";
 import { playNotificationSound } from "@/utils/sound";
+import type {
+  IAccountabilityMilestone,
+  ICollisionLockState,
+  IMessageTranslation,
+} from "@/types/chat";
 
 export const useOmnichannelSocket = () => {
   const currentUser = useAuthStore((s) => s.currentAccount);
@@ -26,6 +32,32 @@ export const useOmnichannelSocket = () => {
   );
   const fetchWebhookLogs = useChannelWorkspaceStore((s) => s.fetchWebhookLogs);
   const fetchInbox = useChatStore((s) => s.fetchInbox);
+  const setCollisionLockForConv = useChatStore(
+    (s) => s.setCollisionLockForConv,
+  );
+  const handleGhostedAlert = useChatStore((s) => s.handleGhostedAlert);
+  const handleSnoozeWakeup = useChatStore((s) => s.handleSnoozeWakeup);
+  const handleConversationTransferred = useChatStore(
+    (s) => s.handleConversationTransferred,
+  );
+  const handleMessageTranslated = useChatStore(
+    (s) => s.handleMessageTranslated,
+  );
+  const handleRealtimeConversationTagsUpdated = useTagStore(
+    (s) => s.handleRealtimeConversationTagsUpdated,
+  );
+  const handleRealtimeMessageTagged = useTagStore(
+    (s) => s.handleRealtimeMessageTagged,
+  );
+  const fetchShopTags = useTagStore((s) => s.fetchShopTags);
+  const fetchQuickReplies = useTagStore((s) => s.fetchQuickReplies);
+
+  useEffect(() => {
+    if (activeShopId) {
+      fetchShopTags(activeShopId);
+      fetchQuickReplies(activeShopId);
+    }
+  }, [activeShopId, fetchShopTags, fetchQuickReplies]);
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser?.user?.id) return;
@@ -87,6 +119,126 @@ export const useOmnichannelSocket = () => {
         if (payload.shopId) {
           fetchShopChannels(payload.shopId);
         }
+      },
+    );
+
+    const cleanTagsUpdated = socketService.on<{
+      conversationId: string;
+      activeTagIds: string[];
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.TAGS_UPDATED,
+      (payload) => {
+        if (!payload) return;
+        handleRealtimeConversationTagsUpdated(payload);
+      },
+    );
+
+    const cleanMessageTagged = socketService.on<{
+      action: "ADDED" | "REMOVED";
+      conversationId: string;
+      messageId: string;
+      tagId: string;
+      messageTagIds: string[];
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.MESSAGE_TAGGED,
+      (payload) => {
+        if (!payload) return;
+        handleRealtimeMessageTagged(payload);
+      },
+    );
+
+    const cleanCollisionLock = socketService.on<ICollisionLockState>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.AGENT_COLLISION_LOCK,
+      (payload) => {
+        if (!payload?.conversationId) return;
+        setCollisionLockForConv(payload.conversationId, payload);
+      },
+    );
+
+    const cleanCollisionUnlock = socketService.on<{
+      conversationId: string;
+      releasedByUserId: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.AGENT_COLLISION_UNLOCK,
+      (payload) => {
+        if (!payload?.conversationId) return;
+        setCollisionLockForConv(payload.conversationId, null);
+      },
+    );
+
+    const cleanGhostedAlert = socketService.on<{
+      conversationId: string;
+      customerName?: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.GHOSTED_ALERT,
+      (payload) => {
+        if (!payload?.conversationId) return;
+        playNotificationSound();
+        handleGhostedAlert(payload);
+        showWarningToast(
+          tStore("OmnichannelInbox.realtimeToast.ghostedAlertDesc", {
+            customerName: payload.customerName || "Khách hàng",
+          }),
+          {
+            title: tStore("OmnichannelInbox.realtimeToast.ghostedAlertTitle"),
+          },
+        );
+      },
+    );
+
+    const cleanSnoozeWakeup = socketService.on<{
+      conversationId: string;
+      customerName?: string;
+      snoozeNote?: string | null;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.SNOOZE_WAKEUP,
+      (payload) => {
+        if (!payload?.conversationId) return;
+        playNotificationSound();
+        handleSnoozeWakeup(payload);
+        showInfoToast(
+          tStore("OmnichannelInbox.realtimeToast.snoozeWakeupDesc", {
+            customerName: payload.customerName || "Khách hàng",
+            note: payload.snoozeNote || "",
+          }),
+          {
+            title: tStore("OmnichannelInbox.realtimeToast.snoozeWakeupTitle"),
+          },
+        );
+        fetchInbox({ page: 1 });
+      },
+    );
+
+    const cleanConversationTransferred = socketService.on<{
+      conversationId: string;
+      fromAgentId: string;
+      toAgentId: string;
+      timeline?: IAccountabilityMilestone[];
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.CONVERSATION_TRANSFERRED,
+      (payload) => {
+        if (!payload?.conversationId) return;
+        handleConversationTransferred(payload);
+      },
+    );
+
+    const cleanMessageTranslated = socketService.on<{
+      conversationId: string;
+      messageId: string;
+      translation: IMessageTranslation;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.MESSAGE_TRANSLATED,
+      (payload) => {
+        if (!payload?.conversationId || !payload?.messageId) return;
+        handleMessageTranslated(payload);
       },
     );
 
@@ -198,6 +350,14 @@ export const useOmnichannelSocket = () => {
     return () => {
       cleanConversationAssigned();
       cleanConversationReclaimed();
+      cleanTagsUpdated();
+      cleanMessageTagged();
+      cleanCollisionLock();
+      cleanCollisionUnlock();
+      cleanGhostedAlert();
+      cleanSnoozeWakeup();
+      cleanConversationTransferred();
+      cleanMessageTranslated();
       cleanChannelIntegrationUpdated();
       cleanChannelIntegrationRemoved();
       cleanTokenHealthChecked();
@@ -211,5 +371,12 @@ export const useOmnichannelSocket = () => {
     fetchShopChannels,
     fetchWebhookLogs,
     fetchInbox,
+    setCollisionLockForConv,
+    handleGhostedAlert,
+    handleSnoozeWakeup,
+    handleConversationTransferred,
+    handleMessageTranslated,
+    handleRealtimeConversationTagsUpdated,
+    handleRealtimeMessageTagged,
   ]);
 };

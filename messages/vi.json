@@ -1319,37 +1319,46 @@
       "emptyMergedStreamTitle": "Chưa có hội thoại nào trong các kênh đang chọn",
       "emptyMergedStreamDesc": "Hãy chọn thêm kênh bán hàng trên thanh gộp trang hoặc gửi tin nhắn thử nghiệm từ trang cấu hình kênh.",
       "marketplaceOrderBadge": "Có đơn sàn TMĐT",
-      "openConversationBtn": "Mở hội thoại"
+      "openConversationBtn": "Mở hội thoại",
+      "manageTagsBtn": "Quản lý bộ Tag oklch"
     },
     "filters": {
       "all": "Tất cả",
       "unread": "Chưa đọc",
-      "unreplied": "Chờ phản hồi",
-      "ghosted": "Đã xem chưa trả lời ({count})",
-      "slaBreached": "Quá hạn phản hồi",
-      "window24hExpiring": "Sắp hết hạn 24h ({count})",
+      "unreplied": "Chưa trả lời",
+      "ghosted": "Đã xem nhưng bỏ quên ({count})",
+      "slaBreached": "Quá hạn SLA",
+      "window24hExpiring": "Sắp hết 24h ({count})",
       "hasPhone": "Đã có SĐT",
       "noPhone": "Chưa có SĐT",
-      "unconfirmedOrder": "Chưa tạo đơn",
-      "tagIncludeLabel": "Lọc theo thẻ phân loại",
-      "tagExcludeLabel": "Loại trừ thẻ phân loại"
+      "unconfirmedOrder": "Chưa lên đơn",
+      "tagIncludeLabel": "Bao gồm tất cả/một trong các Tag",
+      "tagExcludeLabel": "Loại trừ các Tag",
+      "advancedFilterTitle": "Bộ lọc 18 tiêu chí & Toán tử Tag",
+      "resetFilterBtn": "Đặt lại"
     },
     "collision": {
-      "lockedByAgent": "{agentName} đang trực tiếp tư vấn khách hàng này",
-      "takeOverBtn": "Tiếp quản cuộc trò chuyện"
+      "lockedByAgent": "{agentName} đang mở và tư vấn khách hàng này",
+      "takeOverBtn": "Tiếp quản hội thoại",
+      "takeOverSuccessToast": "Đã tiếp quản quyền xử lý cuộc hội thoại",
+      "takeOverErrorToast": "Không thể tiếp quản cuộc hội thoại"
     },
     "composer": {
-      "replyPlaceholder": "Nhập nội dung tư vấn (/ để chèn câu trả lời mẫu, Alt+N ghi chú nội bộ, Alt+O tạo đơn hàng)...",
-      "internalNotePlaceholder": "Nhập ghi chú nội bộ (Chỉ nhân sự cửa hàng nhìn thấy, gõ @ để nhắc đồng nghiệp)...",
-      "internalNoteBadge": "Ghi chú nội bộ (Alt+N)",
-      "quickReplyHint": "Nhấn Tab hoặc Enter để chèn nhanh câu trả lời mẫu",
-      "snoozeBtn": "Hẹn giờ nhắc lại",
-      "maskedCallBtn": "Gọi điện tư vấn (Bảo mật SĐT)"
+      "replyPlaceholder": "Nhập tin nhắn tư vấn (/ để chèn mẫu nhanh, Alt+N ghi chú nội bộ, Alt+O tạo đơn POS)...",
+      "internalNotePlaceholder": "Ghi chú nội bộ (Khách hàng không nhìn thấy, gõ @ để nhắc đồng nghiệp)...",
+      "internalNoteBadge": "Chế độ Ghi chú nội bộ (Alt+N)",
+      "quickReplyHint": "Nhấn Tab hoặc Enter để chèn mẫu câu trả lời (/shortcut)",
+      "snoozeBtn": "Hẹn giờ chăm sóc lại",
+      "maskedCallBtn": "Gọi chốt đơn ẩn SĐT",
+      "internalNoteSavedToast": "Đã lưu ghi chú nội bộ vào luồng hội thoại",
+      "internalNoteErrorToast": "Không thể lưu ghi chú nội bộ",
+      "bookmarksBtn": "Tin nhắn đã đánh dấu (Địa chỉ / Bill CK)",
+      "bookmarkBubbleTooltip": "Gắn nhãn đánh dấu tin nhắn này (Địa chỉ / Bill CK / Lưu ý kho)"
     },
     "adAttribution": {
-      "fromAdBadge": "Đến từ Quảng cáo #{adId}",
+      "fromAdBadge": "Khách từ Quảng cáo #{adId}",
       "fromPostBadge": "Bình luận từ Bài viết #{postId}",
-      "capiSyncedBadge": "Đã ghi nhận chuyển đổi ({eventName})"
+      "capiSyncedBadge": "Đã đồng bộ Meta CAPI ({eventName})"
     },
     "realtimeToast": {
       "newAssignedTitle": "Khách hàng mới từ {pageShortCode}",
@@ -1357,7 +1366,63 @@
       "slaReclaimedTitle": "Đã thu hồi hội thoại quá hạn phản hồi",
       "slaReclaimedDesc": "Cuộc trò chuyện với \"{customerName}\" đã được chuyển cho đồng nghiệp khác hỗ trợ để đảm bảo cam kết phục vụ.",
       "marketplaceOrderTitle": "Đơn hàng mới #{orderSn} trên {pageShortCode}",
-      "marketplaceOrderDesc": "Khách {buyerUsername} vừa đặt đơn {totalFormatted}. Đã tự động giữ chỗ {reservedQty} sản phẩm tồn kho."
+      "marketplaceOrderDesc": "Khách {buyerUsername} vừa đặt đơn {totalFormatted}. Đã tự động giữ chỗ {reservedQty} sản phẩm tồn kho.",
+      "ghostedAlertTitle": "Cảnh báo hội thoại đã xem nhưng bỏ quên!",
+      "ghostedAlertDesc": "Khách hàng \"{customerName}\" đã mở xem quá 3 phút nhưng chưa được phản hồi.",
+      "snoozeWakeupTitle": "Đến giờ hẹn chăm sóc lại khách hàng!",
+      "snoozeWakeupDesc": "Hội thoại với \"{customerName}\" đã đến giờ hẹn: {note}"
+    },
+    "snoozeAndTimeline": {
+      "sheetTitle": "Hẹn Giờ Chăm Sóc, Chuyển Giao & Dòng Thời Gian SLA",
+      "sheetDesc": "Đặt lịch nhắc chăm sóc lại (Snooze), bàn giao hội thoại cho đồng nghiệp và kiểm tra mốc phản hồi FRT.",
+      "tabs": {
+        "snooze": "Hẹn giờ",
+        "transfer": "Chuyển giao",
+        "timeline": "Dòng thời gian"
+      }
+    },
+    "snooze": {
+      "activeSnoozeBadge": "Đang hẹn giờ nhắc lại",
+      "cancelSnoozeBtn": "Hủy hẹn giờ",
+      "noteLabel": "Mục tiêu chăm sóc lại",
+      "notePlaceholder": "VD: Gọi lại hỏi khách đã nhận lương chưa để chốt set vest...",
+      "preset30m": "30 phút nữa",
+      "preset2h": "2 giờ nữa",
+      "preset4h": "4 giờ nữa",
+      "presetTomorrow9am": "9:00 sáng mai",
+      "customMinutesBtn": "Hẹn theo số phút",
+      "scheduledToast": "Đã đặt lịch hẹn nhắc chăm sóc lại hội thoại",
+      "cancelledToast": "Đã hủy hẹn giờ và đưa hội thoại về danh sách chờ",
+      "errorToast": "Không thể đặt lịch hẹn giờ"
+    },
+    "transfer": {
+      "selectColleagueHint": "Chọn đồng nghiệp nhận bàn giao cuộc hội thoại này:",
+      "notePlaceholder": "Ghi chú bàn giao (VD: Khách cần tư vấn kỹ mẫu đầm lụa size L)...",
+      "confirmBtn": "Xác nhận chuyển giao hội thoại",
+      "successToast": "Đã chuyển giao cuộc hội thoại cho đồng nghiệp",
+      "errorToast": "Không thể chuyển giao cuộc hội thoại"
+    },
+    "timeline": {
+      "emptyText": "Chưa có cột mốc trách nhiệm nào được ghi nhận.",
+      "events": {
+        "LEAD_INBOUND": "Khách nhắn tin lần đầu",
+        "ASSIGNED_AGENT": "Hệ thống phân bổ nhân viên",
+        "FIRST_SEEN": "Nhân viên mở xem lần đầu",
+        "FIRST_AGENT_REPLY_FRT": "Phản hồi đầu tiên (FRT)",
+        "INTERNAL_NOTE_ADDED": "Thêm ghi chú nội bộ",
+        "CONVERSATION_TRANSFERRED": "Chuyển giao hội thoại",
+        "CONVERSATION_SNOOZED": "Đặt lịch hẹn Snooze",
+        "CONVERSATION_UNSNOOZED": "Đánh thức hội thoại Snooze",
+        "MASKED_CALL_INITIATED": "Bắt đầu gọi VoIP ẩn SĐT",
+        "MASKED_CALL_COMPLETED": "Hoàn tất gọi VoIP & lưu ghi âm",
+        "PHONE_COLLECTED": "Thu thập thành công SĐT",
+        "ORDER_CREATED": "Tạo đơn hàng POS"
+      }
+    },
+    "translation": {
+      "translateBubbleTooltip": "Dịch tự động tin nhắn này",
+      "translateDraftTooltip": "Dịch nhanh câu trả lời đang soạn sang Tiếng Anh",
+      "errorToast": "Không thể dịch tin nhắn lúc này"
     }
   },
   "SettingsChannels": {
@@ -1894,5 +1959,147 @@
         "desc": "Truy cập báo cáo doanh thu, giá vốn, chi phí quảng cáo, vận hành và lợi nhuận ròng toàn cửa hàng."
       }
     }
+  },
+  "SellerNavigation": {
+    "commandCenter": "Trung tâm điều hành",
+    "omnichannelInbox": "Hộp thư đa kênh",
+    "multiPageMerged": "Gộp trang trực đơn",
+    "livestreamCenter": "Chốt đơn Livestream",
+    "counterPos": "Bán tại quầy (POS)",
+    "ordersAndOms": "Đơn hàng & Vận đơn",
+    "packingStation": "Bàn đóng gói Barcode",
+    "failedDeliveryRescue": "Cứu đơn giao thất bại",
+    "returnVerification": "Quét nhận hàng hoàn",
+    "rmaExchange": "Đổi trả & Bảo hành",
+    "codReconciliation": "Đối soát COD & Cước",
+    "catalogAndInventory": "Sản phẩm & Đa kho",
+    "bundleBom": "Combo & Quà tặng kèm",
+    "warehouseTransfers": "Chuyển kho nội bộ",
+    "procurement": "Nhập hàng & Nhà cung cấp",
+    "customersCrm": "Khách hàng CRM 360°",
+    "rfmSegments": "Phân khúc khách RFM",
+    "botcakeAutomation": "Kịch bản Botcake & ZNS",
+    "aiAgentStudio": "Trợ lý Local AI Agent",
+    "workforceAndSla": "Nhân sự, SLA & Hoa hồng",
+    "financeAndPnL": "Sổ quỹ & Báo cáo Lãi/Lỗ",
+    "settingsAndIam": "Cấu hình Kênh & Phân quyền"
+  },
+  "TaggingSystem": {
+    "categories": {
+      "CONSULTATION_STATUS": "Trạng thái tư vấn",
+      "CUSTOMER_TIER": "Phân hạng khách hàng",
+      "MESSAGE_BOOKMARK": "Đánh dấu tin nhắn quan trọng",
+      "DELIVERY_ISSUE": "Sự cố giao hàng & Cứu đơn",
+      "MARKETING_SOURCE": "Nguồn chiến dịch Marketing"
+    },
+    "scopes": {
+      "CONVERSATION": "Hội thoại",
+      "MESSAGE": "Tin nhắn",
+      "CUSTOMER": "Khách hàng",
+      "ORDER": "Đơn hàng"
+    },
+    "autoTriggers": {
+      "NONE": "Gắn thủ công",
+      "NER_PHONE_EXTRACTED": "Khi bóc tách được SĐT",
+      "NER_ADDRESS_EXTRACTED": "Khi bóc tách được Địa chỉ",
+      "POS_DRAFT_CREATED": "Khi tạo giỏ nháp POS",
+      "POS_ORDER_CONFIRMED": "Khi chốt đơn POS thành công",
+      "VIETQR_PAID": "Khi gạch nợ VietQR thành công",
+      "CARRIER_DELIVERY_FAILED": "Khi ĐVVC báo giao thất bại",
+      "KEYWORD_MATCH": "Khi khớp từ khóa tin nhắn"
+    },
+    "messageBookmarks": {
+      "SHIPPING_ADDRESS": "Địa chỉ giao hàng",
+      "BANK_TRANSFER_RECEIPT": "Bill chuyển khoản",
+      "BODY_MEASUREMENT": "Chiều cao & Cân nặng",
+      "PACKING_INSTRUCTION": "Lưu ý đóng gói kho",
+      "CUSTOMER_FEEDBACK": "Phản hồi / Đánh giá"
+    },
+    "shortcutHint": "Phím tắt: Nhấn Alt + {key} để gắn/gỡ nhanh",
+    "managerModal": {
+      "openTooltip": "Quản lý bộ Tag màu oklch & Quy tắc tự động",
+      "title": "Quản Lý Bộ Tag Đa Tầng (oklch) & Quy Tắc Tự Động Gắn",
+      "description": "Thiết lập màu sắc chuẩn oklch, nhóm loại trừ lẫn nhau (Mutually Exclusive), phím tắt Alt+1..9 và sự kiện tự động gắn Tag.",
+      "createSectionTitle": "Thêm Tag phân loại mới",
+      "editSectionTitle": "Chỉnh sửa Tag phân loại",
+      "cancelEditBtn": "Hủy sửa",
+      "nameLabel": "Tên hiển thị của Tag",
+      "namePlaceholder": "VD: Đã chốt đơn, Chờ xin SĐT, Bill chuyển khoản...",
+      "shortcutLabel": "Phím tắt nhanh (Alt + 1..9)",
+      "colorOklchLabel": "Bảng màu chuẩn Perceptual oklch",
+      "categoryLabel": "Nhóm nghiệp vụ",
+      "scopesLabel": "Phạm vi áp dụng",
+      "mutuallyExclusiveLabel": "Nhóm Tag loại trừ lẫn nhau (Mutually Exclusive Group)",
+      "mutuallyExclusiveDesc": "Khi gắn Tag này, hệ thống tự động gỡ các Tag khác cùng nhóm trên hội thoại.",
+      "autoRuleLabel": "Quy tắc tự động gắn Tag theo sự kiện (AutoTagRuleEngine)",
+      "keywordsPlaceholder": "Nhập các từ khóa cách nhau bởi dấu phẩy (VD: giá sỉ, đổi trả, bom hàng)...",
+      "createTagBtn": "Tạo Tag mới",
+      "saveUpdateBtn": "Lưu cập nhật Tag",
+      "existingTagsHeading": "Danh sách Tag đang hoạt động ({count})",
+      "exclusiveBadge": "Loại trừ cùng nhóm"
+    },
+    "bookmarksDrawer": {
+      "openTooltip": "Mở ngăn kéo tin nhắn đã đánh dấu (Địa chỉ / Bill CK / Lưu ý kho)",
+      "title": "Ngăn Kéo Tin Nhắn Quan Trọng Đã Đánh Dấu",
+      "description": "Giúp Sale, Nhân viên Kho và Kế toán tra cứu tức thì Địa chỉ giao hàng, Bill chuyển khoản và Lưu ý đóng gói mà không cần đọc toàn bộ đoạn chat.",
+      "allFilter": "Tất cả",
+      "emptyTitle": "Chưa có tin nhắn nào được đánh dấu",
+      "emptyDesc": "Rê chuột lên bong bóng tin nhắn bất kỳ và bấm biểu tượng Bookmark để đánh dấu Địa chỉ giao hàng, Bill CK hoặc Số đo khách.",
+      "jumpToMessageBtn": "Đi tới tin nhắn gốc"
+    },
+    "bulkToolbar": {
+      "selectedCount": "Đã chọn {count} hội thoại:"
+    },
+    "toast": {
+      "createdSuccess": "Đã tạo Tag màu oklch mới thành công",
+      "updatedSuccess": "Đã cập nhật cấu hình Tag thành công",
+      "deletedSuccess": "Đã xóa Tag khỏi danh mục cửa hàng",
+      "bulkAssignedSuccess": "Đã gắn Tag hàng loạt cho {count} cuộc hội thoại",
+      "actionFailed": "Không thể thực hiện thao tác Tag"
+    }
+  },
+  "QuickReplies": {
+    "popoverTitle": "Thư viện Mẫu Câu Trả Lời Nhanh (/shortcut)",
+    "pageTitle": "Thư Viện Mẫu Câu Trả Lời Nhanh (/shortcut) & Thẻ Sản Phẩm",
+    "pageSubtitle": "Tạo các mẫu câu trả lời tự động nội suy biến {{customer_name}}, {{salutation}}, {{agent_name}}, {{shop_name}} khi gõ dấu / trong khung chat.",
+    "shortcutLabel": "Từ khóa tắt (Gõ sau dấu /)",
+    "titleLabel": "Tiêu đề mẫu câu trả lời",
+    "titlePlaceholder": "VD: Mẫu chào khách mới & tư vấn bảng size...",
+    "contentTemplateLabel": "Nội dung mẫu (Hỗ trợ {{customer_name}}, {{salutation}}, {{agent_name}}, {{shop_name}})",
+    "contentTemplatePlaceholder": "Dạ {{shop_name}} xin chào {{salutation}} {{customer_name}} ạ...",
+    "createBtn": "Tạo mẫu /shortcut",
+    "saveUpdateBtn": "Lưu cập nhật mẫu",
+    "toast": {
+      "createdSuccess": "Đã thêm mẫu câu trả lời nhanh mới",
+      "updatedSuccess": "Đã cập nhật mẫu câu trả lời nhanh",
+      "deletedSuccess": "Đã xóa mẫu câu trả lời nhanh",
+      "actionFailed": "Không thể lưu mẫu câu trả lời nhanh"
+    }
+  },
+  "MaskedVoip": {
+    "modalTitle": "Tổng Đài Gọi Chốt Đơn Ẩn SĐT (WebRTC-to-SIP)",
+    "modalSubtitle": "Số điện thoại gốc của khách được bảo mật trong RAM máy chủ. Cuộc gọi tự động ghi âm và đính kèm vào luồng chat.",
+    "statusRinging": "Đang quay số qua SIP Trunk...",
+    "statusConnected": "Đang đàm thoại ({duration})",
+    "autoRecordingActive": "Đang ghi âm 2 chiều",
+    "muteBtn": "Tắt tiếng",
+    "unmuteBtn": "Bật tiếng",
+    "selectDispositionLabel": "Kết quả cuộc gọi tư vấn:",
+    "dispositions": {
+      "ORDER_CONFIRMED": "Đã chốt đơn thành công",
+      "CALLBACK_SCHEDULED": "Khách hẹn gọi lại sau",
+      "NO_ANSWER": "Khách không nghe máy",
+      "ADDRESS_VERIFIED": "Đã xác nhận địa chỉ giao",
+      "NEED_MORE_CONSULTATION": "Đang phân vân mẫu/size"
+    },
+    "callNotesLabel": "Ghi chú nhanh cuộc gọi",
+    "callNotesPlaceholder": "VD: Khách dặn giao giờ hành chính, lấy thêm 1 áo màu kem...",
+    "hangupAndAttachRecordingBtn": "Kết thúc & Đính kèm ghi âm",
+    "completeCallBtn": "Hoàn tất cuộc gọi",
+    "playBtn": "Phát ghi âm",
+    "pauseBtn": "Tạm dừng",
+    "recordedCallBadge": "Ghi âm tổng đài VoIP bảo mật SĐT",
+    "initiateErrorToast": "Không thể khởi tạo cuộc gọi VoIP ẩn SĐT",
+    "completedToast": "Đã kết thúc cuộc gọi và lưu bong bóng ghi âm vào đoạn chat"
   }
 }

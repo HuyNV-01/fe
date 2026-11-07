@@ -18,6 +18,12 @@ import type {
   MessageStatus,
   IPollUpdatedPayload,
   ILinkPreviewReadyPayload,
+  ICollisionLockState,
+  IMaskedVoipCallSession,
+  IOmnichannelFilterState,
+  IOmnichannelSummaryCounts,
+  IMessageTranslation,
+  IAccountabilityMilestone,
 } from "@/types/chat";
 import type { CreateDirectChatPayload, IPaginationMeta } from "@/types/common";
 import type { ActionCallbacks } from "@/types/store";
@@ -51,6 +57,17 @@ import {
   votePollApi,
   closePollApi,
   getConversationActiveCallApi,
+  queryOmnichannelInboxApi,
+  createInternalNoteApi,
+  snoozeConversationApi,
+  cancelSnoozeConversationApi,
+  transferConversationApi,
+  acquireCollisionLockApi,
+  releaseCollisionLockApi,
+  forceTakeoverCollisionLockApi,
+  initiateMaskedVoipCallApi,
+  finalizeMaskedVoipCallApi,
+  translateChatMessageApi,
 } from "./api";
 import { blockUserApi, unblockUserApi } from "../contact/api";
 import type { IConversationDetails, ISharedAssetsResponse } from "@/types/chat";
@@ -74,10 +91,8 @@ import { useNotificationStore } from "../notification/use-notification-store";
 import { parseSafeDate } from "@/utils/date-helper";
 import { tStore } from "@/i18n/translate-store";
 
-const tChatToast = (
-  subKey: string,
-  params?: Record<string, string | number>,
-) => tStore(`Chat.Detail.storeToast.${subKey}`, params);
+const tChatToast = (subKey: string, params?: Record<string, string | number>) =>
+  tStore(`Chat.Detail.storeToast.${subKey}`, params);
 
 const typingTimers = new Map<string, NodeJS.Timeout>();
 
@@ -375,6 +390,100 @@ interface ChatState {
     conversationId: string,
     call: IActiveCallState | null,
   ) => void;
+
+  // Sprint 2 Omnichannel Inbox, Collision Lock, Snooze, Internal Note, Masked VoIP & Translation
+  collisionLocksByConv: Record<string, ICollisionLockState | null>;
+  activeMaskedCall: IMaskedVoipCallSession | null;
+  omnichannelFilter: IOmnichannelFilterState;
+  omnichannelSummaryCounts: IOmnichannelSummaryCounts | null;
+  setOmnichannelFilter: (patch: Partial<IOmnichannelFilterState>) => void;
+  resetOmnichannelFilter: () => void;
+  queryOmnichannelInbox: (
+    shopId: string,
+    overrideFilter?: Partial<IOmnichannelFilterState>,
+  ) => Promise<void>;
+  sendInternalNote: (payload: {
+    conversationId: string;
+    content: string;
+    mentionedUserIds?: string[];
+    replyToMessageId?: string;
+  }) => Promise<boolean>;
+  snoozeConversation: (payload: {
+    conversationId: string;
+    snoozedUntilAt: string;
+    snoozeNote?: string;
+  }) => Promise<boolean>;
+  cancelSnoozeConversation: (conversationId: string) => Promise<boolean>;
+  transferConversation: (payload: {
+    conversationId: string;
+    targetAgentId: string;
+    transferNote?: string;
+  }) => Promise<boolean>;
+  acquireCollisionLock: (
+    conversationId: string,
+  ) => Promise<ICollisionLockState | null>;
+  releaseCollisionLock: (conversationId: string) => Promise<void>;
+  forceTakeOverCollisionLock: (
+    shopId: string,
+    conversationId: string,
+  ) => Promise<boolean>;
+  setCollisionLockForConv: (
+    conversationId: string,
+    lock: ICollisionLockState | null,
+  ) => void;
+  initiateMaskedVoipCall: (payload: {
+    conversationId: string;
+    customerId?: string;
+    customerPhoneMasked?: string;
+  }) => Promise<IMaskedVoipCallSession | null>;
+  finalizeMaskedVoipCall: (payload: {
+    conversationId: string;
+    callSessionId: string;
+    durationSeconds: number;
+    callDispositionTag: string;
+    callNotes?: string;
+  }) => Promise<boolean>;
+  setActiveMaskedCall: (call: IMaskedVoipCallSession | null) => void;
+  translateMessageOrDraft: (payload: {
+    text: string;
+    targetLang: string;
+    sourceLang?: string;
+    messageId?: string;
+    conversationId?: string;
+  }) => Promise<{
+    translatedText: string;
+    sourceLang: string;
+    targetLang: string;
+  } | null>;
+  handleMessageTranslated: (payload: {
+    conversationId: string;
+    messageId: string;
+    translation: IMessageTranslation;
+  }) => void;
+  syncConversationTagsOptimistic: (
+    conversationId: string,
+    activeTagIds: string[],
+  ) => void;
+  syncMessageTagsOptimistic: (
+    conversationId: string,
+    messageId: string,
+    messageTagIds: string[],
+  ) => void;
+  handleGhostedAlert: (payload: {
+    conversationId: string;
+    customerName?: string;
+  }) => void;
+  handleSnoozeWakeup: (payload: {
+    conversationId: string;
+    customerName?: string;
+    snoozeNote?: string | null;
+  }) => void;
+  handleConversationTransferred: (payload: {
+    conversationId: string;
+    fromAgentId: string;
+    toAgentId: string;
+    timeline?: IAccountabilityMilestone[];
+  }) => void;
 }
 
 export const useChatStore = createPersistedStore<ChatState>(
@@ -398,6 +507,12 @@ export const useChatStore = createPersistedStore<ChatState>(
     conversationDetails: {},
     sharedAssets: {},
     ongoingCallsByConv: {},
+    collisionLocksByConv: {},
+    activeMaskedCall: null,
+    omnichannelFilter: {
+      includeTagOperator: "OR",
+    },
+    omnichannelSummaryCounts: null,
 
     setSocketConnected: (status) => {
       set({ isSocketConnected: status });
@@ -1715,7 +1830,8 @@ export const useChatStore = createPersistedStore<ChatState>(
                 if (partnerMember) {
                   conv.originalName = partnerMember.name;
                   conv.partnerNickname = partnerMember.nickname || null;
-                  conv.partnerEmail = partnerMember.email || conv.partnerEmail || null;
+                  conv.partnerEmail =
+                    partnerMember.email || conv.partnerEmail || null;
                   conv.name = partnerMember.nickname || partnerMember.name;
                 }
                 if (data.blockState) {
@@ -2258,6 +2374,396 @@ export const useChatStore = createPersistedStore<ChatState>(
       set((state) => {
         state.tempConversations = [];
         state.isLoadingSearch = false;
+      });
+    },
+
+    setOmnichannelFilter: (patch) => {
+      set((state) => {
+        state.omnichannelFilter = {
+          ...state.omnichannelFilter,
+          ...patch,
+        };
+      });
+    },
+
+    resetOmnichannelFilter: () => {
+      set({
+        omnichannelFilter: {
+          includeTagOperator: "OR",
+        },
+      });
+    },
+
+    queryOmnichannelInbox: async (shopId, overrideFilter) => {
+      if (!shopId) return;
+      set({ isLoadingInbox: true });
+      try {
+        const mergedFilter = {
+          ...get().omnichannelFilter,
+          ...(overrideFilter || {}),
+        };
+        const res: any = await queryOmnichannelInboxApi({
+          shopId,
+          ...mergedFilter,
+          limit: 50,
+        });
+        const data = res?.data ?? res;
+        const items: IConversation[] = Array.isArray(data?.items)
+          ? data.items
+          : [];
+        set((state) => {
+          state.conversations = items;
+          if (data?.summaryCounts) {
+            state.omnichannelSummaryCounts = data.summaryCounts;
+          }
+          state.isLoadingInbox = false;
+        });
+      } catch {
+        set({ isLoadingInbox: false });
+      }
+    },
+
+    sendInternalNote: async ({
+      conversationId,
+      content,
+      mentionedUserIds,
+      replyToMessageId,
+    }) => {
+      try {
+        const res: any = await createInternalNoteApi({
+          conversationId,
+          content,
+          mentionedUserIds,
+          replyToMessageId,
+        });
+        const noteMsg: IMessage = res?.data ?? res;
+        if (noteMsg?.id) {
+          get().handleIncomingMessage(noteMsg);
+        }
+        toast.success(
+          tStore("OmnichannelInbox.composer.internalNoteSavedToast"),
+        );
+        return true;
+      } catch {
+        toast.error(tStore("OmnichannelInbox.composer.internalNoteErrorToast"));
+        return false;
+      }
+    },
+
+    snoozeConversation: async ({
+      conversationId,
+      snoozedUntilAt,
+      snoozeNote,
+    }) => {
+      try {
+        await snoozeConversationApi({
+          conversationId,
+          snoozedUntilAt,
+          snoozeNote,
+        });
+        set((state) => {
+          const conv = state.conversations.find((c) => c.id === conversationId);
+          if (conv) {
+            conv.supportStatus = "SNOOZED";
+            conv.snoozedUntilAt = snoozedUntilAt;
+            conv.snoozeNote = snoozeNote || null;
+          }
+          if (state.conversationDetails[conversationId]) {
+            state.conversationDetails[conversationId].supportStatus = "SNOOZED";
+            state.conversationDetails[conversationId].snoozedUntilAt =
+              snoozedUntilAt;
+            state.conversationDetails[conversationId].snoozeNote =
+              snoozeNote || null;
+          }
+        });
+        toast.success(tStore("OmnichannelInbox.snooze.scheduledToast"));
+        return true;
+      } catch {
+        toast.error(tStore("OmnichannelInbox.snooze.errorToast"));
+        return false;
+      }
+    },
+
+    cancelSnoozeConversation: async (conversationId) => {
+      try {
+        await cancelSnoozeConversationApi(conversationId);
+        set((state) => {
+          const conv = state.conversations.find((c) => c.id === conversationId);
+          if (conv) {
+            conv.supportStatus = "WAITING_AGENT_REPLY";
+            conv.snoozedUntilAt = null;
+          }
+          if (state.conversationDetails[conversationId]) {
+            state.conversationDetails[conversationId].supportStatus =
+              "WAITING_AGENT_REPLY";
+            state.conversationDetails[conversationId].snoozedUntilAt = null;
+          }
+        });
+        toast.success(tStore("OmnichannelInbox.snooze.cancelledToast"));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
+    transferConversation: async ({
+      conversationId,
+      targetAgentId,
+      transferNote,
+    }) => {
+      try {
+        const res: any = await transferConversationApi({
+          conversationId,
+          targetAgentId,
+          transferNote,
+        });
+        const data = res?.data ?? res;
+        set((state) => {
+          const conv = state.conversations.find((c) => c.id === conversationId);
+          if (conv) {
+            conv.assignedAgentId = targetAgentId;
+          }
+          if (state.conversationDetails[conversationId]) {
+            state.conversationDetails[conversationId].assignedAgentId =
+              targetAgentId;
+            if (data?.timeline) {
+              state.conversationDetails[
+                conversationId
+              ].accountabilityTimelineJson = data.timeline;
+            }
+          }
+        });
+        toast.success(tStore("OmnichannelInbox.transfer.successToast"));
+        return true;
+      } catch {
+        toast.error(tStore("OmnichannelInbox.transfer.errorToast"));
+        return false;
+      }
+    },
+
+    acquireCollisionLock: async (conversationId) => {
+      try {
+        const res: any = await acquireCollisionLockApi(conversationId);
+        const data = res?.data ?? res;
+        const lock: ICollisionLockState | null = data?.lock || null;
+        if (lock) {
+          set((state) => {
+            state.collisionLocksByConv[conversationId] = lock;
+          });
+        }
+        return lock;
+      } catch {
+        return null;
+      }
+    },
+
+    releaseCollisionLock: async (conversationId) => {
+      try {
+        await releaseCollisionLockApi(conversationId);
+        set((state) => {
+          state.collisionLocksByConv[conversationId] = null;
+        });
+      } catch {
+        // Ignore release error
+      }
+    },
+
+    forceTakeOverCollisionLock: async (shopId, conversationId) => {
+      try {
+        const res: any = await forceTakeoverCollisionLockApi({
+          shopId,
+          conversationId,
+        });
+        const lock: ICollisionLockState = res?.data ?? res;
+        set((state) => {
+          state.collisionLocksByConv[conversationId] = lock;
+        });
+        toast.success(
+          tStore("OmnichannelInbox.collision.takeOverSuccessToast"),
+        );
+        return true;
+      } catch {
+        toast.error(tStore("OmnichannelInbox.collision.takeOverErrorToast"));
+        return false;
+      }
+    },
+
+    setCollisionLockForConv: (conversationId, lock) => {
+      set((state) => {
+        state.collisionLocksByConv[conversationId] = lock;
+      });
+    },
+
+    initiateMaskedVoipCall: async ({
+      conversationId,
+      customerId,
+      customerPhoneMasked,
+    }) => {
+      try {
+        const res: any = await initiateMaskedVoipCallApi({
+          conversationId,
+          customerId,
+          customerPhoneMasked: customerPhoneMasked || "098***678",
+        });
+        const data = res?.data ?? res;
+        const session: IMaskedVoipCallSession = {
+          callSessionId: data.callSessionId,
+          conversationId,
+          maskedPhoneDisplay: data.maskedPhoneDisplay || "098***678",
+          sipTrunkProvider: data.sipTrunkProvider,
+          status: CallStatusEnum.RINGING,
+          startedAt: new Date().toISOString(),
+        };
+        set({ activeMaskedCall: session });
+        return session;
+      } catch {
+        toast.error(tStore("MaskedVoip.initiateErrorToast"));
+        return null;
+      }
+    },
+
+    finalizeMaskedVoipCall: async ({
+      conversationId,
+      callSessionId,
+      durationSeconds,
+      callDispositionTag,
+      callNotes,
+    }) => {
+      try {
+        const res: any = await finalizeMaskedVoipCallApi({
+          conversationId,
+          callSessionId,
+          durationSeconds,
+          callDispositionTag,
+          callNotes,
+        });
+        const callMsg: IMessage = res?.data ?? res;
+        if (callMsg?.id) {
+          get().handleIncomingMessage(callMsg);
+        }
+        set({ activeMaskedCall: null });
+        toast.success(tStore("MaskedVoip.completedToast"));
+        return true;
+      } catch {
+        set({ activeMaskedCall: null });
+        return false;
+      }
+    },
+
+    setActiveMaskedCall: (call) => {
+      set({ activeMaskedCall: call });
+    },
+
+    translateMessageOrDraft: async (payload) => {
+      try {
+        const res: any = await translateChatMessageApi(payload);
+        const data = res?.data ?? res;
+        if (
+          payload.messageId &&
+          payload.conversationId &&
+          data?.translatedText
+        ) {
+          get().handleMessageTranslated({
+            conversationId: payload.conversationId,
+            messageId: payload.messageId,
+            translation: {
+              translatedText: data.translatedText,
+              sourceLang: data.sourceLang || "auto",
+              targetLang: data.targetLang,
+              translatedAt: new Date().toISOString(),
+            },
+          });
+        }
+        return data;
+      } catch {
+        toast.error(tStore("OmnichannelInbox.translation.errorToast"));
+        return null;
+      }
+    },
+
+    handleMessageTranslated: ({ conversationId, messageId, translation }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        const target = msgs.find((m) => m.id === messageId);
+        if (target) {
+          target.metadata = {
+            ...(target.metadata || {}),
+            translation,
+          };
+        }
+      });
+    },
+
+    syncConversationTagsOptimistic: (conversationId, activeTagIds) => {
+      set((state) => {
+        const conv = state.conversations.find((c) => c.id === conversationId);
+        if (conv) {
+          conv.activeTagIdsJson = activeTagIds;
+        }
+        if (state.conversationDetails[conversationId]) {
+          state.conversationDetails[conversationId].activeTagIdsJson =
+            activeTagIds;
+        }
+      });
+    },
+
+    syncMessageTagsOptimistic: (conversationId, messageId, messageTagIds) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        const msg = msgs.find((m) => m.id === messageId);
+        if (msg) {
+          msg.messageTagIdsJson = messageTagIds;
+        }
+      });
+    },
+
+    handleGhostedAlert: ({ conversationId }) => {
+      set((state) => {
+        const conv = state.conversations.find((c) => c.id === conversationId);
+        if (conv) {
+          conv.isGhostedByAgent = true;
+        }
+        if (state.conversationDetails[conversationId]) {
+          state.conversationDetails[conversationId].isGhostedByAgent = true;
+        }
+      });
+    },
+
+    handleSnoozeWakeup: ({ conversationId }) => {
+      set((state) => {
+        const conv = state.conversations.find((c) => c.id === conversationId);
+        if (conv) {
+          conv.supportStatus = "WAITING_AGENT_REPLY";
+          conv.snoozedUntilAt = null;
+        }
+        if (state.conversationDetails[conversationId]) {
+          state.conversationDetails[conversationId].supportStatus =
+            "WAITING_AGENT_REPLY";
+          state.conversationDetails[conversationId].snoozedUntilAt = null;
+        }
+      });
+    },
+
+    handleConversationTransferred: ({
+      conversationId,
+      toAgentId,
+      timeline,
+    }) => {
+      set((state) => {
+        const conv = state.conversations.find((c) => c.id === conversationId);
+        if (conv) {
+          conv.assignedAgentId = toAgentId;
+        }
+        if (state.conversationDetails[conversationId]) {
+          state.conversationDetails[conversationId].assignedAgentId = toAgentId;
+          if (timeline) {
+            state.conversationDetails[
+              conversationId
+            ].accountabilityTimelineJson = timeline;
+          }
+        }
       });
     },
   }),
