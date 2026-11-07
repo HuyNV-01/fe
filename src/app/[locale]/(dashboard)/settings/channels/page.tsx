@@ -1331,6 +1331,7 @@ export default function OmnichannelSettingsPage() {
         <form
           id="edit-channel-integration-form"
           onSubmit={handleEditChannelSubmit}
+          className="p-2"
         >
           <FieldGroup>
             <FieldSet>

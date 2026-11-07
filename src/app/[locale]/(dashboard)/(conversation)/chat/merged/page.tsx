@@ -214,7 +214,7 @@ export default function MultiPageMergedInboxPage() {
 
         {/* Thanh chọn nhanh Kênh Gộp & Preset Gộp Trang */}
         <GlassSurfaceCard className="p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <GlassBadge variant="primary" size="sm">
                 <Layers className="w-3 h-3 mr-1 inline" />
@@ -300,16 +300,14 @@ export default function MultiPageMergedInboxPage() {
 
         {/* Bộ lọc 18 tiêu chí & Gắn Tag hàng loạt (F03.1, F03.2, F02.6) */}
         {activeShopId && (
-          <GlassSurfaceCard noPadding className="overflow-hidden">
-            <OmnichannelFilterBar
-              shopId={activeShopId}
-              selectedConversationIds={selectedConvIds}
-              onClearBulkSelection={() => {
-                setSelectedConvIds([]);
-                loadMergedStream();
-              }}
-            />
-          </GlassSurfaceCard>
+          <OmnichannelFilterBar
+            shopId={activeShopId}
+            selectedConversationIds={selectedConvIds}
+            onClearBulkSelection={() => {
+              setSelectedConvIds([]);
+              loadMergedStream();
+            }}
+          />
         )}
 
         {/* Thanh Lọc Trạng Thái & Tìm Kiếm Xuyên Kênh */}

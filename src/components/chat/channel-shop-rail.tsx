@@ -177,7 +177,7 @@ export const ChannelShopRail = ({
 
           <div className="w-8 h-px bg-border/60" />
 
-          <div className="flex flex-col items-center gap-2.5 overflow-y-auto max-h-[calc(100dvh-18rem)] px-1">
+          <div className="flex flex-col items-center gap-2.5 overflow-y-auto max-h-[calc(100dvh-18rem)] px-1 py-5">
             {channels.map((ch) => {
               const isSelected = selectedChannelIds.includes(ch.id);
               const hasTokenWarning = ch.webhookStatus !== "HEALTHY";

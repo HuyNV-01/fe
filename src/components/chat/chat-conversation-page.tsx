@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/correctness/useExhaustiveDependencies: <explanation> */
+/** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 /** biome-ignore-all lint/suspicious/noArrayIndexKey: <explanation> */
 
 "use client";
@@ -612,7 +613,7 @@ export default function ChatConversationPage({
             holderAgentId={activeCollisionLock.holderAgentId}
             holderAgentName={activeCollisionLock.holderAgentName}
             holderAgentAvatar={activeCollisionLock.holderAgentAvatar}
-            currentUserId={currentUser.user.id}
+            currentUserId={currentUser.user.id || ""}
             onForceTakeOver={() => {
               if (effectiveShopId) {
                 forceTakeOverCollisionLock(effectiveShopId, conversationId);
@@ -745,7 +746,7 @@ export default function ChatConversationPage({
                       >
                         <MessageBubble
                           message={msg}
-                          currentUserId={currentUser.user.id}
+                          currentUserId={currentUser.user.id || ""}
                           isMe={isMe}
                           isGroupChat={isGroupChat}
                           isContinuous={!!isContinuous}
@@ -961,7 +962,7 @@ export default function ChatConversationPage({
         }
         members={currentDetails?.members}
         timeline={currentDetails?.accountabilityTimelineJson}
-        currentUserId={currentUser.user.id}
+        currentUserId={currentUser.user.id || ""}
       />
 
       <MaskedVoipCallModal

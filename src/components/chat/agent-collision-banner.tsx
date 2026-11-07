@@ -10,7 +10,7 @@ export interface AgentCollisionBannerProps {
   holderAgentId: string;
   holderAgentName: string;
   holderAgentAvatar?: string | null;
-  currentUserId: string;
+  currentUserId?: string | null;
   onForceTakeOver: () => void;
 }
 
@@ -23,7 +23,7 @@ export const AgentCollisionBanner = ({
 }: AgentCollisionBannerProps) => {
   const t = useTranslations("OmnichannelInbox.collision");
 
-  if (!holderAgentId || holderAgentId === currentUserId) {
+  if (!holderAgentId || (currentUserId && holderAgentId === currentUserId)) {
     return null;
   }
 
@@ -54,8 +54,8 @@ export const AgentCollisionBanner = ({
             size="sm"
             rounded="full"
             onClick={onForceTakeOver}
+            icon={<ShieldAlert className="w-3.5 h-3.5" />}
           >
-            <ShieldAlert className="w-3.5 h-3.5 mr-1" />
             {t("takeOverBtn")}
           </PatternButton>
         </PermissionGate>
