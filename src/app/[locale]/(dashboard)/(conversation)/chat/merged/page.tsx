@@ -410,6 +410,22 @@ export default function MultiPageMergedInboxPage() {
                           <GlassBadge variant="primary" size="sm">
                             {conv.pageShortCode || conv.channelType}
                           </GlassBadge>
+                          {conv.interactionType && (
+                            <GlassBadge
+                              variant={
+                                conv.interactionType === "COMMENT"
+                                  ? "accent"
+                                  : conv.interactionType === "LIVESTREAM"
+                                    ? "danger"
+                                    : "secondary"
+                              }
+                              size="sm"
+                            >
+                              {t(
+                                `mergeMode.interactionTypes.${conv.interactionType}`,
+                              )}
+                            </GlassBadge>
+                          )}
                           <GlassBadge
                             variant={isWaitingReply ? "warning" : "success"}
                             size="sm"

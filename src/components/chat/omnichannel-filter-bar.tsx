@@ -11,8 +11,11 @@ import {
   RotateCcw,
   CheckSquare,
   Layers,
+  AlarmClock,
+  Flame,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Input } from "@/components/ui/input";
 import {
   GlassIconButton,
   PatternButton,
@@ -85,13 +88,15 @@ export const OmnichannelFilterBar = ({
     filter.hasOrder,
     filter.noOrder,
     filter.interactionType,
+    filter.sourceAdId,
+    filter.sourcePostId,
     (filter.includeTagIds?.length || 0) > 0,
     (filter.excludeTagIds?.length || 0) > 0,
   ].filter(Boolean).length;
 
   return (
     <div className="px-2.5 sm:px-3 py-1.5 border-b border-border/40 bg-muted/10 space-y-1.5">
-      {/* Thanh chọn nhanh các bộ lọc trọng yếu (Ghosted, Chờ trả lời, Quá hạn SLA, Có SĐT, Chưa lên đơn) */}
+      {/* Thanh chọn nhanh các bộ lọc trọng yếu (Ghosted, Chờ trả lời, Quá hạn SLA, Hẹn giờ, Có SĐT, Chưa lên đơn) */}
       <div className="flex items-center gap-1.5">
         <ScrollArea className="flex-1 min-w-0 whitespace-nowrap">
           <div className="flex items-center gap-1.5 w-max">
@@ -165,6 +170,52 @@ export const OmnichannelFilterBar = ({
                 className="h-7 w-7 shrink-0"
               >
                 <Clock className="w-3.5 h-3.5 shrink-0" />
+              </PatternButton>
+            </TruncatedText>
+
+            <TruncatedText
+              onlyWhenTruncated={false}
+              tooltipContent={t("slaBreached")}
+              className="inline-flex"
+            >
+              <PatternButton
+                type="button"
+                size="icon"
+                rounded="full"
+                variant={filter.slaBreachedOnly ? "solid" : "outline"}
+                color={filter.slaBreachedOnly ? "danger" : "neutral"}
+                onClick={() =>
+                  applyPatch({
+                    slaBreachedOnly: !filter.slaBreachedOnly,
+                  })
+                }
+                className="h-7 w-7 shrink-0"
+              >
+                <Flame className="w-3.5 h-3.5 shrink-0" />
+              </PatternButton>
+            </TruncatedText>
+
+            <TruncatedText
+              onlyWhenTruncated={false}
+              tooltipContent={t("snoozed", {
+                count: summaryCounts?.snoozedCount || 0,
+              })}
+              className="inline-flex"
+            >
+              <PatternButton
+                type="button"
+                size="icon"
+                rounded="full"
+                variant={filter.snoozedOnly ? "solid" : "outline"}
+                color={filter.snoozedOnly ? "warning" : "neutral"}
+                onClick={() =>
+                  applyPatch({
+                    snoozedOnly: !filter.snoozedOnly,
+                  })
+                }
+                className="h-7 w-7 shrink-0"
+              >
+                <AlarmClock className="w-3.5 h-3.5 shrink-0" />
               </PatternButton>
             </TruncatedText>
 
@@ -253,40 +304,178 @@ export const OmnichannelFilterBar = ({
               </PatternButton>
             </div>
 
-            {/* Vùng cuộn chính của Dropdown: truyền max-h trực tiếp vào viewportClassName để Radix Viewport kích hoạt cuộn dọc */}
             <ScrollArea
-              className="w-full max-h-[min(340px,65dvh)]"
-              viewportClassName="max-h-[min(340px,65dvh)] overscroll-contain pr-2"
+              className="w-full max-h-[min(420px,70dvh)]"
+              viewportClassName="max-h-[min(420px,70dvh)] overscroll-contain pr-2"
             >
               <div className="p-2.5 space-y-3">
-                <div className="flex flex-wrap gap-1.5">
-                  {(
-                    ["INBOX", "COMMENT", "LIVESTREAM", "MARKETPLACE"] as const
-                  ).map((typeKey) => {
-                    const isSelectedType = filter.interactionType === typeKey;
-                    return (
-                      <PatternButton
-                        key={typeKey}
-                        type="button"
-                        size="sm"
-                        rounded="full"
-                        variant={isSelectedType ? "solid" : "outline"}
-                        color={isSelectedType ? "primary" : "neutral"}
-                        onClick={() =>
-                          applyPatch({
-                            interactionType: isSelectedType
-                              ? undefined
-                              : typeKey,
-                          })
-                        }
-                        className="h-6 px-2.5 text-[11px]"
-                      >
-                        {typeKey}
-                      </PatternButton>
-                    );
-                  })}
+                {/* Nhóm 1: Trạng thái phản hồi, SLA & Lead */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-semibold block">
+                    {t("statusAndLeadGroupLabel")}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <PatternButton
+                      type="button"
+                      size="sm"
+                      rounded="full"
+                      variant={filter.unreadOnly ? "solid" : "outline"}
+                      color={filter.unreadOnly ? "primary" : "neutral"}
+                      onClick={() =>
+                        applyPatch({ unreadOnly: !filter.unreadOnly })
+                      }
+                      className="h-6 px-2.5 text-[10px]"
+                    >
+                      {t("unread")}
+                    </PatternButton>
+
+                    <PatternButton
+                      type="button"
+                      size="sm"
+                      rounded="full"
+                      variant={filter.slaBreachedOnly ? "solid" : "outline"}
+                      color={filter.slaBreachedOnly ? "danger" : "neutral"}
+                      onClick={() =>
+                        applyPatch({ slaBreachedOnly: !filter.slaBreachedOnly })
+                      }
+                      className="h-6 px-2.5 text-[10px]"
+                    >
+                      {t("slaBreached")}
+                    </PatternButton>
+
+                    <PatternButton
+                      type="button"
+                      size="sm"
+                      rounded="full"
+                      variant={
+                        filter.window24hExpiringOnly ? "solid" : "outline"
+                      }
+                      color={
+                        filter.window24hExpiringOnly ? "warning" : "neutral"
+                      }
+                      onClick={() =>
+                        applyPatch({
+                          window24hExpiringOnly: !filter.window24hExpiringOnly,
+                        })
+                      }
+                      className="h-6 px-2.5 text-[10px]"
+                    >
+                      {t("window24hExpiring", {
+                        count: summaryCounts?.window24hExpiringCount || 0,
+                      })}
+                    </PatternButton>
+
+                    <PatternButton
+                      type="button"
+                      size="sm"
+                      rounded="full"
+                      variant={filter.snoozedOnly ? "solid" : "outline"}
+                      color={filter.snoozedOnly ? "warning" : "neutral"}
+                      onClick={() =>
+                        applyPatch({ snoozedOnly: !filter.snoozedOnly })
+                      }
+                      className="h-6 px-2.5 text-[10px]"
+                    >
+                      {t("snoozed", {
+                        count: summaryCounts?.snoozedCount || 0,
+                      })}
+                    </PatternButton>
+
+                    <PatternButton
+                      type="button"
+                      size="sm"
+                      rounded="full"
+                      variant={filter.noPhone ? "solid" : "outline"}
+                      color={filter.noPhone ? "info" : "neutral"}
+                      onClick={() =>
+                        applyPatch({
+                          noPhone: !filter.noPhone,
+                          hasPhone: undefined,
+                        })
+                      }
+                      className="h-6 px-2.5 text-[10px]"
+                    >
+                      {t("noPhone")}
+                    </PatternButton>
+
+                    <PatternButton
+                      type="button"
+                      size="sm"
+                      rounded="full"
+                      variant={filter.hasOrder ? "solid" : "outline"}
+                      color={filter.hasOrder ? "success" : "neutral"}
+                      onClick={() =>
+                        applyPatch({
+                          hasOrder: !filter.hasOrder,
+                          noOrder: undefined,
+                        })
+                      }
+                      className="h-6 px-2.5 text-[10px]"
+                    >
+                      {t("hasOrder")}
+                    </PatternButton>
+                  </div>
                 </div>
 
+                {/* Nhóm 2: Loại tương tác */}
+                <div className="space-y-1.5 pt-2 border-t border-border/40">
+                  <span className="text-[11px] font-semibold block">
+                    {t("interactionTypeGroupLabel")}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(
+                      ["INBOX", "COMMENT", "LIVESTREAM", "MARKETPLACE"] as const
+                    ).map((typeKey) => {
+                      const isSelectedType = filter.interactionType === typeKey;
+                      return (
+                        <PatternButton
+                          key={typeKey}
+                          type="button"
+                          size="sm"
+                          rounded="full"
+                          variant={isSelectedType ? "solid" : "outline"}
+                          color={isSelectedType ? "primary" : "neutral"}
+                          onClick={() =>
+                            applyPatch({
+                              interactionType: isSelectedType
+                                ? undefined
+                                : typeKey,
+                            })
+                          }
+                          className="h-6 px-2.5 text-[10px]"
+                        >
+                          {typeKey}
+                        </PatternButton>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Nhóm 3: Lọc theo Ad ID / Post ID */}
+                <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-border/40">
+                  <Input
+                    value={filter.sourceAdId || ""}
+                    onChange={(e) =>
+                      applyPatch({
+                        sourceAdId: e.target.value.trim() || undefined,
+                      })
+                    }
+                    placeholder={t("adIdPlaceholder")}
+                    className="h-7 text-[11px]"
+                  />
+                  <Input
+                    value={filter.sourcePostId || ""}
+                    onChange={(e) =>
+                      applyPatch({
+                        sourcePostId: e.target.value.trim() || undefined,
+                      })
+                    }
+                    placeholder={t("postIdPlaceholder")}
+                    className="h-7 text-[11px]"
+                  />
+                </div>
+
+                {/* Nhóm 4: Toán tử Tag Include (AND / OR) */}
                 <div className="space-y-1.5 pt-2 border-t border-border/40">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-semibold">
@@ -356,6 +545,7 @@ export const OmnichannelFilterBar = ({
                   </ScrollArea>
                 </div>
 
+                {/* Nhóm 5: Toán tử Tag Exclude (NOT) */}
                 <div className="space-y-1.5 pt-2 border-t border-border/40">
                   <span className="text-[11px] font-semibold block">
                     {t("tagExcludeLabel")} (NOT)
@@ -404,7 +594,7 @@ export const OmnichannelFilterBar = ({
           </span>
           <ScrollArea className="flex-1 min-w-0 whitespace-nowrap">
             <div className="flex items-center justify-end gap-1 w-max pb-2">
-              {tags.slice(0, 4).map((tag) => (
+              {tags.map((tag) => (
                 <PatternButton
                   key={tag.id}
                   type="button"

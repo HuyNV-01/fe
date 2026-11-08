@@ -104,6 +104,13 @@ export default function ChatList() {
         return false;
       }
 
+      if (
+        omnichannelFilter.unreadOnly &&
+        Number(c.unreadCount || 0) <= 0 &&
+        c.firstSeenAt
+      ) {
+        return false;
+      }
       if (omnichannelFilter.ghostedByAgentOnly && !c.isGhostedByAgent) {
         return false;
       }
@@ -113,10 +120,42 @@ export default function ChatList() {
       ) {
         return false;
       }
+      if (omnichannelFilter.slaBreachedOnly && !c.isSlaBreached) {
+        return false;
+      }
+      if (omnichannelFilter.snoozedOnly && c.supportStatus !== "SNOOZED") {
+        return false;
+      }
       if (omnichannelFilter.hasPhone && !c.hasPhoneCollected) {
         return false;
       }
+      if (omnichannelFilter.noPhone && c.hasPhoneCollected) {
+        return false;
+      }
+      if (omnichannelFilter.hasOrder && !c.hasOrderCreated) {
+        return false;
+      }
       if (omnichannelFilter.noOrder && c.hasOrderCreated) {
+        return false;
+      }
+      if (
+        omnichannelFilter.interactionType &&
+        c.interactionType &&
+        c.interactionType !== omnichannelFilter.interactionType
+      ) {
+        return false;
+      }
+      if (
+        omnichannelFilter.sourceAdId &&
+        (!c.sourceAdId || !c.sourceAdId.includes(omnichannelFilter.sourceAdId))
+      ) {
+        return false;
+      }
+      if (
+        omnichannelFilter.sourcePostId &&
+        (!c.sourcePostId ||
+          !c.sourcePostId.includes(omnichannelFilter.sourcePostId))
+      ) {
         return false;
       }
 

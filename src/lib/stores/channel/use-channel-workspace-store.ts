@@ -1,4 +1,3 @@
-// File: src/lib/stores/channel/use-channel-workspace-store.ts
 import { createPersistedStore } from "@/lib/stores/create-persisted-store";
 import {
   type ChannelPlatformType,

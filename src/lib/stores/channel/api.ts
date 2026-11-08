@@ -1,4 +1,3 @@
-// File: src/lib/stores/channel/api.ts
 import apiClient from "@/lib/http/axios-client";
 
 export type ChannelPlatformType =

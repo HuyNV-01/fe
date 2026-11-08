@@ -692,7 +692,12 @@
           "cancel": "Từ chối",
           "revoke": "Thu hồi",
           "unblock": "Bỏ chặn"
-        }
+        },
+        "accept": "Chấp nhận lời mời",
+        "addFriend": "Kết bạn",
+        "cancel": "Hủy lời mời",
+        "friend": "Bạn bè",
+        "pendingSent": "Đã gửi lời mời"
       },
       "infoDrawer": {
         "title": "Thông tin & Tùy chỉnh hội thoại",
@@ -1247,7 +1252,13 @@
       "allowedChannelsScopeLabel": "Giới hạn kênh bán hàng được phép trực (4D Channel Scope)",
       "allChannelsAllowedBadge": "Truy cập tất cả kênh của cửa hàng",
       "selectedChannelsCountBadge": "Giới hạn {count} kênh chỉ định",
-      "allowAllChannelsBtn": "Cho phép tất cả kênh"
+      "allowAllChannelsBtn": "Cho phép tất cả kênh",
+      "teamCodeLabel": "Mã nhóm / Tổ trực ca (Team Code)",
+      "teamCodePlaceholder": "VD: TEAM_CA_SANG",
+      "allowedWarehousesScopeLabel": "Giới hạn kho hàng được phép thao tác (4D Warehouse Scope)",
+      "allWarehousesAllowedBadge": "Truy cập tất cả kho của cửa hàng",
+      "selectedWarehousesCountBadge": "Giới hạn {count} kho chỉ định",
+      "allowAllWarehousesBtn": "Cho phép tất cả kho"
     },
     "invitationReceivedTitle": "Lời mời làm việc từ {shopName}",
     "invitationReceivedDesc": "Bạn được mời đảm nhận vị trí {roleName} tại {shopName}. Nhấn Chấp nhận để bắt đầu công việc.",
@@ -1256,173 +1267,6 @@
       "description": "Bạn đang đăng ký tài khoản theo lời mời vị trí {role} tại {shopName}. Quyền làm việc sẽ tự động kích hoạt ngay sau khi hoàn tất.",
       "invalidTitle": "Liên kết lời mời không còn hiệu lực",
       "invalidDescription": "Lời mời này đã được sử dụng, bị thu hồi hoặc đã hết hạn. Bạn vẫn có thể đăng ký tài khoản như bình thường."
-    }
-  },
-  "ShiftAndIam": {
-    "status": {
-      "ONLINE": "Đang nhận khách",
-      "BUSY": "Tạm bận",
-      "OFFLINE": "Nghỉ ca"
-    },
-    "scope": {
-      "ALL_SHOP": "Toàn bộ dữ liệu cửa hàng",
-      "TEAM_SHIFT": "Dữ liệu trong nhóm & ca trực",
-      "ASSIGNED_PLUS_POOL": "Khách phụ trách & hàng đợi chung",
-      "ASSIGNED_ONLY": "Chỉ khách được phân công riêng"
-    },
-    "handoverModal": {
-      "title": "Bàn giao khách hàng trước khi nghỉ ca",
-      "description": "Bạn đang có {count} cuộc hội thoại khách hàng chờ phản hồi. Vui lòng chọn cách bàn giao để khách được hỗ trợ kịp thời.",
-      "autoRedistributeBtn": "Chia đều tự động cho đồng nghiệp đang trực",
-      "transferToSpecificAgent": "Bàn giao toàn bộ cho một đồng nghiệp cụ thể",
-      "keepAssignedOption": "Giữ nguyên trong danh sách phụ trách của tôi",
-      "selectColleaguePlaceholder": "Chọn đồng nghiệp nhận bàn giao...",
-      "confirmHandoverBtn": "Xác nhận bàn giao & nghỉ ca",
-      "cancelBtn": "Tiếp tục trực ca",
-      "handoverSuccessToast": "Đã bàn giao {count} cuộc hội thoại và chuyển sang trạng thái Nghỉ ca.",
-      "forceOfflineWarning": "Quản lý {managerName} đã chuyển ca trực của bạn sang Nghỉ ca và điều phối lại {count} cuộc hội thoại đang chờ.",
-      "receivedHandoverToast": "Bạn vừa nhận bàn giao {count} cuộc hội thoại cần hỗ trợ từ đồng nghiệp."
-    },
-    "permissionDenied": {
-      "tooltipCostPrice": "Chỉ Chủ cửa hàng và Kế toán được cấp quyền mới có thể xem giá vốn và lợi nhuận ròng.",
-      "tooltipExportCustomer": "Tài khoản của bạn chưa được cấp quyền xuất danh sách khách hàng ra tệp ngoài.",
-      "tooltipDiscountExceed": "Mức giảm giá vượt hạn mức cho phép ({maxPercent}%). Đơn hàng sẽ cần Quản lý phê duyệt.",
-      "unmaskQuotaExceeded": "Bạn đã dùng hết hạn mức mở xem số điện thoại trong giờ này ({limit} lượt/giờ)."
-    },
-    "realtimeToast": {
-      "permissionsUpdatedTitle": "Quyền làm việc vừa được cập nhật",
-      "permissionsUpdatedDesc": "Vai trò {role} và {count}/92 quyền hạn của bạn vừa được Quản lý cập nhật.",
-      "shiftChangedByColleague": "Trạng thái ca trực của nhân sự vừa được cập nhật."
-    }
-  },
-  "OmnichannelInbox": {
-    "mergeMode": {
-      "title": "Chế độ gộp trang bán hàng đa kênh",
-      "subtitle": "Chọn nhiều Fanpage, Zalo OA, TikTok Shop, Shopee để theo dõi và trả lời khách hàng tập trung trên một luồng duy nhất.",
-      "selectPagesPlaceholder": "Chọn các kênh bán hàng muốn gộp...",
-      "activePagesBadge": "Đang gộp {count} kênh bán hàng",
-      "singlePageBadge": "Đang xem 1 kênh riêng lẻ",
-      "savePresetBtn": "Lưu nhóm kênh gộp",
-      "presetNamePlaceholder": "Đặt tên nhóm kênh (VD: Nhóm 5 Fanpage Thời trang nữ)...",
-      "savedPresetsHeading": "Nhóm kênh gộp đã lưu ({count})",
-      "applyPresetBtn": "Áp dụng",
-      "deletePresetBtn": "Xóa",
-      "selectAllChannelsBtn": "Chọn tất cả kênh ({count})",
-      "presetSavedToast": "Đã lưu nhóm kênh gộp thành công",
-      "openMergedConsoleBtn": "Mở bảng điều phối gộp trang (/chat/merged)",
-      "defaultPresetBadge": "Mặc định",
-      "setAsDefaultPresetLabel": "Đặt làm nhóm kênh gộp mặc định khi mở ca trực",
-      "refreshStreamBtn": "Làm mới luồng hội thoại",
-      "configureChannelsBtn": "Cấu hình kênh bán",
-      "repliedFilterTab": "Đã phản hồi",
-      "searchMergedPlaceholder": "Tìm khách hàng hoặc mã luồng xuyên suốt các trang...",
-      "emptyMergedStreamTitle": "Chưa có hội thoại nào trong các kênh đang chọn",
-      "emptyMergedStreamDesc": "Hãy chọn thêm kênh bán hàng trên thanh gộp trang hoặc gửi tin nhắn thử nghiệm từ trang cấu hình kênh.",
-      "marketplaceOrderBadge": "Có đơn sàn TMĐT",
-      "openConversationBtn": "Mở hội thoại",
-      "manageTagsBtn": "Quản lý bộ Tag oklch"
-    },
-    "filters": {
-      "all": "Tất cả",
-      "unread": "Chưa đọc",
-      "unreplied": "Chưa trả lời",
-      "ghosted": "Đã xem nhưng bỏ quên ({count})",
-      "slaBreached": "Quá hạn SLA",
-      "window24hExpiring": "Sắp hết 24h ({count})",
-      "hasPhone": "Đã có SĐT",
-      "noPhone": "Chưa có SĐT",
-      "unconfirmedOrder": "Chưa lên đơn",
-      "tagIncludeLabel": "Bao gồm tất cả/một trong các Tag",
-      "tagExcludeLabel": "Loại trừ các Tag",
-      "advancedFilterTitle": "Bộ lọc 18 tiêu chí & Toán tử Tag",
-      "resetFilterBtn": "Đặt lại"
-    },
-    "collision": {
-      "lockedByAgent": "{agentName} đang mở và tư vấn khách hàng này",
-      "takeOverBtn": "Tiếp quản hội thoại",
-      "takeOverSuccessToast": "Đã tiếp quản quyền xử lý cuộc hội thoại",
-      "takeOverErrorToast": "Không thể tiếp quản cuộc hội thoại"
-    },
-    "composer": {
-      "replyPlaceholder": "Nhập tin nhắn tư vấn (/ để chèn mẫu nhanh, Alt+N ghi chú nội bộ, Alt+O tạo đơn POS)...",
-      "internalNotePlaceholder": "Ghi chú nội bộ (Khách hàng không nhìn thấy, gõ @ để nhắc đồng nghiệp)...",
-      "internalNoteBadge": "Chế độ Ghi chú nội bộ (Alt+N)",
-      "quickReplyHint": "Nhấn Tab hoặc Enter để chèn mẫu câu trả lời (/shortcut)",
-      "snoozeBtn": "Hẹn giờ chăm sóc lại",
-      "maskedCallBtn": "Gọi chốt đơn ẩn SĐT",
-      "internalNoteSavedToast": "Đã lưu ghi chú nội bộ vào luồng hội thoại",
-      "internalNoteErrorToast": "Không thể lưu ghi chú nội bộ",
-      "bookmarksBtn": "Tin nhắn đã đánh dấu (Địa chỉ / Bill CK)",
-      "bookmarkBubbleTooltip": "Gắn nhãn đánh dấu tin nhắn này (Địa chỉ / Bill CK / Lưu ý kho)"
-    },
-    "adAttribution": {
-      "fromAdBadge": "Khách từ Quảng cáo #{adId}",
-      "fromPostBadge": "Bình luận từ Bài viết #{postId}",
-      "capiSyncedBadge": "Đã đồng bộ Meta CAPI ({eventName})"
-    },
-    "realtimeToast": {
-      "newAssignedTitle": "Khách hàng mới từ {pageShortCode}",
-      "newAssignedDesc": "{customerName}: \"{preview}\" — Cần phản hồi trong {slaSeconds} giây.",
-      "slaReclaimedTitle": "Đã thu hồi hội thoại quá hạn phản hồi",
-      "slaReclaimedDesc": "Cuộc trò chuyện với \"{customerName}\" đã được chuyển cho đồng nghiệp khác hỗ trợ để đảm bảo cam kết phục vụ.",
-      "marketplaceOrderTitle": "Đơn hàng mới #{orderSn} trên {pageShortCode}",
-      "marketplaceOrderDesc": "Khách {buyerUsername} vừa đặt đơn {totalFormatted}. Đã tự động giữ chỗ {reservedQty} sản phẩm tồn kho.",
-      "ghostedAlertTitle": "Cảnh báo hội thoại đã xem nhưng bỏ quên!",
-      "ghostedAlertDesc": "Khách hàng \"{customerName}\" đã mở xem quá 3 phút nhưng chưa được phản hồi.",
-      "snoozeWakeupTitle": "Đến giờ hẹn chăm sóc lại khách hàng!",
-      "snoozeWakeupDesc": "Hội thoại với \"{customerName}\" đã đến giờ hẹn: {note}"
-    },
-    "snoozeAndTimeline": {
-      "sheetTitle": "Hẹn Giờ Chăm Sóc, Chuyển Giao & Dòng Thời Gian SLA",
-      "sheetDesc": "Đặt lịch nhắc chăm sóc lại (Snooze), bàn giao hội thoại cho đồng nghiệp và kiểm tra mốc phản hồi FRT.",
-      "tabs": {
-        "snooze": "Hẹn giờ",
-        "transfer": "Chuyển giao",
-        "timeline": "Dòng thời gian"
-      }
-    },
-    "snooze": {
-      "activeSnoozeBadge": "Đang hẹn giờ nhắc lại",
-      "cancelSnoozeBtn": "Hủy hẹn giờ",
-      "noteLabel": "Mục tiêu chăm sóc lại",
-      "notePlaceholder": "VD: Gọi lại hỏi khách đã nhận lương chưa để chốt set vest...",
-      "preset30m": "30 phút nữa",
-      "preset2h": "2 giờ nữa",
-      "preset4h": "4 giờ nữa",
-      "presetTomorrow9am": "9:00 sáng mai",
-      "customMinutesBtn": "Hẹn theo số phút",
-      "scheduledToast": "Đã đặt lịch hẹn nhắc chăm sóc lại hội thoại",
-      "cancelledToast": "Đã hủy hẹn giờ và đưa hội thoại về danh sách chờ",
-      "errorToast": "Không thể đặt lịch hẹn giờ"
-    },
-    "transfer": {
-      "selectColleagueHint": "Chọn đồng nghiệp nhận bàn giao cuộc hội thoại này:",
-      "notePlaceholder": "Ghi chú bàn giao (VD: Khách cần tư vấn kỹ mẫu đầm lụa size L)...",
-      "confirmBtn": "Xác nhận chuyển giao hội thoại",
-      "successToast": "Đã chuyển giao cuộc hội thoại cho đồng nghiệp",
-      "errorToast": "Không thể chuyển giao cuộc hội thoại"
-    },
-    "timeline": {
-      "emptyText": "Chưa có cột mốc trách nhiệm nào được ghi nhận.",
-      "events": {
-        "LEAD_INBOUND": "Khách nhắn tin lần đầu",
-        "ASSIGNED_AGENT": "Hệ thống phân bổ nhân viên",
-        "FIRST_SEEN": "Nhân viên mở xem lần đầu",
-        "FIRST_AGENT_REPLY_FRT": "Phản hồi đầu tiên (FRT)",
-        "INTERNAL_NOTE_ADDED": "Thêm ghi chú nội bộ",
-        "CONVERSATION_TRANSFERRED": "Chuyển giao hội thoại",
-        "CONVERSATION_SNOOZED": "Đặt lịch hẹn Snooze",
-        "CONVERSATION_UNSNOOZED": "Đánh thức hội thoại Snooze",
-        "MASKED_CALL_INITIATED": "Bắt đầu gọi VoIP ẩn SĐT",
-        "MASKED_CALL_COMPLETED": "Hoàn tất gọi VoIP & lưu ghi âm",
-        "PHONE_COLLECTED": "Thu thập thành công SĐT",
-        "ORDER_CREATED": "Tạo đơn hàng POS"
-      }
-    },
-    "translation": {
-      "translateBubbleTooltip": "Dịch tự động tin nhắn này",
-      "translateDraftTooltip": "Dịch nhanh câu trả lời đang soạn sang Tiếng Anh",
-      "errorToast": "Không thể dịch tin nhắn lúc này"
     }
   },
   "SettingsChannels": {
@@ -1533,7 +1377,9 @@
       "emptyTitle": "Chưa có đơn hàng sàn TMĐT nào đang giữ chỗ tồn kho",
       "emptyDesc": "Khi có đơn hàng mới từ Shopee, TikTok Shop hoặc Lazada, hệ thống sẽ tự động quy chiếu SKU và giữ chỗ tồn kho tại đây.",
       "openChatBtn": "Mở hội thoại đơn sàn"
-    }
+    },
+    "simulateCommentWebhookBtn": "Gửi bình luận thử",
+    "simulatedCommentWebhookToast": "Đã đồng bộ bình luận bài viết/Reels mẫu và tự động phân bổ cho nhân viên!"
   },
   "SettingsPermissions": {
     "title": "Phân quyền chi tiết & Giám sát ca trực",
@@ -1555,6 +1401,77 @@
     "activePermissionsPreviewLabel": "Quyền tiêu biểu đang bật:",
     "morePermissionsBadge": "+{count} quyền khác",
     "lastShiftUpdateLabel": "Cập nhật ca gần nhất: {time}"
+  },
+  "ShiftAndIam": {
+    "status": {
+      "ONLINE": "Đang nhận khách",
+      "BUSY": "Tạm bận",
+      "OFFLINE": "Nghỉ ca"
+    },
+    "scope": {
+      "ALL_SHOP": "Toàn bộ dữ liệu cửa hàng",
+      "TEAM_SHIFT": "Dữ liệu trong nhóm & ca trực",
+      "ASSIGNED_PLUS_POOL": "Khách phụ trách & hàng đợi chung",
+      "ASSIGNED_ONLY": "Chỉ khách được phân công riêng"
+    },
+    "handoverModal": {
+      "title": "Bàn giao khách hàng trước khi nghỉ ca",
+      "description": "Bạn đang có {count} cuộc hội thoại khách hàng chờ phản hồi. Vui lòng chọn cách bàn giao để khách được hỗ trợ kịp thời.",
+      "autoRedistributeBtn": "Chia đều tự động cho đồng nghiệp đang trực",
+      "transferToSpecificAgent": "Bàn giao toàn bộ cho một đồng nghiệp cụ thể",
+      "keepAssignedOption": "Giữ nguyên trong danh sách phụ trách của tôi",
+      "selectColleaguePlaceholder": "Chọn đồng nghiệp nhận bàn giao...",
+      "confirmHandoverBtn": "Xác nhận bàn giao & nghỉ ca",
+      "cancelBtn": "Tiếp tục trực ca",
+      "handoverSuccessToast": "Đã bàn giao {count} cuộc hội thoại và chuyển sang trạng thái Nghỉ ca.",
+      "forceOfflineWarning": "Quản lý {managerName} đã chuyển ca trực của bạn sang Nghỉ ca và điều phối lại {count} cuộc hội thoại đang chờ.",
+      "receivedHandoverToast": "Bạn vừa nhận bàn giao {count} cuộc hội thoại cần hỗ trợ từ đồng nghiệp."
+    },
+    "permissionDenied": {
+      "tooltipCostPrice": "Chỉ Chủ cửa hàng và Kế toán được cấp quyền mới có thể xem giá vốn và lợi nhuận ròng.",
+      "tooltipExportCustomer": "Tài khoản của bạn chưa được cấp quyền xuất danh sách khách hàng ra tệp ngoài.",
+      "tooltipDiscountExceed": "Mức giảm giá vượt hạn mức cho phép ({maxPercent}%). Đơn hàng sẽ cần Quản lý phê duyệt.",
+      "unmaskQuotaExceeded": "Bạn đã dùng hết hạn mức mở xem số điện thoại trong giờ này ({limit} lượt/giờ)."
+    },
+    "realtimeToast": {
+      "permissionsUpdatedTitle": "Quyền làm việc vừa được cập nhật",
+      "permissionsUpdatedDesc": "Vai trò {role} và {count}/92 quyền hạn của bạn vừa được Quản lý cập nhật.",
+      "shiftChangedByColleague": "Trạng thái ca trực của nhân sự vừa được cập nhật."
+    }
+  },
+  "OmnichannelInbox": {
+    "mergeMode": {
+      "title": "Chế độ gộp trang bán hàng đa kênh",
+      "subtitle": "Chọn nhiều Fanpage, Zalo OA, TikTok Shop, Shopee để theo dõi và trả lời khách hàng tập trung trên một luồng duy nhất.",
+      "selectPagesPlaceholder": "Chọn các kênh bán hàng muốn gộp...",
+      "activePagesBadge": "Đang gộp {count} kênh bán hàng",
+      "singlePageBadge": "Đang xem 1 kênh riêng lẻ",
+      "savePresetBtn": "Lưu nhóm kênh gộp",
+      "presetNamePlaceholder": "Đặt tên nhóm kênh (VD: Nhóm 5 Fanpage Thời trang nữ)...",
+      "savedPresetsHeading": "Nhóm kênh gộp đã lưu ({count})",
+      "applyPresetBtn": "Áp dụng",
+      "deletePresetBtn": "Xóa",
+      "selectAllChannelsBtn": "Chọn tất cả kênh ({count})",
+      "presetSavedToast": "Đã lưu nhóm kênh gộp thành công",
+      "openMergedConsoleBtn": "Mở bảng điều phối gộp trang (/chat/merged)",
+      "defaultPresetBadge": "Mặc định",
+      "setAsDefaultPresetLabel": "Đặt làm nhóm kênh gộp mặc định khi mở ca trực",
+      "refreshStreamBtn": "Làm mới luồng hội thoại",
+      "configureChannelsBtn": "Cấu hình kênh bán",
+      "repliedFilterTab": "Đã phản hồi",
+      "searchMergedPlaceholder": "Tìm khách hàng hoặc mã luồng xuyên suốt các trang...",
+      "emptyMergedStreamTitle": "Chưa có hội thoại nào trong các kênh đang chọn",
+      "emptyMergedStreamDesc": "Hãy chọn thêm kênh bán hàng trên thanh gộp trang hoặc gửi tin nhắn thử nghiệm từ trang cấu hình kênh.",
+      "marketplaceOrderBadge": "Có đơn sàn TMĐT",
+      "openConversationBtn": "Mở hội thoại",
+      "manageTagsBtn": "Quản lý bộ Tag oklch",
+      "interactionTypes": {
+        "INBOX": "Tin nhắn Inbox",
+        "COMMENT": "Bình luận bài viết",
+        "LIVESTREAM": "Bình luận Livestream",
+        "MARKETPLACE": "Chat Sàn TMĐT"
+      }
+    }
   },
   "PermissionCatalog": {
     "groups": {
@@ -2074,7 +1991,13 @@
       "updatedSuccess": "Đã cập nhật mẫu câu trả lời nhanh",
       "deletedSuccess": "Đã xóa mẫu câu trả lời nhanh",
       "actionFailed": "Không thể lưu mẫu câu trả lời nhanh"
-    }
+    },
+    "categoryLabel": "Nhóm mẫu câu (Category)",
+    "productCardsSectionLabel": "Thẻ sản phẩm đính kèm tự động khi chọn mẫu (Product Cards)",
+    "skuCodePlaceholder": "Mã SKU (VD: VEST-KEM-M)",
+    "productNamePlaceholder": "Tên sản phẩm đính kèm...",
+    "unitPricePlaceholder": "Đơn giá (đ)",
+    "cancelEditBtn": "Hủy sửa"
   },
   "MaskedVoip": {
     "modalTitle": "Tổng Đài Gọi Chốt Đơn Ẩn SĐT (WebRTC-to-SIP)",

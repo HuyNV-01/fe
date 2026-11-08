@@ -177,7 +177,7 @@ export const ChatHeader = memo(
                     className="text-[10px] py-0 px-1.5"
                   >
                     <AlertTriangle className="w-2.5 h-2.5 mr-0.5 inline" />
-                    {tInbox("filters.slaBreached")}
+                    {tInbox("filters.ghostedBadge")}
                   </GlassBadge>
                 )}
 
@@ -188,6 +188,17 @@ export const ChatHeader = memo(
                     className="text-[10px] py-0 px-1.5"
                   >
                     {tInbox("filters.slaBreached")}
+                  </GlassBadge>
+                )}
+
+                {snoozedUntilAt && (
+                  <GlassBadge
+                    variant="warning"
+                    size="sm"
+                    className="hidden sm:inline-flex text-[10px] py-0 px-1.5"
+                  >
+                    <AlarmClock className="w-2.5 h-2.5 mr-1 inline" />
+                    {tInbox("snooze.activeSnoozeBadge")}
                   </GlassBadge>
                 )}
               </div>

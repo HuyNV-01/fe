@@ -1,4 +1,3 @@
-// File: src/components/iam/shop-workspace-switcher.tsx
 "use client";
 
 import React from "react";

@@ -152,6 +152,9 @@ export default function OmnichannelSettingsPage() {
   const [simulatingChannelId, setSimulatingChannelId] = useState<string | null>(
     null,
   );
+  const [simulatingCommentChannelId, setSimulatingCommentChannelId] = useState<
+    string | null
+  >(null);
   const [simulatingOrderChannelId, setSimulatingOrderChannelId] = useState<
     string | null
   >(null);
@@ -337,6 +340,32 @@ export default function OmnichannelSettingsPage() {
       showErrorToast(err?.response?.data?.message || "Failed");
     } finally {
       setIsRunningDoctor(false);
+    }
+  };
+
+  const handleSimulateCommentWebhook = async (ch: ConnectedChannelItem) => {
+    if (!activeShopId) return;
+    setSimulatingCommentChannelId(ch.id);
+    try {
+      const postId = `post_${ch.pageShortCode.toLowerCase()}_${String(Date.now()).slice(-4)}`;
+      const commentId = `cmt_${Date.now()}`;
+      await simulateOmnichannelWebhookApi(ch.channelType, {
+        externalPageId: ch.externalPageId,
+        interactionType: "COMMENT",
+        event: "COMMENT_INBOUND",
+        postId,
+        commentId,
+        senderId: `commenter_${String(Date.now()).slice(-4)}`,
+        senderName: `Khách bình luận ${ch.pageShortCode}`,
+        messageText: `Shop ơi mẫu đầm trên bài viết #${postId} còn size M không ạ? SĐT mình 0988123456 nhé!`,
+      });
+      await fetchShopChannels(activeShopId);
+      await fetchWebhookLogs(activeShopId);
+      showSuccessToast(t("simulatedCommentWebhookToast"));
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setSimulatingCommentChannelId(null);
     }
   };
 
@@ -618,6 +647,22 @@ export default function OmnichannelSettingsPage() {
                         iconPosition="left"
                       >
                         <TruncatedText>{t("simulateWebhookBtn")}</TruncatedText>
+                      </PatternButton>
+
+                      <PatternButton
+                        type="button"
+                        variant="glass"
+                        color="info"
+                        size="sm"
+                        rounded="full"
+                        isLoading={simulatingCommentChannelId === ch.id}
+                        onClick={() => handleSimulateCommentWebhook(ch)}
+                        icon={<Activity className="w-3.5 h-3.5" />}
+                        iconPosition="left"
+                      >
+                        <TruncatedText>
+                          {t("simulateCommentWebhookBtn")}
+                        </TruncatedText>
                       </PatternButton>
 
                       {isMarketplace && (
