@@ -28,6 +28,7 @@ import { TaggedMessagesSheet } from "@/components/chat/tagged-messages-sheet";
 import { ConversationSnoozeAndTimelineSheet } from "@/components/chat/conversation-snooze-popover";
 import { MaskedVoipCallModal } from "@/components/chat/masked-voip-call-modal";
 import {
+  LiquidGlassInput,
   PatternButton,
   GlassIconButton,
   GlassConfirmDialog,
@@ -53,6 +54,7 @@ import { Input } from "@/components/ui/input";
 import { PinnedMessagesBar } from "@/components/chat/pinned-messages-bar";
 import { ConversationInfoDrawer } from "@/components/chat/conversation-info-drawer";
 import type {
+  CommentReplyModeType,
   ICustomTag,
   IMessage,
   IQuickReplyProductCard,
@@ -117,6 +119,9 @@ export default function ChatConversationPage({
     forceTakeOverCollisionLock,
     initiateMaskedVoipCall,
     translateMessageOrDraft,
+    toggleCommentVisibility,
+    toggleCommentLike,
+    sendPrivateReplyFromComment,
   } = useChatStore();
 
   const {
@@ -167,6 +172,11 @@ export default function ChatConversationPage({
 
   const effectiveShopId =
     currentConversation?.shopId || currentDetails?.shopId || activeShopId;
+
+  const interactionType =
+    currentConversation?.interactionType || currentDetails?.interactionType;
+  const isCommentThread =
+    interactionType === "COMMENT" || interactionType === "LIVESTREAM";
 
   useEffect(() => {
     if (effectiveShopId && conversationId) {
@@ -435,9 +445,31 @@ export default function ChatConversationPage({
         mentionAll?: boolean;
         productCards?: IQuickReplyProductCard[];
         quickReplyShortcutUsed?: string;
+        commentReplyMode?: CommentReplyModeType;
+        autoHideCommentOnReply?: boolean;
       },
     ) => {
       if (!conversationId) return;
+
+      const latestInboundComment = [...rawMessages]
+        .reverse()
+        .find((m) => m.senderId !== currentUser?.user?.id);
+
+      if (
+        isCommentThread &&
+        latestInboundComment &&
+        options?.commentReplyMode === "SEND_PRIVATE_REPLY_ONLY"
+      ) {
+        await sendPrivateReplyFromComment({
+          conversationId,
+          messageId: latestInboundComment.id,
+          content,
+          autoHideComment: options.autoHideCommentOnReply,
+          autoLikeComment: true,
+        });
+        return;
+      }
+
       await sendMessage({
         conversationId,
         content,
@@ -445,16 +477,43 @@ export default function ChatConversationPage({
         mentionedUserIds: options?.mentionedUserIds,
         mentionAll: options?.mentionAll,
         metadata:
-          options?.productCards || options?.quickReplyShortcutUsed
+          options?.productCards ||
+          options?.quickReplyShortcutUsed ||
+          options?.commentReplyMode
             ? {
                 productCards: options.productCards,
                 quickReplyShortcutUsed: options.quickReplyShortcutUsed,
+                commentReplyMode: options.commentReplyMode,
               }
             : undefined,
       });
+
+      if (
+        isCommentThread &&
+        latestInboundComment &&
+        options?.commentReplyMode === "REPLY_COMMENT_AND_PRIVATE_INBOX" &&
+        !latestInboundComment.metadata?.privateReplySentAt
+      ) {
+        await sendPrivateReplyFromComment({
+          conversationId,
+          messageId: latestInboundComment.id,
+          content,
+          autoHideComment: options.autoHideCommentOnReply,
+          autoLikeComment: true,
+        });
+      }
+
       scrollToBottom("smooth");
     },
-    [conversationId, sendMessage, scrollToBottom],
+    [
+      conversationId,
+      rawMessages,
+      currentUser?.user?.id,
+      isCommentThread,
+      sendMessage,
+      sendPrivateReplyFromComment,
+      scrollToBottom,
+    ],
   );
 
   const handleSendInternalNote = useCallback(
@@ -533,7 +592,7 @@ export default function ChatConversationPage({
   return (
     <div className="flex flex-col h-full bg-background w-full overflow-hidden relative">
       {/* Header */}
-      <div className="flex-none z-20 bg-background/95 backdrop-blur border-b">
+      <div className="flex-none z-20 bg-background/95 border-b">
         <ChatHeader
           displayName={resolvedHeaderName}
           avatarUrl={currentConversation?.avatar}
@@ -624,17 +683,21 @@ export default function ChatConversationPage({
 
         {isSearchBarOpen && (
           <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-muted/40 border-t">
-            <Search className="w-4 h-4 text-muted-foreground shrink-0" />
-            <Input
-              value={inChatSearchQuery}
-              onChange={(e) => {
-                setInChatSearchQuery(e.target.value);
-                setSearchMatchIndex(0);
-              }}
-              placeholder={t("searchInChatPlaceholder")}
-              className="h-8 text-xs bg-background"
-              autoFocus
-            />
+            <LiquidGlassInput className="flex-1 h-8 p-0 overflow-hidden">
+              <div className="flex items-center px-2.5 w-full h-full">
+                <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0 mr-2" />
+                <Input
+                  value={inChatSearchQuery}
+                  onChange={(e) => {
+                    setInChatSearchQuery(e.target.value);
+                    setSearchMatchIndex(0);
+                  }}
+                  placeholder={t("searchInChatPlaceholder")}
+                  className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-0"
+                  autoFocus
+                />
+              </div>
+            </LiquidGlassInput>
             {inChatSearchQuery && (
               <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
                 {matchedMessageIds.length > 0
@@ -724,7 +787,7 @@ export default function ChatConversationPage({
             {groupedMessages.map((group, gIndex) => (
               <div key={`${group.label}-${gIndex}`} className="mb-6">
                 <div className="flex justify-center mb-4 sticky top-0 z-10 pointer-events-none">
-                  <span className="text-[10px] font-medium bg-muted/90 backdrop-blur-md px-3 py-1 rounded-full border border-border/40 select-none shadow-2xs">
+                  <span className="text-[10px] font-medium bg-muted/90 px-3 py-1 rounded-full border border-border/40 select-none shadow-2xs">
                     {group.label}
                   </span>
                 </div>
@@ -749,6 +812,7 @@ export default function ChatConversationPage({
                           currentUserId={currentUser.user.id || ""}
                           isMe={isMe}
                           isGroupChat={isGroupChat}
+                          isCommentThread={isCommentThread}
                           isContinuous={!!isContinuous}
                           isLastInGroup={isLastInGroup}
                           isHighlighted={highlightedMessageId === msg.id}
@@ -800,6 +864,41 @@ export default function ChatConversationPage({
                               messageId: m.id,
                               conversationId,
                             })
+                          }
+                          onToggleCommentVisibility={(m) =>
+                            toggleCommentVisibility({
+                              conversationId,
+                              messageId: m.id,
+                              isHidden: !m.metadata?.isHiddenOnPlatform,
+                            })
+                          }
+                          onToggleCommentLike={(m) =>
+                            toggleCommentLike({
+                              conversationId,
+                              messageId: m.id,
+                              isLiked: !m.metadata?.isLikedByPage,
+                            })
+                          }
+                          onSendPrivateReplyFromComment={async (m) => {
+                            const res = await sendPrivateReplyFromComment({
+                              conversationId,
+                              messageId: m.id,
+                              content: `Dạ chào anh/chị ${resolvedHeaderName}, shop xin phép nhắn tin tư vấn chi tiết cho mình về bình luận vừa rồi ạ!`,
+                              autoHideComment: true,
+                              autoLikeComment: true,
+                            });
+                            if (res?.linkedInboxConversationId) {
+                              router.push(
+                                config.routes.private.detailChat(
+                                  res.linkedInboxConversationId,
+                                ),
+                              );
+                            }
+                          }}
+                          onOpenLinkedInboxConversation={(inboxConvId) =>
+                            router.push(
+                              config.routes.private.detailChat(inboxConvId),
+                            )
                           }
                           onVotePoll={(messageId, optionIds) =>
                             votePoll({
@@ -895,6 +994,7 @@ export default function ChatConversationPage({
           onConfirmEdit={handleConfirmEdit}
           onScrollToMessage={scrollToMessage}
           isCollisionLockedByOther={isCollisionLockedByOther}
+          isCommentThread={isCommentThread}
           blockState={currentDetails?.blockState}
           onUnblockPartner={() => {
             if (currentDetails?.blockState?.partnerId) {

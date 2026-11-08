@@ -33,6 +33,7 @@ import {
   FileText,
   Volume2,
   Eye,
+  EyeOff,
   Plus,
   Ban,
   BarChart3,
@@ -42,6 +43,8 @@ import {
   Zap,
   Languages,
   ShoppingBag,
+  MessageSquare,
+  MessageSquareShare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
@@ -55,6 +58,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { getLinkPreviewApi } from "@/lib/stores/chat/api";
 import type {
+  CommentReplyModeType,
   ILinkPreviewMetadata,
   IQuickReplyProductCard,
 } from "@/types/chat";
@@ -95,6 +99,8 @@ export interface IChatInputProps {
       mentionAll?: boolean;
       productCards?: IQuickReplyProductCard[];
       quickReplyShortcutUsed?: string;
+      commentReplyMode?: CommentReplyModeType;
+      autoHideCommentOnReply?: boolean;
     },
   ) => Promise<void> | void;
   onSendInternalNote?: (
@@ -109,6 +115,7 @@ export interface IChatInputProps {
   onScrollToMessage?: (messageId: string) => void;
   disabled?: boolean;
   isCollisionLockedByOther?: boolean;
+  isCommentThread?: boolean;
   blockState?: {
     isBlocked: boolean;
     blockedByMe: boolean;
@@ -126,6 +133,7 @@ export const ChatInput = ({
   onScrollToMessage,
   disabled,
   isCollisionLockedByOther = false,
+  isCommentThread = false,
   blockState,
   onUnblockPartner,
 }: IChatInputProps) => {
@@ -139,7 +147,7 @@ export const ChatInput = ({
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
 
-  // Sprint 2 states: Internal Note (Alt+N), Quick Reply (/shortcut), Product Cards & Draft Translation
+  // Sprint 2 states: Internal Note (Alt+N), Quick Reply (/shortcut), Product Cards, Comment Reply Mode & Draft Translation
   const [isInternalNoteMode, setIsInternalNoteMode] = useState(false);
   const [quickReplyQuery, setQuickReplyQuery] = useState<string | null>(null);
   const [attachedProductCards, setAttachedProductCards] = useState<
@@ -148,6 +156,9 @@ export const ChatInput = ({
   const [quickReplyShortcutUsed, setQuickReplyShortcutUsed] = useState<
     string | undefined
   >(undefined);
+  const [commentReplyMode, setCommentReplyMode] =
+    useState<CommentReplyModeType>("REPLY_COMMENT_AND_PRIVATE_INBOX");
+  const [autoHideCommentOnReply, setAutoHideCommentOnReply] = useState(true);
   const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
 
   const selectedItemsRef = useRef<SelectedFilePreview[]>([]);
@@ -509,6 +520,10 @@ export const ChatInput = ({
         productCards:
           attachedProductCards.length > 0 ? attachedProductCards : undefined,
         quickReplyShortcutUsed,
+        commentReplyMode: isCommentThread ? commentReplyMode : undefined,
+        autoHideCommentOnReply: isCommentThread
+          ? autoHideCommentOnReply
+          : undefined,
       });
       setMentionedUserIds([]);
       setMentionAll(false);
@@ -526,6 +541,9 @@ export const ChatInput = ({
     mentionAll,
     attachedProductCards,
     quickReplyShortcutUsed,
+    isCommentThread,
+    commentReplyMode,
+    autoHideCommentOnReply,
     onSendInternalNote,
     onSendAttachments,
     onConfirmEdit,
@@ -751,6 +769,69 @@ export const ChatInput = ({
             router.push(config.routes.private.settingsQuickReplies);
           }}
         />
+      )}
+
+      {/* Thanh chọn Chế độ Phản hồi Bình luận Đa Kênh (Comment + Private Reply Inbox — F03.3 & F03.4) */}
+      {isCommentThread && !isInternalNoteMode && (
+        <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-2 rounded-xl bg-primary/5 border border-primary/20 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-semibold text-[11px] text-muted-foreground mr-1">
+              {tInbox("commentActions.modeLabel")}
+            </span>
+            {(
+              [
+                {
+                  mode: "REPLY_COMMENT_AND_PRIVATE_INBOX" as CommentReplyModeType,
+                  labelKey: "modeBoth",
+                  icon: MessageSquareShare,
+                },
+                {
+                  mode: "REPLY_COMMENT_ONLY" as CommentReplyModeType,
+                  labelKey: "modePublicOnly",
+                  icon: MessageSquare,
+                },
+                {
+                  mode: "SEND_PRIVATE_REPLY_ONLY" as CommentReplyModeType,
+                  labelKey: "modePrivateOnly",
+                  icon: SendHorizontal,
+                },
+              ] as const
+            ).map((opt) => {
+              const IconComp = opt.icon;
+              const isSelected = commentReplyMode === opt.mode;
+              return (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  onClick={() => setCommentReplyMode(opt.mode)}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer",
+                    isSelected
+                      ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                      : "bg-background/80 text-muted-foreground border-border/50 hover:text-foreground",
+                  )}
+                >
+                  <IconComp className="w-3 h-3 shrink-0" />
+                  <span>{tInbox(`commentActions.${opt.labelKey}` as any)}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setAutoHideCommentOnReply((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors cursor-pointer",
+              autoHideCommentOnReply
+                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40"
+                : "text-muted-foreground border-border/40",
+            )}
+          >
+            <EyeOff className="w-3 h-3 shrink-0" />
+            <span>{tInbox("commentActions.autoHideToggle")}</span>
+          </button>
+        </div>
       )}
 
       {/* Popover @mention đồng nghiệp trong Nhóm hoặc Ghi chú nội bộ */}
@@ -1114,7 +1195,7 @@ export const ChatInput = ({
       {showEmojiPicker && (
         <div
           ref={emojiContainerRef}
-          className="absolute bottom-full right-2 sm:right-4 mb-2 p-2.5 bg-background/95 backdrop-blur-xl border rounded-2xl shadow-xl grid grid-cols-4 gap-1.5 w-60 sm:w-64 max-w-[calc(100vw-2rem)] z-30 animate-in fade-in zoom-in-95 duration-150"
+          className="absolute bottom-full right-2 sm:right-4 mb-2 p-2.5 bg-background/95 border rounded-2xl shadow-xl grid grid-cols-4 gap-1.5 w-60 sm:w-64 max-w-[calc(100vw-2rem)] z-30 animate-in fade-in zoom-in-95 duration-150"
         >
           {COMMON_EMOJIS.map((emoji) => (
             <button

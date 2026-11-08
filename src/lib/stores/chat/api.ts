@@ -272,7 +272,7 @@ export const getConversationActiveCallApi = async (conversationId: string) => {
 
 // ============================================================================
 // SPRINT 2 — OMNICHANNEL INBOX 18-CRITERIA, INTERNAL NOTE, SNOOZE,
-// COLLISION LOCK, MASKED VOIP & REAL-TIME TRANSLATION APIs
+// COLLISION LOCK, MASKED VOIP, COMMENT ACTIONS & REAL-TIME TRANSLATION APIs
 // ============================================================================
 
 export const queryOmnichannelInboxApi = async (payload: {
@@ -311,6 +311,42 @@ export const createInternalNoteApi = async (payload: {
   const { conversationId, ...body } = payload;
   return apiClient.post(
     `/chat/conversations/${conversationId}/internal-note`,
+    body,
+  );
+};
+
+export const toggleCommentVisibilityApi = async (payload: {
+  conversationId: string;
+  messageId: string;
+  isHidden: boolean;
+}) => {
+  return apiClient.post(
+    `/chat/conversations/${payload.conversationId}/messages/${payload.messageId}/comment-visibility`,
+    { isHidden: payload.isHidden },
+  );
+};
+
+export const toggleCommentLikeApi = async (payload: {
+  conversationId: string;
+  messageId: string;
+  isLiked: boolean;
+}) => {
+  return apiClient.post(
+    `/chat/conversations/${payload.conversationId}/messages/${payload.messageId}/comment-like`,
+    { isLiked: payload.isLiked },
+  );
+};
+
+export const sendPrivateReplyFromCommentApi = async (payload: {
+  conversationId: string;
+  messageId: string;
+  content: string;
+  autoHideComment?: boolean;
+  autoLikeComment?: boolean;
+}) => {
+  const { conversationId, messageId, ...body } = payload;
+  return apiClient.post(
+    `/chat/conversations/${conversationId}/messages/${messageId}/private-reply`,
     body,
   );
 };

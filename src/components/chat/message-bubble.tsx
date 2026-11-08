@@ -35,6 +35,10 @@ import {
   StickyNote,
   Languages,
   ShoppingBag,
+  EyeOff,
+  Eye,
+  Heart,
+  MessageSquareShare,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 import type {
@@ -66,6 +70,7 @@ interface MessageBubbleProps {
   currentUserId?: string;
   isMe: boolean;
   isGroupChat?: boolean;
+  isCommentThread?: boolean;
   isContinuous?: boolean;
   isLastInGroup?: boolean;
   isHighlighted?: boolean;
@@ -84,6 +89,10 @@ interface MessageBubbleProps {
   onForward?: (message: IMessage) => void;
   onToggleBookmarkTag?: (messageId: string, tagId: string) => void;
   onTranslateMessage?: (message: IMessage) => void;
+  onToggleCommentVisibility?: (message: IMessage) => void;
+  onToggleCommentLike?: (message: IMessage) => void;
+  onSendPrivateReplyFromComment?: (message: IMessage) => void;
+  onOpenLinkedInboxConversation?: (inboxConversationId: string) => void;
   onCallbackCall?: (callType: CallTypeEnum) => void;
   onScrollToMessage?: (messageId: string) => void;
   onVotePoll?: (messageId: string, optionIds: string[]) => void;
@@ -118,6 +127,7 @@ export const MessageBubble = memo(
     currentUserId,
     isMe,
     isGroupChat = false,
+    isCommentThread = false,
     isContinuous = false,
     isLastInGroup = false,
     isHighlighted = false,
@@ -136,6 +146,10 @@ export const MessageBubble = memo(
     onForward,
     onToggleBookmarkTag,
     onTranslateMessage,
+    onToggleCommentVisibility,
+    onToggleCommentLike,
+    onSendPrivateReplyFromComment,
+    onOpenLinkedInboxConversation,
     onCallbackCall,
     onScrollToMessage,
     onVotePoll,
@@ -173,6 +187,13 @@ export const MessageBubble = memo(
     const productCards = message.metadata?.productCards || [];
     const translation = message.metadata?.translation;
     const messageTagIds = message.messageTagIdsJson || [];
+
+    const isHiddenOnPlatform = Boolean(message.metadata?.isHiddenOnPlatform);
+    const isLikedByPage = Boolean(message.metadata?.isLikedByPage);
+    const isDeletedOnPlatform = Boolean(message.metadata?.isDeletedOnPlatform);
+    const privateReplySentAt = message.metadata?.privateReplySentAt;
+    const linkedInboxConversationId =
+      message.metadata?.linkedInboxConversationId;
 
     const imageGallery: LightboxImageItem[] = useMemo(() => {
       if (message.type !== MessageTypeEnum.IMAGE) return [];
@@ -343,7 +364,7 @@ export const MessageBubble = memo(
               isRecalled
                 ? "bg-muted/40 text-muted-foreground italic border border-dashed border-border"
                 : isInternalNote
-                  ? "bg-amber-500/20 dark:bg-amber-500/25 text-amber-950 dark:text-amber-100 border border-amber-500/45 backdrop-blur-md"
+                  ? "bg-amber-500/20 dark:bg-amber-500/25 text-amber-950 dark:text-amber-100 border border-amber-500/45"
                   : isMe
                     ? "bg-primary text-primary-foreground"
                     : "bg-white dark:bg-muted text-foreground border border-border/50",
@@ -377,6 +398,69 @@ export const MessageBubble = memo(
                 <div className="flex items-center gap-1 text-[10px] opacity-85 mb-1 font-medium">
                   <Pin className="w-3 h-3 rotate-45" />
                   <span>{t("pinnedLabel")}</span>
+                </div>
+              )}
+
+            {/* Huy hiệu Trạng thái Bình luận Đa kênh (F03.3 & F03.4) */}
+            {!isRecalled &&
+              (isHiddenOnPlatform ||
+                isLikedByPage ||
+                isDeletedOnPlatform ||
+                privateReplySentAt) && (
+                <div className="flex items-center gap-1 flex-wrap mb-1.5">
+                  {isHiddenOnPlatform && (
+                    <GlassBadge
+                      variant="warning"
+                      size="sm"
+                      className="text-[10px] py-0 px-1.5"
+                    >
+                      <EyeOff className="w-2.5 h-2.5 mr-1 inline" />
+                      {tInbox("commentActions.hiddenBadge")}
+                    </GlassBadge>
+                  )}
+
+                  {isLikedByPage && (
+                    <GlassBadge
+                      variant="danger"
+                      size="sm"
+                      className="text-[10px] py-0 px-1.5"
+                    >
+                      <Heart className="w-2.5 h-2.5 mr-1 inline fill-current" />
+                      {tInbox("commentActions.likedBadge")}
+                    </GlassBadge>
+                  )}
+
+                  {isDeletedOnPlatform && (
+                    <GlassBadge
+                      variant="secondary"
+                      size="sm"
+                      className="text-[10px] py-0 px-1.5"
+                    >
+                      {tInbox("commentActions.deletedOnPlatformBadge")}
+                    </GlassBadge>
+                  )}
+
+                  {privateReplySentAt && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          linkedInboxConversationId &&
+                          onOpenLinkedInboxConversation
+                        ) {
+                          onOpenLinkedInboxConversation(
+                            linkedInboxConversationId,
+                          );
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 cursor-pointer"
+                    >
+                      <MessageSquareShare className="w-2.5 h-2.5 shrink-0" />
+                      <span>
+                        {tInbox("commentActions.privateRepliedBadge")}
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -975,9 +1059,70 @@ export const MessageBubble = memo(
             message.status !== "failed" && (
               <div
                 className={cn(
-                  "opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 bg-background/95 backdrop-blur border rounded-full px-1 sm:px-1.5 py-0.5 shadow-sm z-20 shrink-0",
+                  "opacity-0 group-hover/bubble:opacity-100 focus-within:opacity-100 transition-opacity flex items-center gap-0.5 bg-background/95 border rounded-full px-1 sm:px-1.5 py-0.5 shadow-sm z-20 shrink-0",
                 )}
               >
+                {/* Nút thao tác Bình luận Đa Kênh: Ẩn/Hiện Comment, Thích Comment, Gửi Private Reply Inbox (F03.3 & F03.4) */}
+                {!isMe && isCommentThread && (
+                  <>
+                    {onToggleCommentVisibility && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleCommentVisibility(message)}
+                        className={cn(
+                          "p-1 sm:p-1.5 rounded-full hover:bg-muted cursor-pointer",
+                          isHiddenOnPlatform
+                            ? "text-amber-500"
+                            : "text-muted-foreground hover:text-amber-500",
+                        )}
+                        title={
+                          isHiddenOnPlatform
+                            ? tInbox("commentActions.unhideTooltip")
+                            : tInbox("commentActions.hideTooltip")
+                        }
+                      >
+                        {isHiddenOnPlatform ? (
+                          <Eye className="w-3.5 h-3.5" />
+                        ) : (
+                          <EyeOff className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+
+                    {onToggleCommentLike && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleCommentLike(message)}
+                        className={cn(
+                          "p-1 sm:p-1.5 rounded-full hover:bg-muted cursor-pointer",
+                          isLikedByPage
+                            ? "text-rose-500"
+                            : "text-muted-foreground hover:text-rose-500",
+                        )}
+                        title={tInbox("commentActions.likeTooltip")}
+                      >
+                        <Heart
+                          className={cn(
+                            "w-3.5 h-3.5",
+                            isLikedByPage && "fill-current",
+                          )}
+                        />
+                      </button>
+                    )}
+
+                    {onSendPrivateReplyFromComment && !privateReplySentAt && (
+                      <button
+                        type="button"
+                        onClick={() => onSendPrivateReplyFromComment(message)}
+                        className="p-1 sm:p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-emerald-500 cursor-pointer"
+                        title={tInbox("commentActions.sendPrivateReplyTooltip")}
+                      >
+                        <MessageSquareShare className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </>
+                )}
+
                 {/* Nút Gắn Tag Đánh Dấu Bong Bóng Tin Nhắn (F02.3 Bookmark) */}
                 {bookmarkTags.length > 0 && onToggleBookmarkTag && (
                   <div className="relative">

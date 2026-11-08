@@ -59,6 +59,9 @@ import {
   getConversationActiveCallApi,
   queryOmnichannelInboxApi,
   createInternalNoteApi,
+  toggleCommentVisibilityApi,
+  toggleCommentLikeApi,
+  sendPrivateReplyFromCommentApi,
   snoozeConversationApi,
   cancelSnoozeConversationApi,
   transferConversationApi,
@@ -133,11 +136,6 @@ const mergeAndSortMessages = (
   });
 };
 
-/**
- * Bộ lọc tìm kiếm cuộc trò chuyện phân tách rõ 2 trường hợp nghiệp vụ:
- * - Trò chuyện 1-1 (DIRECT): Tìm theo 3 trường (tên hiển thị, biệt danh, email) và loại bỏ người dùng đang trong trạng thái chặn.
- * - Trò chuyện nhóm (GROUP): Chỉ tìm theo tên nhóm (group name), bỏ qua hoàn toàn email/biệt danh của thành viên.
- */
 export const matchConversationBySearchRule = (
   conv: IConversation,
   rawKeyword: string,
@@ -391,7 +389,7 @@ interface ChatState {
     call: IActiveCallState | null,
   ) => void;
 
-  // Sprint 2 Omnichannel Inbox, Collision Lock, Snooze, Internal Note, Masked VoIP & Translation
+  // Sprint 2 Omnichannel Inbox, Collision Lock, Snooze, Internal Note, Masked VoIP, Comment Actions & Translation
   collisionLocksByConv: Record<string, ICollisionLockState | null>;
   activeMaskedCall: IMaskedVoipCallSession | null;
   omnichannelFilter: IOmnichannelFilterState;
@@ -408,6 +406,23 @@ interface ChatState {
     mentionedUserIds?: string[];
     replyToMessageId?: string;
   }) => Promise<boolean>;
+  toggleCommentVisibility: (payload: {
+    conversationId: string;
+    messageId: string;
+    isHidden: boolean;
+  }) => Promise<boolean>;
+  toggleCommentLike: (payload: {
+    conversationId: string;
+    messageId: string;
+    isLiked: boolean;
+  }) => Promise<boolean>;
+  sendPrivateReplyFromComment: (payload: {
+    conversationId: string;
+    messageId: string;
+    content: string;
+    autoHideComment?: boolean;
+    autoLikeComment?: boolean;
+  }) => Promise<{ linkedInboxConversationId?: string } | null>;
   snoozeConversation: (payload: {
     conversationId: string;
     snoozedUntilAt: string;
@@ -753,7 +768,6 @@ export const useChatStore = createPersistedStore<ChatState>(
           Math.max(Date.now(), msgTime),
         );
       } else {
-        // New unread message arrived while not viewing: clear stale local read override
         locallyReadConversations.delete(message.conversationId);
       }
 
@@ -1119,7 +1133,6 @@ export const useChatStore = createPersistedStore<ChatState>(
             const lastMsgTimestamp =
               parseSafeDate(item.lastMessageAt)?.getTime() || 0;
 
-            // If user is currently in this conversation OR already read it locally and no newer message has arrived since
             const wasAlreadyReadLocally =
               Boolean(localReadTimestamp) &&
               (lastMsgTimestamp === 0 ||
@@ -1248,7 +1261,6 @@ export const useChatStore = createPersistedStore<ChatState>(
           const currentMessages = state.messages[conversationId] || [];
 
           if (page === 1) {
-            // Merge instead of overwriting so real-time socket messages that arrived during navigation are never lost!
             state.messages[conversationId] = mergeAndSortMessages(
               currentMessages,
               orderedMessages,
@@ -2447,6 +2459,113 @@ export const useChatStore = createPersistedStore<ChatState>(
       } catch {
         toast.error(tStore("OmnichannelInbox.composer.internalNoteErrorToast"));
         return false;
+      }
+    },
+
+    toggleCommentVisibility: async ({
+      conversationId,
+      messageId,
+      isHidden,
+    }) => {
+      try {
+        const res: any = await toggleCommentVisibilityApi({
+          conversationId,
+          messageId,
+          isHidden,
+        });
+        const data = res?.data ?? res;
+        set((state) => {
+          const msgs = state.messages[conversationId];
+          if (!msgs) return;
+          const msg = msgs.find((m) => m.id === messageId);
+          if (msg) {
+            msg.metadata = {
+              ...(msg.metadata || {}),
+              isHiddenOnPlatform: Boolean(data?.isHiddenOnPlatform ?? isHidden),
+            };
+          }
+        });
+        toast.success(
+          isHidden
+            ? tStore("OmnichannelInbox.commentActions.hiddenToast")
+            : tStore("OmnichannelInbox.commentActions.unhiddenToast"),
+        );
+        return true;
+      } catch {
+        toast.error(tStore("OmnichannelInbox.commentActions.actionErrorToast"));
+        return false;
+      }
+    },
+
+    toggleCommentLike: async ({ conversationId, messageId, isLiked }) => {
+      try {
+        const res: any = await toggleCommentLikeApi({
+          conversationId,
+          messageId,
+          isLiked,
+        });
+        const data = res?.data ?? res;
+        set((state) => {
+          const msgs = state.messages[conversationId];
+          if (!msgs) return;
+          const msg = msgs.find((m) => m.id === messageId);
+          if (msg) {
+            msg.metadata = {
+              ...(msg.metadata || {}),
+              isLikedByPage: Boolean(data?.isLikedByPage ?? isLiked),
+            };
+          }
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
+    sendPrivateReplyFromComment: async ({
+      conversationId,
+      messageId,
+      content,
+      autoHideComment,
+      autoLikeComment,
+    }) => {
+      try {
+        const res: any = await sendPrivateReplyFromCommentApi({
+          conversationId,
+          messageId,
+          content,
+          autoHideComment,
+          autoLikeComment,
+        });
+        const data = res?.data ?? res;
+        set((state) => {
+          const msgs = state.messages[conversationId];
+          if (!msgs) return;
+          const msg = msgs.find((m) => m.id === messageId);
+          if (msg) {
+            msg.metadata = {
+              ...(msg.metadata || {}),
+              privateReplySentAt:
+                data?.privateReplySentAt || new Date().toISOString(),
+              linkedInboxConversationId: data?.linkedInboxConversationId,
+              isHiddenOnPlatform:
+                data?.isHiddenOnPlatform ?? msg.metadata?.isHiddenOnPlatform,
+              isLikedByPage: data?.isLikedByPage ?? msg.metadata?.isLikedByPage,
+            };
+          }
+        });
+        toast.success(
+          tStore("OmnichannelInbox.commentActions.privateReplySuccessToast"),
+        );
+        return {
+          linkedInboxConversationId: data?.linkedInboxConversationId,
+        };
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message ||
+            tStore("OmnichannelInbox.commentActions.privateReplyErrorToast"),
+        );
+        return null;
       }
     },
 
