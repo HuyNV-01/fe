@@ -126,6 +126,7 @@ interface TagStoreState {
       customerName?: string;
       salutation?: string;
       agentName?: string;
+      pageName?: string;
       trackingLink?: string;
     },
   ) => Promise<{

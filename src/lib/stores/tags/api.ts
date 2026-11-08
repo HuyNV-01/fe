@@ -160,6 +160,7 @@ export const interpolateQuickReplyTemplateApi = async (
     customerName?: string;
     salutation?: string;
     agentName?: string;
+    pageName?: string;
     trackingLink?: string;
   },
 ) => {

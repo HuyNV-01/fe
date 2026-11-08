@@ -16,6 +16,9 @@ import {
   Search,
   ChevronUp,
   ChevronDown,
+  Megaphone,
+  MessageSquare,
+  ExternalLink,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
@@ -29,6 +32,8 @@ import { ConversationSnoozeAndTimelineSheet } from "@/components/chat/conversati
 import { MaskedVoipCallModal } from "@/components/chat/masked-voip-call-modal";
 import {
   LiquidGlassInput,
+  GlassSurfaceCard,
+  GlassBadge,
   PatternButton,
   GlassIconButton,
   GlassConfirmDialog,
@@ -666,6 +671,59 @@ export default function ChatConversationPage({
           />
         )}
 
+        {/* Thẻ Ngữ cảnh Bài viết gốc / Quảng cáo CTWA (SourcePostContextCard bọc bởi GlassSurfaceCard — F03.3 & F03.4) */}
+        {(isCommentThread ||
+          currentConversation?.sourcePostId ||
+          currentDetails?.sourcePostId ||
+          currentConversation?.sourceAdId ||
+          currentDetails?.sourceAdId) && (
+          <div className="px-3 sm:px-4 py-1.5 border-t border-border/40">
+            <GlassSurfaceCard className="p-2.5 flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0">
+                <GlassBadge
+                  variant={isCommentThread ? "primary" : "info"}
+                  size="sm"
+                >
+                  {isCommentThread ? (
+                    <MessageSquare className="w-3 h-3 mr-1 inline" />
+                  ) : (
+                    <Megaphone className="w-3 h-3 mr-1 inline" />
+                  )}
+                  {interactionType || "COMMENT"}
+                </GlassBadge>
+                {(currentConversation?.sourcePostId ||
+                  currentDetails?.sourcePostId) && (
+                  <span className="text-xs font-medium text-foreground truncate">
+                    Post #
+                    {currentConversation?.sourcePostId ||
+                      currentDetails?.sourcePostId}
+                  </span>
+                )}
+                {(currentConversation?.sourceAdId ||
+                  currentDetails?.sourceAdId) && (
+                  <GlassBadge variant="warning" size="sm">
+                    Ad #
+                    {currentConversation?.sourceAdId ||
+                      currentDetails?.sourceAdId}
+                  </GlassBadge>
+                )}
+              </div>
+              {(currentConversation?.sourcePostId ||
+                currentDetails?.sourcePostId) && (
+                <a
+                  href={`https://facebook.com/${currentConversation?.sourcePostId || currentDetails?.sourcePostId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline shrink-0"
+                >
+                  <span>Mở bài viết gốc</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </GlassSurfaceCard>
+          </div>
+        )}
+
         {/* Thanh cảnh báo Chống đụng độ nhân viên (F03.7 & T03) */}
         {activeCollisionLock && (
           <AgentCollisionBanner
@@ -848,12 +906,13 @@ export default function ChatConversationPage({
                           }
                           onToggleBookmarkTag={
                             effectiveShopId
-                              ? (messageId, tagId) =>
+                              ? (messageId, tagId, noteText) =>
                                   toggleMessageBookmarkTag({
                                     shopId: effectiveShopId,
                                     conversationId,
                                     messageId,
                                     tagId,
+                                    noteText,
                                   })
                               : undefined
                           }

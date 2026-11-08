@@ -18,6 +18,7 @@ export interface QuickReplyPopoverProps {
   shopId: string;
   customerName?: string;
   agentName?: string;
+  pageName?: string;
   onSelectQuickReply: (
     interpolatedText: string,
     template: IQuickReplyTemplate,
@@ -32,6 +33,7 @@ export const QuickReplyPopover = ({
   shopId,
   customerName,
   agentName,
+  pageName,
   onSelectQuickReply,
   onOpenManageModal,
 }: QuickReplyPopoverProps) => {
@@ -57,6 +59,7 @@ export const QuickReplyPopover = ({
       customerName: customerName || "anh/chị",
       salutation: "anh/chị",
       agentName: agentName || "Tư vấn viên",
+      pageName: pageName || "Fanpage",
     });
 
     const resolvedContent =
@@ -64,7 +67,8 @@ export const QuickReplyPopover = ({
       tpl.contentTemplate
         .replace(/\{\{\s*customer_name\s*\}\}/gi, customerName || "anh/chị")
         .replace(/\{\{\s*salutation\s*\}\}/gi, "anh/chị")
-        .replace(/\{\{\s*agent_name\s*\}\}/gi, agentName || "Tư vấn viên");
+        .replace(/\{\{\s*agent_name\s*\}\}/gi, agentName || "Tư vấn viên")
+        .replace(/\{\{\s*page_name\s*\}\}/gi, pageName || "Fanpage");
 
     onSelectQuickReply(resolvedContent, tpl, tpl.productCardsJson || undefined);
   };

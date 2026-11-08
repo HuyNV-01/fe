@@ -294,8 +294,11 @@ export const queryOmnichannelInboxApi = async (payload: {
   assignedAgentId?: string;
   includeTagIds?: string[];
   includeTagOperator?: "AND" | "OR";
+  includeTagMatchMode?: "AND" | "OR";
   excludeTagIds?: string[];
   searchKeyword?: string;
+  dateFrom?: string;
+  dateTo?: string;
   cursorLastMessageAt?: string;
   limit?: number;
 }) => {

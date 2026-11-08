@@ -148,8 +148,11 @@ export interface IOmnichannelFilterState {
   assignedAgentId?: string;
   includeTagIds?: string[];
   includeTagOperator?: "AND" | "OR";
+  includeTagMatchMode?: "AND" | "OR";
   excludeTagIds?: string[];
   searchKeyword?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface IOmnichannelSummaryCounts {

@@ -6,7 +6,12 @@
 
 import { memo, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { GlassAvatar, GlassBadge } from "@/components/toolkit";
+import {
+  GlassAvatar,
+  GlassBadge,
+  LiquidGlassInput,
+} from "@/components/toolkit";
+import { Input } from "@/components/ui/input";
 import {
   AlertCircle,
   Check,
@@ -87,7 +92,11 @@ interface MessageBubbleProps {
   onReact?: (message: IMessage, emoji: string) => void;
   onTogglePin?: (message: IMessage) => void;
   onForward?: (message: IMessage) => void;
-  onToggleBookmarkTag?: (messageId: string, tagId: string) => void;
+  onToggleBookmarkTag?: (
+    messageId: string,
+    tagId: string,
+    noteText?: string,
+  ) => void;
   onTranslateMessage?: (message: IMessage) => void;
   onToggleCommentVisibility?: (message: IMessage) => void;
   onToggleCommentLike?: (message: IMessage) => void;
@@ -160,6 +169,7 @@ export const MessageBubble = memo(
     const { toMessageTime, toFullDateTime } = useDateFormat();
     const [showReactionPicker, setShowReactionPicker] = useState(false);
     const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
+    const [bookmarkNote, setBookmarkNote] = useState("");
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [pollModalOptionId, setPollModalOptionId] = useState<string | null>(
       null,
@@ -1143,10 +1153,18 @@ export const MessageBubble = memo(
                     {showBookmarkPicker && (
                       <div
                         className={cn(
-                          "absolute bottom-full mb-1.5 flex flex-col gap-1 bg-background border rounded-2xl p-2 shadow-xl z-40 min-w-44 animate-in fade-in zoom-in-95 duration-150",
+                          "absolute bottom-full mb-1.5 flex flex-col gap-1.5 bg-background border rounded-2xl p-2 shadow-xl z-40 min-w-52 animate-in fade-in zoom-in-95 duration-150",
                           isMe ? "right-0" : "left-0",
                         )}
                       >
+                        <LiquidGlassInput className="h-7 p-0 overflow-hidden">
+                          <Input
+                            value={bookmarkNote}
+                            onChange={(e) => setBookmarkNote(e.target.value)}
+                            placeholder="Ghi chú ngắn (tùy chọn)..."
+                            className="h-full text-[11px] bg-transparent! border-none shadow-none focus-visible:ring-0 px-2"
+                          />
+                        </LiquidGlassInput>
                         {bookmarkTags.map((bTag) => {
                           const active = messageTagIds.includes(bTag.id);
                           return (
@@ -1154,7 +1172,12 @@ export const MessageBubble = memo(
                               key={bTag.id}
                               type="button"
                               onClick={() => {
-                                onToggleBookmarkTag(message.id, bTag.id);
+                                onToggleBookmarkTag(
+                                  message.id,
+                                  bTag.id,
+                                  bookmarkNote.trim() || undefined,
+                                );
+                                setBookmarkNote("");
                                 setShowBookmarkPicker(false);
                               }}
                               className={cn(

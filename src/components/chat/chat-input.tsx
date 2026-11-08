@@ -755,6 +755,7 @@ export const ChatInput = ({
           shopId={activeShopId}
           customerName={currentConv?.name}
           agentName={currentUser?.name}
+          pageName={currentConv?.pageName || currentConv?.pageShortCode}
           onSelectQuickReply={(interpolatedText, tpl, productCards) => {
             setMessage(interpolatedText);
             setQuickReplyShortcutUsed(tpl.shortcut);
@@ -1229,13 +1230,18 @@ export const ChatInput = ({
         onChange={handleFileChange}
       />
 
-      <div
+      <LiquidGlass
+        variant={isInternalNoteMode ? "warning" : "primary"}
+        blur="md"
+        rounded="2xl"
+        isolate={false}
         className={cn(
-          "flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded-2xl border transition-all",
+          "p-1.5 sm:p-2 border transition-all",
           isInternalNoteMode
-            ? "bg-amber-500/15 border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/30"
-            : "bg-muted/50 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50",
+            ? "border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/30"
+            : "focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50",
         )}
+        contentClassName="flex items-end gap-1.5 sm:gap-2 w-full"
       >
         {!isRecording && (
           <div className="flex gap-0.5 pb-0.5 shrink-0">
@@ -1422,7 +1428,7 @@ export const ChatInput = ({
             </PatternButton>
           </div>
         )}
-      </div>
+      </LiquidGlass>
     </div>
   );
 };
