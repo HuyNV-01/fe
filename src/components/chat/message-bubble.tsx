@@ -44,6 +44,7 @@ import {
   Eye,
   Heart,
   MessageSquareShare,
+  Trash2,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 import type {
@@ -100,6 +101,7 @@ interface MessageBubbleProps {
   onTranslateMessage?: (message: IMessage) => void;
   onToggleCommentVisibility?: (message: IMessage) => void;
   onToggleCommentLike?: (message: IMessage) => void;
+  onDeleteCommentOnPlatform?: (message: IMessage) => void;
   onSendPrivateReplyFromComment?: (message: IMessage) => void;
   onOpenLinkedInboxConversation?: (inboxConversationId: string) => void;
   onCallbackCall?: (callType: CallTypeEnum) => void;
@@ -157,6 +159,7 @@ export const MessageBubble = memo(
     onTranslateMessage,
     onToggleCommentVisibility,
     onToggleCommentLike,
+    onDeleteCommentOnPlatform,
     onSendPrivateReplyFromComment,
     onOpenLinkedInboxConversation,
     onCallbackCall,
@@ -446,7 +449,9 @@ export const MessageBubble = memo(
                       size="sm"
                       className="text-[10px] py-0 px-1.5"
                     >
-                      {tInbox("commentActions.deletedOnPlatformBadge")}
+                      {message.metadata?.deletedByActor === "AGENT"
+                        ? tInbox("commentActions.deletedByAgentBadge")
+                        : tInbox("commentActions.deletedOnPlatformBadge")}
                     </GlassBadge>
                   )}
 
@@ -1128,6 +1133,17 @@ export const MessageBubble = memo(
                         title={tInbox("commentActions.sendPrivateReplyTooltip")}
                       >
                         <MessageSquareShare className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {onDeleteCommentOnPlatform && !isDeletedOnPlatform && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteCommentOnPlatform(message)}
+                        className="p-1 sm:p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer"
+                        title={tInbox("commentActions.deleteOnPlatformTooltip")}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </>

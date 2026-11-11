@@ -340,6 +340,15 @@ export const toggleCommentLikeApi = async (payload: {
   );
 };
 
+export const deleteCommentOnPlatformApi = async (payload: {
+  conversationId: string;
+  messageId: string;
+}) => {
+  return apiClient.delete(
+    `/chat/conversations/${payload.conversationId}/messages/${payload.messageId}/comment-platform`,
+  );
+};
+
 export const sendPrivateReplyFromCommentApi = async (payload: {
   conversationId: string;
   messageId: string;

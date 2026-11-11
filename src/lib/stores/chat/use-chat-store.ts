@@ -61,6 +61,7 @@ import {
   createInternalNoteApi,
   toggleCommentVisibilityApi,
   toggleCommentLikeApi,
+  deleteCommentOnPlatformApi,
   sendPrivateReplyFromCommentApi,
   snoozeConversationApi,
   cancelSnoozeConversationApi,
@@ -416,6 +417,40 @@ interface ChatState {
     messageId: string;
     isLiked: boolean;
   }) => Promise<boolean>;
+  deleteCommentOnPlatform: (payload: {
+    conversationId: string;
+    messageId: string;
+  }) => Promise<boolean>;
+  handleRealtimeCommentVisibilityUpdated: (payload: {
+    conversationId: string;
+    messageId: string;
+    isHiddenOnPlatform: boolean;
+    hiddenByAgentId?: string | null;
+    hiddenAt?: string | null;
+  }) => void;
+  handleRealtimeCommentLikeUpdated: (payload: {
+    conversationId: string;
+    messageId: string;
+    isLikedByPage: boolean;
+    likedByAgentId?: string | null;
+  }) => void;
+  handleRealtimeCommentPrivateReplySent: (payload: {
+    conversationId: string;
+    commentMessageId: string;
+    linkedInboxConversationId: string;
+    privateReplySentAt: string;
+    privateReplyByAgentId?: string | null;
+    isHiddenOnPlatform?: boolean;
+    isLikedByPage?: boolean;
+  }) => void;
+  handleRealtimeCommentDeletedOnPlatform: (payload: {
+    conversationId: string;
+    messageId: string;
+    isDeletedOnPlatform: boolean;
+    deletedByActor?: "CUSTOMER" | "AGENT";
+    deletedByAgentId?: string | null;
+    deletedOnPlatformAt?: string;
+  }) => void;
   sendPrivateReplyFromComment: (payload: {
     conversationId: string;
     messageId: string;
@@ -2520,6 +2555,131 @@ export const useChatStore = createPersistedStore<ChatState>(
       } catch {
         return false;
       }
+    },
+
+    deleteCommentOnPlatform: async ({ conversationId, messageId }) => {
+      try {
+        const res: any = await deleteCommentOnPlatformApi({
+          conversationId,
+          messageId,
+        });
+        const data = res?.data ?? res;
+        set((state) => {
+          const msgs = state.messages[conversationId];
+          if (!msgs) return;
+          const msg = msgs.find((m) => m.id === messageId);
+          if (msg) {
+            msg.metadata = {
+              ...(msg.metadata || {}),
+              isDeletedOnPlatform: true,
+              deletedByActor: data?.deletedByActor || "AGENT",
+              deletedByAgentId: data?.deletedByAgentId || null,
+              deletedOnPlatformAt:
+                data?.deletedOnPlatformAt || new Date().toISOString(),
+            };
+          }
+        });
+        toast.success(
+          tStore("OmnichannelInbox.commentActions.deletedOnPlatformToast"),
+        );
+        return true;
+      } catch {
+        toast.error(tStore("OmnichannelInbox.commentActions.actionErrorToast"));
+        return false;
+      }
+    },
+
+    handleRealtimeCommentVisibilityUpdated: ({
+      conversationId,
+      messageId,
+      isHiddenOnPlatform,
+      hiddenByAgentId,
+      hiddenAt,
+    }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        const msg = msgs.find((m) => m.id === messageId);
+        if (msg) {
+          msg.metadata = {
+            ...(msg.metadata || {}),
+            isHiddenOnPlatform: Boolean(isHiddenOnPlatform),
+            hiddenByAgentId: hiddenByAgentId || undefined,
+            hiddenAt: hiddenAt || undefined,
+          };
+        }
+      });
+    },
+
+    handleRealtimeCommentLikeUpdated: ({
+      conversationId,
+      messageId,
+      isLikedByPage,
+      likedByAgentId,
+    }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        const msg = msgs.find((m) => m.id === messageId);
+        if (msg) {
+          msg.metadata = {
+            ...(msg.metadata || {}),
+            isLikedByPage: Boolean(isLikedByPage),
+            likedByAgentId: likedByAgentId || undefined,
+          };
+        }
+      });
+    },
+
+    handleRealtimeCommentPrivateReplySent: ({
+      conversationId,
+      commentMessageId,
+      linkedInboxConversationId,
+      privateReplySentAt,
+      privateReplyByAgentId,
+      isHiddenOnPlatform,
+      isLikedByPage,
+    }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        const msg = msgs.find((m) => m.id === commentMessageId);
+        if (msg) {
+          msg.metadata = {
+            ...(msg.metadata || {}),
+            privateReplySentAt,
+            privateReplyByAgentId: privateReplyByAgentId || undefined,
+            linkedInboxConversationId,
+            ...(isHiddenOnPlatform !== undefined ? { isHiddenOnPlatform } : {}),
+            ...(isLikedByPage !== undefined ? { isLikedByPage } : {}),
+          };
+        }
+      });
+    },
+
+    handleRealtimeCommentDeletedOnPlatform: ({
+      conversationId,
+      messageId,
+      isDeletedOnPlatform,
+      deletedByActor,
+      deletedByAgentId,
+      deletedOnPlatformAt,
+    }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        const msg = msgs.find((m) => m.id === messageId);
+        if (msg) {
+          msg.metadata = {
+            ...(msg.metadata || {}),
+            isDeletedOnPlatform: Boolean(isDeletedOnPlatform),
+            deletedByActor: deletedByActor || "CUSTOMER",
+            deletedByAgentId: deletedByAgentId || null,
+            deletedOnPlatformAt:
+              deletedOnPlatformAt || new Date().toISOString(),
+          };
+        }
+      });
     },
 
     sendPrivateReplyFromComment: async ({

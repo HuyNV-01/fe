@@ -16,6 +16,23 @@ export type WebhookHealthStatusType =
   | "WEBHOOK_DISCONNECTED"
   | "RATE_LIMITED";
 
+export interface ChannelPlatformSaasConfig {
+  apiVersion?: string;
+  appId?: string;
+  webhookVerifyToken?: string;
+  webhookCallbackUrl?: string;
+  subscribedFields?: string[];
+  igBusinessAccountId?: string;
+  igUsername?: string;
+  zaloOaId?: string;
+  tiktokShopCipher?: string;
+  shopeePartnerId?: string;
+  lazadaAppKey?: string;
+  autoHidePhoneComments?: boolean;
+  autoHideKeywordComments?: string[];
+  syncEchoMessagesFromNativeApp?: boolean;
+}
+
 export interface ConnectedChannelItem {
   id: string;
   shopId: string;
@@ -25,6 +42,12 @@ export interface ConnectedChannelItem {
   pageName: string;
   pageShortCode: string;
   avatarUrl?: string | null;
+  apiVersion?: string;
+  appId?: string | null;
+  hasAppSecretConfigured?: boolean;
+  platformConfigJson?: ChannelPlatformSaasConfig | null;
+  webhookCallbackUrl?: string;
+  webhookVerifyToken?: string;
   metaDatasetId?: string | null;
   tokenExpiresAt?: string | null;
   webhookStatus: WebhookHealthStatusType;
@@ -32,6 +55,61 @@ export interface ConnectedChannelItem {
   lastErrorMessage?: string | null;
   isActive: boolean;
   unreadCount: number;
+}
+
+export interface ResolvedChannelTokenCandidatePage {
+  externalPageId: string;
+  pageName: string;
+  pageShortCode: string;
+  avatarUrl: string | null;
+  category?: string | null;
+  pageAccessToken?: string;
+  tasks?: string[];
+  subscribedFields: string[];
+  igBusinessAccount?: {
+    id: string;
+    name: string;
+    username?: string;
+    avatarUrl?: string | null;
+  } | null;
+}
+
+export interface ResolvedChannelTokenMetadata {
+  channelType: ChannelPlatformType;
+  tokenKind:
+    | "PAGE_TOKEN"
+    | "USER_TOKEN"
+    | "OA_TOKEN"
+    | "SHOP_TOKEN"
+    | "SANDBOX_TOKEN";
+  apiVersionUsed: string;
+  appIdDetected: string | null;
+  tokenExpiresAt: string | null;
+  scopesGranted: string[];
+  externalPageId: string;
+  pageName: string;
+  pageShortCode: string;
+  avatarUrl: string | null;
+  category: string | null;
+  subscribedFields: string[];
+  candidatePages: ResolvedChannelTokenCandidatePage[];
+  requiresPageSelection: boolean;
+  resolvedFromLiveApi: boolean;
+  webhookCallbackUrl: string;
+  webhookVerifyToken: string;
+  diagnosticMessage?: string | null;
+}
+
+export interface SaasWebhookBlueprintItem {
+  channelType: ChannelPlatformType;
+  defaultApiVersion: string;
+  defaultAppId: string | null;
+  hasSystemAppSecret: boolean;
+  webhookCallbackUrl: string;
+  webhookVerifyToken: string;
+  requiredScopes: string[];
+  subscribedFields: string[];
+  outboundCapabilities: string[];
 }
 
 export interface ChannelWebhookLogItem {
@@ -103,6 +181,25 @@ export const listShopChannelsApi = async (shopId: string) => {
   return apiClient.get(`/channels/${shopId}`);
 };
 
+export const getSaasWebhookConfigApi = async (shopId: string) => {
+  return apiClient.get(`/channels/${shopId}/saas-webhook-config`);
+};
+
+export const resolveChannelTokenMetadataApi = async (
+  shopId: string,
+  data: {
+    channelType: ChannelPlatformType;
+    accessToken: string;
+    externalPageId?: string;
+    apiVersion?: string;
+    appId?: string;
+    appSecret?: string;
+    allowSandboxSimulation?: boolean;
+  },
+) => {
+  return apiClient.post(`/channels/${shopId}/resolve-token-metadata`, data);
+};
+
 export const connectChannelOAuthApi = async (
   shopId: string,
   data: {
@@ -110,17 +207,53 @@ export const connectChannelOAuthApi = async (
     externalPageId?: string;
     externalShopId?: string;
     pageName?: string;
-    pageShortCode: string;
+    pageShortCode?: string;
     avatarUrl?: string;
     oauthCode?: string;
     accessToken?: string;
     refreshToken?: string;
+    apiVersion?: string;
+    appId?: string;
+    appSecret?: string;
     webhookVerifySecret?: string;
+    subscribedFields?: string[];
+    autoHidePhoneComments?: boolean;
+    syncEchoMessagesFromNativeApp?: boolean;
+    allowSandboxSimulation?: boolean;
     metaDatasetId?: string;
     capiAccessToken?: string;
   },
 ) => {
   return apiClient.post(`/channels/${shopId}/connect-oauth`, data);
+};
+
+export const batchConnectChannelsApi = async (
+  shopId: string,
+  data: {
+    channelType: ChannelPlatformType;
+    apiVersion?: string;
+    appId?: string;
+    appSecret?: string;
+    webhookVerifySecret?: string;
+    metaDatasetId?: string;
+    capiAccessToken?: string;
+    pages: Array<{
+      externalPageId: string;
+      pageName: string;
+      pageShortCode?: string;
+      avatarUrl?: string;
+      pageAccessToken: string;
+    }>;
+  },
+) => {
+  return apiClient.post(`/channels/${shopId}/connect-batch`, data);
+};
+
+export const syncChannelWebhookApi = async (
+  shopId: string,
+  channelId: string,
+) => {
+  return apiClient.post(`/channels/${shopId}/${channelId}/sync-webhook`);
 };
 
 export const updateChannelIntegrationApi = async (
@@ -132,7 +265,13 @@ export const updateChannelIntegrationApi = async (
     avatarUrl?: string;
     accessToken?: string;
     refreshToken?: string;
+    apiVersion?: string;
+    appId?: string;
+    appSecret?: string;
     webhookVerifySecret?: string;
+    subscribedFields?: string[];
+    autoHidePhoneComments?: boolean;
+    syncEchoMessagesFromNativeApp?: boolean;
     metaDatasetId?: string;
     capiAccessToken?: string;
     isActive?: boolean;

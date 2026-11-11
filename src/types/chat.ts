@@ -374,6 +374,11 @@ export interface IMessageMetadata {
   likedByAgentId?: string;
   isDeletedOnPlatform?: boolean;
   deletedOnPlatformAt?: string;
+  deletedByActor?: "CUSTOMER" | "AGENT";
+  deletedByAgentId?: string | null;
+  platformDeliveryStatus?: "DISPATCHED" | "SIMULATED_SANDBOX" | "FAILED";
+  platformExternalId?: string | null;
+  autoHideCommentOnReply?: boolean;
   originalTextBeforePlatformEdit?: string;
   privateReplySentAt?: string;
   privateReplyByAgentId?: string;

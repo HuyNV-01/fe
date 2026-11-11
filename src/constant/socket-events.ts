@@ -20,6 +20,7 @@ export const SELLER_OS_SOCKET_EVENTS = {
     TOKEN_HEALTH_CHECKED: "channels:token_health_checked",
     WEBHOOK_LOG_UPDATED: "channels:webhook_log_updated",
     MARKETPLACE_ORDER_SYNCED: "channels:marketplace_order_synced",
+    METADATA_RESOLVED: "channels:metadata_resolved",
   },
   OMNICHANNEL_INBOX: {
     AGENT_COLLISION_LOCK: "inbox:agent_collision_lock",
@@ -41,6 +42,8 @@ export const SELLER_OS_SOCKET_EVENTS = {
     COMMENT_VISIBILITY_UPDATED: "inbox:comment_visibility_updated",
     COMMENT_LIKE_UPDATED: "inbox:comment_like_updated",
     COMMENT_PRIVATE_REPLY_SENT: "inbox:comment_private_reply_sent",
+    COMMENT_DELETED_ON_PLATFORM: "inbox:comment_deleted_on_platform",
+    OUTBOUND_DELIVERY_STATUS: "inbox:outbound_delivery_status",
   },
   POS_OMS: {
     STOCK_RESERVED_UPDATED: "pos:stock_reserved_updated",

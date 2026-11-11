@@ -80,6 +80,7 @@ export default function ChatConversationPage({
   const targetMessageId = searchParams.get("messageId");
   const t = useTranslations("Chat.Detail.conversation");
   const tHeader = useTranslations("Chat.Detail.header");
+  const tInbox = useTranslations("OmnichannelInbox");
 
   const currentUser = useHydratedStore(useAuthStore, (s) => s.currentAccount);
   const activeShopId = usePermissionStore((s) => s.activeShopId);
@@ -126,6 +127,7 @@ export default function ChatConversationPage({
     translateMessageOrDraft,
     toggleCommentVisibility,
     toggleCommentLike,
+    deleteCommentOnPlatform,
     sendPrivateReplyFromComment,
   } = useChatStore();
 
@@ -143,6 +145,8 @@ export default function ChatConversationPage({
   const [inChatSearchQuery, setInChatSearchQuery] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [recallTarget, setRecallTarget] = useState<IMessage | null>(null);
+  const [deleteCommentTarget, setDeleteCommentTarget] =
+    useState<IMessage | null>(null);
   const [forwardTarget, setForwardTarget] = useState<IMessage | null>(null);
   const [deleteFailedTargetId, setDeleteFailedTargetId] = useState<
     string | null
@@ -484,11 +488,13 @@ export default function ChatConversationPage({
         metadata:
           options?.productCards ||
           options?.quickReplyShortcutUsed ||
-          options?.commentReplyMode
+          options?.commentReplyMode ||
+          options?.autoHideCommentOnReply !== undefined
             ? {
                 productCards: options.productCards,
                 quickReplyShortcutUsed: options.quickReplyShortcutUsed,
                 commentReplyMode: options.commentReplyMode,
+                autoHideCommentOnReply: options.autoHideCommentOnReply,
               }
             : undefined,
       });
@@ -938,6 +944,9 @@ export default function ChatConversationPage({
                               isLiked: !m.metadata?.isLikedByPage,
                             })
                           }
+                          onDeleteCommentOnPlatform={(m) =>
+                            setDeleteCommentTarget(m)
+                          }
                           onSendPrivateReplyFromComment={async (m) => {
                             const res = await sendPrivateReplyFromComment({
                               conversationId,
@@ -1127,6 +1136,22 @@ export default function ChatConversationPage({
       <MaskedVoipCallModal
         customerName={resolvedHeaderName}
         customerAvatar={currentConversation?.avatar}
+      />
+
+      <GlassConfirmDialog
+        open={Boolean(deleteCommentTarget)}
+        onOpenChange={(open) => !open && setDeleteCommentTarget(null)}
+        title={tInbox("commentActions.deleteOnPlatformConfirmTitle")}
+        description={tInbox("commentActions.deleteOnPlatformConfirmDesc")}
+        onConfirm={async () => {
+          if (deleteCommentTarget) {
+            await deleteCommentOnPlatform({
+              conversationId,
+              messageId: deleteCommentTarget.id,
+            });
+            setDeleteCommentTarget(null);
+          }
+        }}
       />
 
       <GlassConfirmDialog

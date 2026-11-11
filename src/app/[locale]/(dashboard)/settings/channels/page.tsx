@@ -19,6 +19,11 @@ import {
   Pencil,
   Eye,
   CheckCircle2,
+  Sparkles,
+  Copy,
+  ShieldCheck,
+  Code2,
+  Link2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
@@ -45,6 +50,8 @@ import {
   type ChannelPlatformType,
   type ChannelWebhookLogItem,
   type ConnectedChannelItem,
+  type ResolvedChannelTokenCandidatePage,
+  type ResolvedChannelTokenMetadata,
   simulateOmnichannelWebhookApi,
 } from "@/lib/stores/channel/api";
 import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
@@ -56,6 +63,7 @@ import {
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 import config from "@/config";
 import { showErrorToast, showInfoToast, showSuccessToast } from "@/utils/toast";
+import { cn } from "@/lib/utils";
 
 type ChannelsTabMode =
   | "CONNECTED_CHANNELS"
@@ -88,6 +96,16 @@ const WEBHOOK_STATUS_FILTERS = [
   "REPLAYED_SUCCESS",
 ] as const;
 
+const DEFAULT_API_VERSION_BY_PLATFORM: Record<ChannelPlatformType, string> = {
+  FACEBOOK_PAGE: "v27.1",
+  INSTAGRAM: "v27.1",
+  ZALO_OA: "v3.0",
+  TIKTOK_SHOP: "202309",
+  SHOPEE: "v2",
+  LAZADA: "v2",
+  WEBSITE_LIVECHAT: "v1.0",
+};
+
 export default function OmnichannelSettingsPage() {
   const t = useTranslations("SettingsChannels");
   const router = useRouter();
@@ -95,6 +113,7 @@ export default function OmnichannelSettingsPage() {
   const activeShopId = usePermissionStore((s) => s.activeShopId);
   const membersRefreshTick = usePermissionStore((s) => s.membersRefreshTick);
   const channels = useChannelWorkspaceStore((s) => s.channels);
+  const saasBlueprints = useChannelWorkspaceStore((s) => s.saasBlueprints);
   const webhookLogs = useChannelWorkspaceStore((s) => s.webhookLogs);
   const marketplaceReservations = useChannelWorkspaceStore(
     (s) => s.marketplaceReservations,
@@ -102,8 +121,20 @@ export default function OmnichannelSettingsPage() {
   const fetchShopChannels = useChannelWorkspaceStore(
     (s) => s.fetchShopChannels,
   );
+  const fetchSaasWebhookConfig = useChannelWorkspaceStore(
+    (s) => s.fetchSaasWebhookConfig,
+  );
+  const resolveChannelTokenMetadata = useChannelWorkspaceStore(
+    (s) => s.resolveChannelTokenMetadata,
+  );
   const connectChannelOAuth = useChannelWorkspaceStore(
     (s) => s.connectChannelOAuth,
+  );
+  const batchConnectChannels = useChannelWorkspaceStore(
+    (s) => s.batchConnectChannels,
+  );
+  const syncChannelWebhook = useChannelWorkspaceStore(
+    (s) => s.syncChannelWebhook,
   );
   const updateChannelIntegration = useChannelWorkspaceStore(
     (s) => s.updateChannelIntegration,
@@ -128,16 +159,45 @@ export default function OmnichannelSettingsPage() {
 
   const [channelType, setChannelType] =
     useState<ChannelPlatformType>("FACEBOOK_PAGE");
+  const [apiVersion, setApiVersion] = useState("v27.1");
+  const [appId, setAppId] = useState("");
+  const [appSecret, setAppSecret] = useState("");
+  const [webhookVerifySecret, setWebhookVerifySecret] = useState("");
+  const [webhookCallbackUrl, setWebhookCallbackUrl] = useState("");
+  const [autoHidePhoneComments, setAutoHidePhoneComments] = useState(true);
+  const [syncEchoMessagesFromNativeApp, setSyncEchoMessagesFromNativeApp] =
+    useState(true);
+  const [allowSandboxSimulation, setAllowSandboxSimulation] = useState(false);
+
   const [pageName, setPageName] = useState("");
   const [pageShortCode, setPageShortCode] = useState("");
   const [externalPageId, setExternalPageId] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [refreshToken, setRefreshToken] = useState("");
   const [metaDatasetId, setMetaDatasetId] = useState("");
   const [capiAccessToken, setCapiAccessToken] = useState("");
+  const [resolvedTokenMeta, setResolvedTokenMeta] =
+    useState<ResolvedChannelTokenMetadata | null>(null);
+  const [candidatePages, setCandidatePages] = useState<
+    ResolvedChannelTokenCandidatePage[]
+  >([]);
+  const [selectedBatchPageIds, setSelectedBatchPageIds] = useState<string[]>(
+    [],
+  );
+  const [subscribedFields, setSubscribedFields] = useState<string[]>([]);
+  const [isResolvingTokenMeta, setIsResolvingTokenMeta] = useState(false);
 
   const [editPageName, setEditPageName] = useState("");
   const [editPageShortCode, setEditPageShortCode] = useState("");
+  const [editAvatarUrl, setEditAvatarUrl] = useState("");
+  const [editApiVersion, setEditApiVersion] = useState("v27.1");
+  const [editAppId, setEditAppId] = useState("");
+  const [editAppSecret, setEditAppSecret] = useState("");
+  const [editWebhookVerifySecret, setEditWebhookVerifySecret] = useState("");
+  const [editAutoHidePhoneComments, setEditAutoHidePhoneComments] =
+    useState(true);
+  const [editSyncEchoMessages, setEditSyncEchoMessages] = useState(true);
   const [editAccessToken, setEditAccessToken] = useState("");
   const [editRefreshToken, setEditRefreshToken] = useState("");
   const [editMetaDatasetId, setEditMetaDatasetId] = useState("");
@@ -149,6 +209,9 @@ export default function OmnichannelSettingsPage() {
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRunningDoctor, setIsRunningDoctor] = useState(false);
+  const [syncingWebhookChannelId, setSyncingWebhookChannelId] = useState<
+    string | null
+  >(null);
   const [simulatingChannelId, setSimulatingChannelId] = useState<string | null>(
     null,
   );
@@ -228,6 +291,7 @@ export default function OmnichannelSettingsPage() {
   useEffect(() => {
     if (!activeShopId) return;
     fetchShopChannels(activeShopId);
+    fetchSaasWebhookConfig(activeShopId);
     loadWorkspaceSettings();
     fetchWebhookLogs(activeShopId, {
       processingStatus:
@@ -239,15 +303,140 @@ export default function OmnichannelSettingsPage() {
     membersRefreshTick,
     webhookStatusFilter,
     fetchShopChannels,
+    fetchSaasWebhookConfig,
     loadWorkspaceSettings,
     fetchWebhookLogs,
     fetchMarketplaceReservations,
   ]);
 
+  useEffect(() => {
+    const bp = saasBlueprints.find((item) => item.channelType === channelType);
+    if (bp) {
+      setApiVersion(
+        bp.defaultApiVersion || DEFAULT_API_VERSION_BY_PLATFORM[channelType],
+      );
+      if (bp.defaultAppId && !appId) {
+        setAppId(bp.defaultAppId);
+      }
+      setWebhookCallbackUrl(bp.webhookCallbackUrl);
+      if (!webhookVerifySecret) {
+        setWebhookVerifySecret(bp.webhookVerifyToken);
+      }
+    } else {
+      setApiVersion(DEFAULT_API_VERSION_BY_PLATFORM[channelType]);
+    }
+  }, [channelType, saasBlueprints]);
+
+  const handleCopyText = async (value: string, toastMessage: string) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      showSuccessToast(toastMessage);
+    } catch {}
+  };
+
+  const handleAutoResolveTokenMetadata = useCallback(
+    async (rawTok?: string, targetPlat?: ChannelPlatformType) => {
+      const tokenToResolve = (rawTok ?? accessToken).trim();
+      const platformToUse = targetPlat ?? channelType;
+      if (!activeShopId || tokenToResolve.length < 6) return;
+
+      setIsResolvingTokenMeta(true);
+      try {
+        const resolved = await resolveChannelTokenMetadata(activeShopId, {
+          channelType: platformToUse,
+          accessToken: tokenToResolve,
+          externalPageId: externalPageId.trim() || undefined,
+          apiVersion: apiVersion.trim() || undefined,
+          appId: appId.trim() || undefined,
+          appSecret: appSecret.trim() || undefined,
+          allowSandboxSimulation,
+        });
+        if (resolved) {
+          setResolvedTokenMeta(resolved);
+          setCandidatePages(resolved.candidatePages || []);
+          setSubscribedFields(resolved.subscribedFields || []);
+          if (resolved.webhookCallbackUrl) {
+            setWebhookCallbackUrl(resolved.webhookCallbackUrl);
+          }
+          if (resolved.webhookVerifyToken && !webhookVerifySecret) {
+            setWebhookVerifySecret(resolved.webhookVerifyToken);
+          }
+          if (resolved.appIdDetected && !appId) {
+            setAppId(resolved.appIdDetected);
+          }
+
+          if (!resolved.requiresPageSelection) {
+            setPageName(resolved.pageName);
+            setPageShortCode(resolved.pageShortCode);
+            setExternalPageId(resolved.externalPageId);
+            setAvatarUrl(resolved.avatarUrl || "");
+            const matchedCand = (resolved.candidatePages || []).find(
+              (c) => c.externalPageId === resolved.externalPageId,
+            );
+            if (matchedCand?.pageAccessToken) {
+              setAccessToken(matchedCand.pageAccessToken);
+            }
+            setSelectedBatchPageIds(
+              resolved.externalPageId ? [resolved.externalPageId] : [],
+            );
+            showSuccessToast(
+              t("autoFetchTokenSuccessToast", { name: resolved.pageName }),
+            );
+          } else {
+            // Khi User Access Token trả về nhiều Fanpage, yêu cầu người bán chọn đích danh để không bao giờ ra sai Page
+            setPageName("");
+            setPageShortCode("");
+            setExternalPageId("");
+            setAvatarUrl("");
+            setSelectedBatchPageIds(
+              (resolved.candidatePages || []).map((c) => c.externalPageId),
+            );
+            if (resolved.diagnosticMessage) {
+              showInfoToast(resolved.diagnosticMessage);
+            }
+          }
+        }
+      } catch (err: any) {
+        showErrorToast(err?.response?.data?.message || "Failed");
+      } finally {
+        setIsResolvingTokenMeta(false);
+      }
+    },
+    [
+      activeShopId,
+      accessToken,
+      channelType,
+      externalPageId,
+      apiVersion,
+      appId,
+      appSecret,
+      allowSandboxSimulation,
+      webhookVerifySecret,
+      resolveChannelTokenMetadata,
+      t,
+    ],
+  );
+
   const handleOpenEditChannel = (ch: ConnectedChannelItem) => {
     setEditingChannel(ch);
     setEditPageName(ch.pageName);
     setEditPageShortCode(ch.pageShortCode);
+    setEditAvatarUrl(ch.avatarUrl || "");
+    setEditApiVersion(
+      ch.apiVersion ||
+        ch.platformConfigJson?.apiVersion ||
+        DEFAULT_API_VERSION_BY_PLATFORM[ch.channelType],
+    );
+    setEditAppId(ch.appId || ch.platformConfigJson?.appId || "");
+    setEditAppSecret("");
+    setEditWebhookVerifySecret(ch.webhookVerifyToken || "");
+    setEditAutoHidePhoneComments(
+      Boolean(ch.platformConfigJson?.autoHidePhoneComments ?? true),
+    );
+    setEditSyncEchoMessages(
+      Boolean(ch.platformConfigJson?.syncEchoMessagesFromNativeApp ?? true),
+    );
     setEditAccessToken("");
     setEditRefreshToken("");
     setEditMetaDatasetId(ch.metaDatasetId || "");
@@ -263,6 +452,13 @@ export default function OmnichannelSettingsPage() {
       await updateChannelIntegration(activeShopId, editingChannel.id, {
         pageName: editPageName.trim() || undefined,
         pageShortCode: editPageShortCode.trim().toUpperCase() || undefined,
+        avatarUrl: editAvatarUrl.trim() || undefined,
+        apiVersion: editApiVersion.trim() || undefined,
+        appId: editAppId.trim() || undefined,
+        appSecret: editAppSecret.trim() || undefined,
+        webhookVerifySecret: editWebhookVerifySecret.trim() || undefined,
+        autoHidePhoneComments: editAutoHidePhoneComments,
+        syncEchoMessagesFromNativeApp: editSyncEchoMessages,
         accessToken: editAccessToken.trim() || undefined,
         refreshToken: editRefreshToken.trim() || undefined,
         metaDatasetId: editMetaDatasetId.trim() || undefined,
@@ -278,43 +474,109 @@ export default function OmnichannelSettingsPage() {
     }
   };
 
+  const resetConnectModalState = () => {
+    setPageName("");
+    setPageShortCode("");
+    setExternalPageId("");
+    setAvatarUrl("");
+    setAccessToken("");
+    setRefreshToken("");
+    setAppSecret("");
+    setMetaDatasetId("");
+    setCapiAccessToken("");
+    setResolvedTokenMeta(null);
+    setCandidatePages([]);
+    setSelectedBatchPageIds([]);
+    setSubscribedFields([]);
+  };
+
   const handleConnectChannelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !activeShopId ||
-      !pageName.trim() ||
-      !pageShortCode.trim() ||
-      !externalPageId.trim() ||
-      !accessToken.trim()
-    ) {
+    if (!activeShopId || !accessToken.trim()) {
       return;
     }
 
     setIsConnecting(true);
     try {
+      const selectedPagesForBatch = candidatePages.filter(
+        (cand) =>
+          selectedBatchPageIds.includes(cand.externalPageId) &&
+          cand.pageAccessToken,
+      );
+
+      if (selectedPagesForBatch.length > 1 && !externalPageId.trim()) {
+        const connectedCount = await batchConnectChannels(activeShopId, {
+          channelType,
+          apiVersion: apiVersion.trim() || undefined,
+          appId: appId.trim() || undefined,
+          appSecret: appSecret.trim() || undefined,
+          webhookVerifySecret: webhookVerifySecret.trim() || undefined,
+          metaDatasetId: metaDatasetId.trim() || undefined,
+          capiAccessToken: capiAccessToken.trim() || undefined,
+          pages: selectedPagesForBatch.map((p) => ({
+            externalPageId: p.externalPageId,
+            pageName: p.pageName,
+            pageShortCode: p.pageShortCode,
+            avatarUrl: p.avatarUrl || undefined,
+            pageAccessToken: p.pageAccessToken!,
+          })),
+        });
+        setConnectModalOpen(false);
+        resetConnectModalState();
+        showSuccessToast(
+          t("batchConnectedSuccessToast", { count: connectedCount }),
+        );
+        return;
+      }
+
       await connectChannelOAuth(activeShopId, {
         channelType,
-        pageName: pageName.trim(),
-        pageShortCode: pageShortCode.trim().toUpperCase(),
-        externalPageId: externalPageId.trim(),
+        pageName: pageName.trim() || undefined,
+        pageShortCode: pageShortCode.trim().toUpperCase() || undefined,
+        externalPageId: externalPageId.trim() || undefined,
+        avatarUrl: avatarUrl.trim() || undefined,
         accessToken: accessToken.trim(),
         refreshToken: refreshToken.trim() || undefined,
+        apiVersion: apiVersion.trim() || undefined,
+        appId: appId.trim() || undefined,
+        appSecret: appSecret.trim() || undefined,
+        webhookVerifySecret: webhookVerifySecret.trim() || undefined,
+        subscribedFields:
+          subscribedFields.length > 0 ? subscribedFields : undefined,
+        autoHidePhoneComments,
+        syncEchoMessagesFromNativeApp,
+        allowSandboxSimulation,
         metaDatasetId: metaDatasetId.trim() || undefined,
         capiAccessToken: capiAccessToken.trim() || undefined,
       });
       setConnectModalOpen(false);
-      setPageName("");
-      setPageShortCode("");
-      setExternalPageId("");
-      setAccessToken("");
-      setRefreshToken("");
-      setMetaDatasetId("");
-      setCapiAccessToken("");
-      showSuccessToast(t("connectedSuccessToast", { name: pageName.trim() }));
+      resetConnectModalState();
+      showSuccessToast(
+        t("connectedSuccessToast", { name: pageName.trim() || channelType }),
+      );
     } catch (err: any) {
       showErrorToast(err?.response?.data?.message || "Failed");
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  const handleSyncChannelWebhook = async (ch: ConnectedChannelItem) => {
+    if (!activeShopId) return;
+    setSyncingWebhookChannelId(ch.id);
+    try {
+      const res = await syncChannelWebhook(activeShopId, ch.id);
+      if (res) {
+        showSuccessToast(
+          t("syncWebhookSuccessToast", {
+            count: res.subscribedFields?.length || 0,
+          }),
+        );
+      }
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setSyncingWebhookChannelId(null);
     }
   };
 
@@ -476,6 +738,14 @@ export default function OmnichannelSettingsPage() {
     }
   };
 
+  const toggleBatchCandidatePage = (pageId: string) => {
+    setSelectedBatchPageIds((prev) =>
+      prev.includes(pageId)
+        ? prev.filter((id) => id !== pageId)
+        : [...prev, pageId],
+    );
+  };
+
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
       <GlassSectionHeader
@@ -598,6 +868,18 @@ export default function OmnichannelSettingsPage() {
                           <GlassBadge variant="primary" size="sm">
                             <TruncatedText>{ch.pageShortCode}</TruncatedText>
                           </GlassBadge>
+                          <GlassBadge variant="info" size="sm">
+                            <TruncatedText>
+                              {ch.apiVersion ||
+                                DEFAULT_API_VERSION_BY_PLATFORM[ch.channelType]}
+                            </TruncatedText>
+                          </GlassBadge>
+                          {ch.hasAppSecretConfigured && (
+                            <GlassBadge variant="success" size="sm">
+                              <ShieldCheck className="w-3 h-3 mr-1 inline" />
+                              HMAC Proof
+                            </GlassBadge>
+                          )}
                           <GlassBadge
                             variant={
                               ch.webhookStatus === "HEALTHY"
@@ -627,14 +909,55 @@ export default function OmnichannelSettingsPage() {
                         >
                           {t(`platforms.${ch.channelType}`)} • ID:{" "}
                           {ch.externalPageId}
+                          {ch.appId ? ` • App ID: ${ch.appId}` : ""}
                           {ch.metaDatasetId
                             ? ` • Pixel/Dataset: ${ch.metaDatasetId}`
                             : ""}
                         </TruncatedText>
+                        {ch.webhookCallbackUrl && (
+                          <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
+                            <Link2 className="w-3 h-3 shrink-0 text-primary" />
+                            <span className="font-mono truncate max-w-md">
+                              {ch.webhookCallbackUrl}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleCopyText(
+                                  ch.webhookCallbackUrl!,
+                                  t("copiedWebhookUrlToast"),
+                                )
+                              }
+                              className="text-primary hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Copy className="w-3 h-3" />
+                              {t("copyWebhookUrlBtn")}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap shrink-0">
+                      <PermissionGate
+                        can="CHANNEL_INTEGRATION_CONNECT"
+                        mode="hide"
+                      >
+                        <PatternButton
+                          type="button"
+                          variant="glass"
+                          color="success"
+                          size="sm"
+                          rounded="full"
+                          isLoading={syncingWebhookChannelId === ch.id}
+                          onClick={() => handleSyncChannelWebhook(ch)}
+                          icon={<RefreshCw className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>{t("syncWebhookBtn")}</TruncatedText>
+                        </PatternButton>
+                      </PermissionGate>
+
                       <PatternButton
                         type="button"
                         variant="glass"
@@ -1170,7 +1493,7 @@ export default function OmnichannelSettingsPage() {
         </div>
       )}
 
-      {/* Modal Kết nối Kênh mới */}
+      {/* Modal Kết nối Kênh mới — Cấu hình SaaS Chuyên nghiệp (API v27.1 + App ID + App Secret + Tự động nhận đúng Page) */}
       <GlassModal
         open={connectModalOpen}
         onOpenChange={setConnectModalOpen}
@@ -1178,7 +1501,7 @@ export default function OmnichannelSettingsPage() {
           <TruncatedText as="span">{t("connectModalTitle")}</TruncatedText>
         }
         description={t("connectModalDesc")}
-        size="md"
+        size="lg"
         footer={
           <PatternButton
             type="submit"
@@ -1192,7 +1515,13 @@ export default function OmnichannelSettingsPage() {
             icon={<ArrowRight className="w-4 h-4" />}
             iconPosition="right"
           >
-            <TruncatedText>{t("submitConnectBtn")}</TruncatedText>
+            <TruncatedText>
+              {selectedBatchPageIds.length > 1 && !externalPageId.trim()
+                ? t("batchConnectSubmitBtn", {
+                    count: selectedBatchPageIds.length,
+                  })
+                : t("submitConnectBtn")}
+            </TruncatedText>
           </PatternButton>
         }
       >
@@ -1204,44 +1533,365 @@ export default function OmnichannelSettingsPage() {
           <FieldGroup>
             <FieldSet>
               <FieldGroup>
-                <Field>
-                  <FieldLabel>
-                    <TruncatedText>{t("channelTypeLabel")}</TruncatedText>
-                  </FieldLabel>
-                  <Select
-                    value={channelType}
-                    onValueChange={(val) =>
-                      setChannelType(val as ChannelPlatformType)
-                    }
-                  >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("channelTypeLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <Select
+                      value={channelType}
+                      onValueChange={(val) => {
+                        const nextPlat = val as ChannelPlatformType;
+                        setChannelType(nextPlat);
+                        setApiVersion(
+                          DEFAULT_API_VERSION_BY_PLATFORM[nextPlat],
+                        );
+                        if (accessToken.trim().length >= 8) {
+                          void handleAutoResolveTokenMetadata(
+                            accessToken,
+                            nextPlat,
+                          );
+                        }
+                      }}
+                    >
+                      <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                        <SelectTrigger className="w-full h-full rounded-full cursor-pointer border-0 shadow-none bg-transparent px-3.5">
+                          <div className="flex items-center gap-2">
+                            <Globe className="h-4 w-4 text-primary shrink-0" />
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                      </LiquidGlassInput>
+                      <ContentSelect>
+                        {CHANNEL_PLATFORMS.map((plat) => (
+                          <ItemSelect key={plat} value={plat}>
+                            <TruncatedText>
+                              {t(`platforms.${plat}`)}
+                            </TruncatedText>
+                          </ItemSelect>
+                        ))}
+                      </ContentSelect>
+                    </Select>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("apiVersionLabel")}</TruncatedText>
+                    </FieldLabel>
                     <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                      <SelectTrigger className="w-full h-full rounded-full cursor-pointer border-0 shadow-none bg-transparent px-3.5">
-                        <div className="flex items-center gap-2">
-                          <Globe className="h-4 w-4 text-primary shrink-0" />
-                          <SelectValue />
-                        </div>
-                      </SelectTrigger>
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Code2 className="h-4 w-4 text-primary mr-2 shrink-0" />
+                        <Input
+                          value={apiVersion}
+                          onChange={(e) => setApiVersion(e.target.value)}
+                          placeholder={t("apiVersionPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
                     </LiquidGlassInput>
-                    <ContentSelect>
-                      {CHANNEL_PLATFORMS.map((plat) => (
-                        <ItemSelect key={plat} value={plat}>
-                          <TruncatedText>
-                            {t(`platforms.${plat}`)}
-                          </TruncatedText>
-                        </ItemSelect>
-                      ))}
-                    </ContentSelect>
-                  </Select>
+                  </Field>
+                </div>
+
+                {/* Khối cấu hình SaaS App ID + App Secret (Tạo chữ ký HMAC-SHA256 appsecret_proof) */}
+                <GlassSurfaceCard className="p-3 space-y-3">
+                  <div>
+                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-primary" />
+                      {t("saasArchitectureTitle")}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {t("saasArchitectureDesc")}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field>
+                      <FieldLabel>
+                        <TruncatedText>{t("appIdLabel")}</TruncatedText>
+                      </FieldLabel>
+                      <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                        <div className="flex items-center px-3.5 w-full h-full">
+                          <Input
+                            value={appId}
+                            onChange={(e) => setAppId(e.target.value)}
+                            placeholder={t("appIdPlaceholder")}
+                            className="flex h-full w-full py-2 text-sm font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                          />
+                        </div>
+                      </LiquidGlassInput>
+                    </Field>
+
+                    <Field>
+                      <FieldLabel>
+                        <TruncatedText>{t("appSecretLabel")}</TruncatedText>
+                      </FieldLabel>
+                      <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                        <div className="flex items-center px-3.5 w-full h-full">
+                          <Input
+                            type="password"
+                            value={appSecret}
+                            onChange={(e) => setAppSecret(e.target.value)}
+                            placeholder={t("appSecretPlaceholder")}
+                            className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                          />
+                        </div>
+                      </LiquidGlassInput>
+                    </Field>
+                  </div>
+
+                  {webhookCallbackUrl && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <Field>
+                        <div className="flex items-center justify-between gap-2">
+                          <FieldLabel>
+                            <TruncatedText>
+                              {t("webhookCallbackUrlLabel")}
+                            </TruncatedText>
+                          </FieldLabel>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleCopyText(
+                                webhookCallbackUrl,
+                                t("copiedWebhookUrlToast"),
+                              )
+                            }
+                            className="text-[11px] text-primary font-semibold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Copy className="w-3 h-3" />
+                            {t("copyWebhookUrlBtn")}
+                          </button>
+                        </div>
+                        <LiquidGlassInput className="w-full h-9 overflow-hidden p-0">
+                          <div className="flex items-center px-3 w-full h-full">
+                            <Input
+                              readOnly
+                              value={webhookCallbackUrl}
+                              className="flex h-full w-full py-1.5 text-xs font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                            />
+                          </div>
+                        </LiquidGlassInput>
+                      </Field>
+
+                      <Field>
+                        <div className="flex items-center justify-between gap-2">
+                          <FieldLabel>
+                            <TruncatedText>
+                              {t("webhookVerifySecretLabel")}
+                            </TruncatedText>
+                          </FieldLabel>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleCopyText(
+                                webhookVerifySecret,
+                                t("copiedVerifyTokenToast"),
+                              )
+                            }
+                            className="text-[11px] text-primary font-semibold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Copy className="w-3 h-3" />
+                            {t("copyWebhookUrlBtn")}
+                          </button>
+                        </div>
+                        <LiquidGlassInput className="w-full h-9 overflow-hidden p-0">
+                          <div className="flex items-center px-3 w-full h-full">
+                            <Input
+                              value={webhookVerifySecret}
+                              onChange={(e) =>
+                                setWebhookVerifySecret(e.target.value)
+                              }
+                              placeholder={t("webhookVerifySecretPlaceholder")}
+                              className="flex h-full w-full py-1.5 text-xs font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                            />
+                          </div>
+                        </LiquidGlassInput>
+                      </Field>
+                    </div>
+                  )}
+                </GlassSurfaceCard>
+
+                {/* Nhập Access Token để tự động gọi Graph API / Zalo OA lấy đúng Tên & Avatar Trang */}
+                <Field>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <FieldLabel>
+                      <TruncatedText>{t("accessTokenLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {resolvedTokenMeta?.tokenKind && (
+                        <GlassBadge
+                          variant={
+                            resolvedTokenMeta.resolvedFromLiveApi
+                              ? "success"
+                              : "warning"
+                          }
+                          size="sm"
+                        >
+                          {t(`tokenKindBadges.${resolvedTokenMeta.tokenKind}`)}
+                        </GlassBadge>
+                      )}
+                      <PatternButton
+                        type="button"
+                        variant="glass"
+                        color="primary"
+                        size="sm"
+                        rounded="full"
+                        isLoading={isResolvingTokenMeta}
+                        disabled={accessToken.trim().length < 6}
+                        onClick={() => handleAutoResolveTokenMetadata()}
+                        icon={<Sparkles className="w-3.5 h-3.5" />}
+                        iconPosition="left"
+                      >
+                        <TruncatedText>{t("autoFetchTokenBtn")}</TruncatedText>
+                      </PatternButton>
+                    </div>
+                  </div>
+                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                    <div className="flex items-center px-3.5 w-full h-full">
+                      <KeyRound className="h-4 w-4 text-muted-foreground/50 mr-2.5 shrink-0" />
+                      <Input
+                        required
+                        type="password"
+                        value={accessToken}
+                        onChange={(e) => setAccessToken(e.target.value)}
+                        onPaste={(e) => {
+                          const pasted = e.clipboardData.getData("text");
+                          if (pasted && pasted.trim().length >= 8) {
+                            setTimeout(() => {
+                              void handleAutoResolveTokenMetadata(pasted);
+                            }, 50);
+                          }
+                        }}
+                        placeholder={t("accessTokenPlaceholder")}
+                        className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                      />
+                    </div>
+                  </LiquidGlassInput>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {resolvedTokenMeta?.diagnosticMessage ||
+                      t("autoFetchTokenHint")}
+                  </p>
                 </Field>
+
+                {/* Danh sách Fanpage / OA tự động nhận diện từ Access Token (Hỗ trợ chọn đích danh 1 trang hoặc chọn nhiều trang) */}
+                {candidatePages.length > 0 && (
+                  <GlassSurfaceCard className="p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-foreground">
+                        {t("candidatePagesHeading", {
+                          count: candidatePages.length,
+                        })}
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {candidatePages.length > 1 && (
+                          <GlassBadge variant="primary" size="sm">
+                            {t("batchSelectPageToggle", {
+                              count: selectedBatchPageIds.length,
+                            })}
+                          </GlassBadge>
+                        )}
+                        {subscribedFields.length > 0 && (
+                          <GlassBadge variant="success" size="sm" dot>
+                            {t("subscribedFieldsBadge", {
+                              count: subscribedFields.length,
+                            })}
+                          </GlassBadge>
+                        )}
+                      </div>
+                    </div>
+
+                    {resolvedTokenMeta?.requiresPageSelection && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                        {t("requiresPageSelectionNotice")}
+                      </p>
+                    )}
+
+                    <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                      {candidatePages.map((cand) => {
+                        const isSelectedSingle =
+                          externalPageId === cand.externalPageId;
+                        const isSelectedBatch = selectedBatchPageIds.includes(
+                          cand.externalPageId,
+                        );
+                        return (
+                          <div
+                            key={cand.externalPageId}
+                            className={cn(
+                              "w-full flex items-center justify-between gap-2.5 p-2 rounded-xl border text-left transition-all",
+                              isSelectedSingle || isSelectedBatch
+                                ? "border-primary bg-primary/10"
+                                : "border-border/50 hover:bg-muted/40",
+                            )}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExternalPageId(cand.externalPageId);
+                                setPageName(cand.pageName);
+                                setPageShortCode(cand.pageShortCode);
+                                setAvatarUrl(cand.avatarUrl || "");
+                                if (cand.pageAccessToken) {
+                                  setAccessToken(cand.pageAccessToken);
+                                }
+                              }}
+                              className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
+                            >
+                              <GlassAvatar
+                                src={cand.avatarUrl}
+                                name={cand.pageShortCode}
+                                size="sm"
+                              />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold truncate">
+                                  {cand.pageName}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                  ID: {cand.externalPageId} •{" "}
+                                  {cand.pageShortCode}
+                                  {cand.category ? ` • ${cand.category}` : ""}
+                                  {cand.igBusinessAccount
+                                    ? ` • IG: @${cand.igBusinessAccount.username || cand.igBusinessAccount.name}`
+                                    : ""}
+                                </p>
+                              </div>
+                            </button>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {candidatePages.length > 1 && (
+                                <Switch
+                                  checked={isSelectedBatch}
+                                  onCheckedChange={() =>
+                                    toggleBatchCandidatePage(
+                                      cand.externalPageId,
+                                    )
+                                  }
+                                />
+                              )}
+                              {isSelectedSingle && (
+                                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </GlassSurfaceCard>
+                )}
 
                 <Field>
                   <FieldLabel>
                     <TruncatedText>{t("pageNameLabel")}</TruncatedText>
                   </FieldLabel>
                   <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                    <div className="flex items-center px-3.5 w-full h-full">
+                    <div className="flex items-center px-3.5 w-full h-full gap-2.5">
+                      {(avatarUrl || pageShortCode) && (
+                        <GlassAvatar
+                          src={avatarUrl || null}
+                          name={pageShortCode || pageName || "P"}
+                          size="xs"
+                        />
+                      )}
                       <Input
-                        required
                         value={pageName}
                         onChange={(e) => setPageName(e.target.value)}
                         placeholder={t("pageNamePlaceholder")}
@@ -1260,7 +1910,6 @@ export default function OmnichannelSettingsPage() {
                       <div className="flex items-center px-3.5 w-full h-full">
                         <Hash className="h-4 w-4 text-muted-foreground/50 mr-2 shrink-0" />
                         <Input
-                          required
                           value={pageShortCode}
                           onChange={(e) => setPageShortCode(e.target.value)}
                           placeholder={t("pageShortCodePlaceholder")}
@@ -1277,7 +1926,6 @@ export default function OmnichannelSettingsPage() {
                     <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
                       <div className="flex items-center px-3.5 w-full h-full">
                         <Input
-                          required
                           value={externalPageId}
                           onChange={(e) => setExternalPageId(e.target.value)}
                           placeholder={t("externalPageIdPlaceholder")}
@@ -1290,55 +1938,86 @@ export default function OmnichannelSettingsPage() {
 
                 <Field>
                   <FieldLabel>
-                    <TruncatedText>{t("accessTokenLabel")}</TruncatedText>
+                    <TruncatedText>{t("avatarUrlLabel")}</TruncatedText>
                   </FieldLabel>
                   <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
                     <div className="flex items-center px-3.5 w-full h-full">
-                      <KeyRound className="h-4 w-4 text-muted-foreground/50 mr-2.5 shrink-0" />
                       <Input
-                        required
-                        type="password"
-                        value={accessToken}
-                        onChange={(e) => setAccessToken(e.target.value)}
-                        placeholder={t("accessTokenPlaceholder")}
+                        value={avatarUrl}
+                        onChange={(e) => setAvatarUrl(e.target.value)}
+                        placeholder={t("avatarUrlPlaceholder")}
                         className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
                       />
                     </div>
                   </LiquidGlassInput>
                 </Field>
 
-                <Field>
-                  <FieldLabel>
-                    <TruncatedText>{t("refreshTokenLabel")}</TruncatedText>
-                  </FieldLabel>
-                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                    <div className="flex items-center px-3.5 w-full h-full">
-                      <Input
-                        type="password"
-                        value={refreshToken}
-                        onChange={(e) => setRefreshToken(e.target.value)}
-                        placeholder={t("refreshTokenPlaceholder")}
-                        className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                      />
-                    </div>
-                  </LiquidGlassInput>
-                </Field>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("refreshTokenLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          type="password"
+                          value={refreshToken}
+                          onChange={(e) => setRefreshToken(e.target.value)}
+                          placeholder={t("refreshTokenPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
 
-                <Field>
-                  <FieldLabel>
-                    <TruncatedText>{t("metaDatasetIdLabel")}</TruncatedText>
-                  </FieldLabel>
-                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                    <div className="flex items-center px-3.5 w-full h-full">
-                      <Input
-                        value={metaDatasetId}
-                        onChange={(e) => setMetaDatasetId(e.target.value)}
-                        placeholder={t("metaDatasetIdPlaceholder")}
-                        className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                      />
-                    </div>
-                  </LiquidGlassInput>
-                </Field>
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("metaDatasetIdLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          value={metaDatasetId}
+                          onChange={(e) => setMetaDatasetId(e.target.value)}
+                          placeholder={t("metaDatasetIdPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs font-medium">
+                      {t("autoHidePhoneCommentsLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={autoHidePhoneComments}
+                      onCheckedChange={setAutoHidePhoneComments}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs font-medium">
+                      {t("syncEchoMessagesLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={syncEchoMessagesFromNativeApp}
+                      onCheckedChange={setSyncEchoMessagesFromNativeApp}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs font-medium">
+                      {t("allowSandboxSimulationLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={allowSandboxSimulation}
+                      onCheckedChange={setAllowSandboxSimulation}
+                    />
+                  </div>
+                </div>
               </FieldGroup>
             </FieldSet>
           </FieldGroup>
@@ -1355,7 +2034,7 @@ export default function OmnichannelSettingsPage() {
           <TruncatedText as="span">{t("editChannelModalTitle")}</TruncatedText>
         }
         description={editingChannel?.pageName}
-        size="md"
+        size="lg"
         footer={
           <PatternButton
             type="submit"
@@ -1381,79 +2060,177 @@ export default function OmnichannelSettingsPage() {
           <FieldGroup>
             <FieldSet>
               <FieldGroup>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("pageNameLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full gap-2.5">
+                        <GlassAvatar
+                          src={editAvatarUrl || editingChannel?.avatarUrl}
+                          name={editPageShortCode || "P"}
+                          size="xs"
+                        />
+                        <Input
+                          required
+                          value={editPageName}
+                          onChange={(e) => setEditPageName(e.target.value)}
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("pageShortCodeLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          required
+                          value={editPageShortCode}
+                          onChange={(e) => setEditPageShortCode(e.target.value)}
+                          className="flex h-full w-full py-2 text-sm uppercase bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("apiVersionLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          value={editApiVersion}
+                          onChange={(e) => setEditApiVersion(e.target.value)}
+                          placeholder="v27.1"
+                          className="flex h-full w-full py-2 text-sm font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("appIdLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          value={editAppId}
+                          onChange={(e) => setEditAppId(e.target.value)}
+                          placeholder={t("appIdPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("appSecretLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          type="password"
+                          value={editAppSecret}
+                          onChange={(e) => setEditAppSecret(e.target.value)}
+                          placeholder={t("newAccessTokenOptionalPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+                </div>
+
                 <Field>
                   <FieldLabel>
-                    <TruncatedText>{t("pageNameLabel")}</TruncatedText>
+                    <TruncatedText>{t("avatarUrlLabel")}</TruncatedText>
                   </FieldLabel>
                   <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
                     <div className="flex items-center px-3.5 w-full h-full">
                       <Input
-                        required
-                        value={editPageName}
-                        onChange={(e) => setEditPageName(e.target.value)}
+                        value={editAvatarUrl}
+                        onChange={(e) => setEditAvatarUrl(e.target.value)}
+                        placeholder={t("avatarUrlPlaceholder")}
                         className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
                       />
                     </div>
                   </LiquidGlassInput>
                 </Field>
 
-                <Field>
-                  <FieldLabel>
-                    <TruncatedText>{t("pageShortCodeLabel")}</TruncatedText>
-                  </FieldLabel>
-                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                    <div className="flex items-center px-3.5 w-full h-full">
-                      <Input
-                        required
-                        value={editPageShortCode}
-                        onChange={(e) => setEditPageShortCode(e.target.value)}
-                        className="flex h-full w-full py-2 text-sm uppercase bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                      />
-                    </div>
-                  </LiquidGlassInput>
-                </Field>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("accessTokenLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          type="password"
+                          value={editAccessToken}
+                          onChange={(e) => setEditAccessToken(e.target.value)}
+                          placeholder={t("newAccessTokenOptionalPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
 
-                <Field>
-                  <FieldLabel>
-                    <TruncatedText>{t("accessTokenLabel")}</TruncatedText>
-                  </FieldLabel>
-                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                    <div className="flex items-center px-3.5 w-full h-full">
-                      <Input
-                        type="password"
-                        value={editAccessToken}
-                        onChange={(e) => setEditAccessToken(e.target.value)}
-                        placeholder={t("newAccessTokenOptionalPlaceholder")}
-                        className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                      />
-                    </div>
-                  </LiquidGlassInput>
-                </Field>
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("metaDatasetIdLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          value={editMetaDatasetId}
+                          onChange={(e) => setEditMetaDatasetId(e.target.value)}
+                          placeholder={t("metaDatasetIdPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+                </div>
 
-                <Field>
-                  <FieldLabel>
-                    <TruncatedText>{t("metaDatasetIdLabel")}</TruncatedText>
-                  </FieldLabel>
-                  <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                    <div className="flex items-center px-3.5 w-full h-full">
-                      <Input
-                        value={editMetaDatasetId}
-                        onChange={(e) => setEditMetaDatasetId(e.target.value)}
-                        placeholder={t("metaDatasetIdPlaceholder")}
-                        className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                      />
-                    </div>
-                  </LiquidGlassInput>
-                </Field>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs sm:text-sm font-medium">
+                      {t("autoHidePhoneCommentsLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={editAutoHidePhoneComments}
+                      onCheckedChange={setEditAutoHidePhoneComments}
+                    />
+                  </div>
 
-                <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
-                  <TruncatedText className="text-xs sm:text-sm font-medium">
-                    {t("channelActiveToggleLabel")}
-                  </TruncatedText>
-                  <Switch
-                    checked={editIsActive}
-                    onCheckedChange={setEditIsActive}
-                  />
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs sm:text-sm font-medium">
+                      {t("syncEchoMessagesLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={editSyncEchoMessages}
+                      onCheckedChange={setEditSyncEchoMessages}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs sm:text-sm font-medium">
+                      {t("channelActiveToggleLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={editIsActive}
+                      onCheckedChange={setEditIsActive}
+                    />
+                  </div>
                 </div>
               </FieldGroup>
             </FieldSet>

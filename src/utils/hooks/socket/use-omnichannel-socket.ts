@@ -31,6 +31,9 @@ export const useOmnichannelSocket = () => {
     (s) => s.fetchShopChannels,
   );
   const fetchWebhookLogs = useChannelWorkspaceStore((s) => s.fetchWebhookLogs);
+  const fetchMergedConversations = useChannelWorkspaceStore(
+    (s) => s.fetchMergedConversations,
+  );
   const fetchInbox = useChatStore((s) => s.fetchInbox);
   const setCollisionLockForConv = useChatStore(
     (s) => s.setCollisionLockForConv,
@@ -42,6 +45,18 @@ export const useOmnichannelSocket = () => {
   );
   const handleMessageTranslated = useChatStore(
     (s) => s.handleMessageTranslated,
+  );
+  const handleRealtimeCommentVisibilityUpdated = useChatStore(
+    (s) => s.handleRealtimeCommentVisibilityUpdated,
+  );
+  const handleRealtimeCommentLikeUpdated = useChatStore(
+    (s) => s.handleRealtimeCommentLikeUpdated,
+  );
+  const handleRealtimeCommentPrivateReplySent = useChatStore(
+    (s) => s.handleRealtimeCommentPrivateReplySent,
+  );
+  const handleRealtimeCommentDeletedOnPlatform = useChatStore(
+    (s) => s.handleRealtimeCommentDeletedOnPlatform,
   );
   const handleRealtimeConversationTagsUpdated = useTagStore(
     (s) => s.handleRealtimeConversationTagsUpdated,
@@ -92,6 +107,7 @@ export const useOmnichannelSocket = () => {
         fetchInbox({ page: 1 });
         if (payload.shopId) {
           fetchShopChannels(payload.shopId);
+          fetchMergedConversations(payload.shopId);
         }
       },
     );
@@ -118,6 +134,7 @@ export const useOmnichannelSocket = () => {
         fetchInbox({ page: 1 });
         if (payload.shopId) {
           fetchShopChannels(payload.shopId);
+          fetchMergedConversations(payload.shopId);
         }
       },
     );
@@ -242,6 +259,68 @@ export const useOmnichannelSocket = () => {
       },
     );
 
+    const cleanCommentVisibilityUpdated = socketService.on<{
+      conversationId: string;
+      messageId: string;
+      isHiddenOnPlatform: boolean;
+      hiddenByAgentId?: string | null;
+      hiddenAt?: string | null;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.COMMENT_VISIBILITY_UPDATED,
+      (payload) => {
+        if (!payload?.conversationId || !payload?.messageId) return;
+        handleRealtimeCommentVisibilityUpdated(payload);
+      },
+    );
+
+    const cleanCommentLikeUpdated = socketService.on<{
+      conversationId: string;
+      messageId: string;
+      isLikedByPage: boolean;
+      likedByAgentId?: string | null;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.COMMENT_LIKE_UPDATED,
+      (payload) => {
+        if (!payload?.conversationId || !payload?.messageId) return;
+        handleRealtimeCommentLikeUpdated(payload);
+      },
+    );
+
+    const cleanCommentPrivateReplySent = socketService.on<{
+      conversationId: string;
+      commentMessageId: string;
+      linkedInboxConversationId: string;
+      privateReplySentAt: string;
+      privateReplyByAgentId?: string | null;
+      isHiddenOnPlatform?: boolean;
+      isLikedByPage?: boolean;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.COMMENT_PRIVATE_REPLY_SENT,
+      (payload) => {
+        if (!payload?.conversationId || !payload?.commentMessageId) return;
+        handleRealtimeCommentPrivateReplySent(payload);
+      },
+    );
+
+    const cleanCommentDeletedOnPlatform = socketService.on<{
+      conversationId: string;
+      messageId: string;
+      isDeletedOnPlatform: boolean;
+      deletedByActor?: "CUSTOMER" | "AGENT";
+      deletedByAgentId?: string | null;
+      deletedOnPlatformAt?: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.COMMENT_DELETED_ON_PLATFORM,
+      (payload) => {
+        if (!payload?.conversationId || !payload?.messageId) return;
+        handleRealtimeCommentDeletedOnPlatform(payload);
+      },
+    );
+
     const cleanChannelIntegrationUpdated = socketService.on<{
       shopId: string;
       action: string;
@@ -255,8 +334,12 @@ export const useOmnichannelSocket = () => {
         const targetShopId = payload?.shopId || activeShopId;
         if (targetShopId) {
           fetchShopChannels(targetShopId);
+          fetchMergedConversations(targetShopId);
         }
-        if (payload?.action === "WEBHOOK_INBOUND") {
+        if (
+          payload?.action === "WEBHOOK_INBOUND" ||
+          payload?.action === "AGENT_REPLIED"
+        ) {
           fetchInbox({ page: 1 });
         }
       },
@@ -272,6 +355,7 @@ export const useOmnichannelSocket = () => {
         const targetShopId = payload?.shopId || activeShopId;
         if (targetShopId) {
           fetchShopChannels(targetShopId);
+          fetchMergedConversations(targetShopId);
         }
       },
     );
@@ -343,6 +427,7 @@ export const useOmnichannelSocket = () => {
         fetchInbox({ page: 1 });
         if (payload.shopId) {
           fetchShopChannels(payload.shopId);
+          fetchMergedConversations(payload.shopId);
         }
       },
     );
@@ -358,6 +443,10 @@ export const useOmnichannelSocket = () => {
       cleanSnoozeWakeup();
       cleanConversationTransferred();
       cleanMessageTranslated();
+      cleanCommentVisibilityUpdated();
+      cleanCommentLikeUpdated();
+      cleanCommentPrivateReplySent();
+      cleanCommentDeletedOnPlatform();
       cleanChannelIntegrationUpdated();
       cleanChannelIntegrationRemoved();
       cleanTokenHealthChecked();
@@ -370,12 +459,17 @@ export const useOmnichannelSocket = () => {
     activeShopId,
     fetchShopChannels,
     fetchWebhookLogs,
+    fetchMergedConversations,
     fetchInbox,
     setCollisionLockForConv,
     handleGhostedAlert,
     handleSnoozeWakeup,
     handleConversationTransferred,
     handleMessageTranslated,
+    handleRealtimeCommentVisibilityUpdated,
+    handleRealtimeCommentLikeUpdated,
+    handleRealtimeCommentPrivateReplySent,
+    handleRealtimeCommentDeletedOnPlatform,
     handleRealtimeConversationTagsUpdated,
     handleRealtimeMessageTagged,
   ]);

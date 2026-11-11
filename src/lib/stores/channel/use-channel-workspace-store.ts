@@ -1,31 +1,44 @@
 import { createPersistedStore } from "@/lib/stores/create-persisted-store";
 import {
+  batchConnectChannelsApi,
+  type ChannelPlatformSaasConfig,
   type ChannelPlatformType,
   type ChannelWebhookLogItem,
   type ConnectedChannelItem,
   connectChannelOAuthApi,
   getMarketplaceReservationsApi,
   getMergedInboxConversationsApi,
+  getSaasWebhookConfigApi,
   getWebhookLogsApi,
   listShopChannelsApi,
   type MarketplaceStockReservationItem,
   type MergedOmnichannelConversationItem,
   removeChannelIntegrationApi,
   replayFailedWebhookApi,
+  type ResolvedChannelTokenCandidatePage,
+  type ResolvedChannelTokenMetadata,
+  resolveChannelTokenMetadataApi,
   runTokenDoctorHealthCheckApi,
+  type SaasWebhookBlueprintItem,
+  syncChannelWebhookApi,
   updateChannelIntegrationApi,
 } from "./api";
 
 export type {
+  ChannelPlatformSaasConfig,
   ChannelPlatformType,
   ChannelWebhookLogItem,
   ConnectedChannelItem,
   MarketplaceStockReservationItem,
   MergedOmnichannelConversationItem,
+  ResolvedChannelTokenCandidatePage,
+  ResolvedChannelTokenMetadata,
+  SaasWebhookBlueprintItem,
 };
 
 export interface ChannelWorkspaceStoreState {
   channels: ConnectedChannelItem[];
+  saasBlueprints: SaasWebhookBlueprintItem[];
   selectedChannelIds: string[];
   isMergeMode: boolean;
   activePresetId: string | null;
@@ -39,6 +52,19 @@ export interface ChannelWorkspaceStoreState {
   isLoadingMarketplaceReservations: boolean;
 
   fetchShopChannels: (shopId: string) => Promise<void>;
+  fetchSaasWebhookConfig: (shopId: string) => Promise<void>;
+  resolveChannelTokenMetadata: (
+    shopId: string,
+    payload: {
+      channelType: ChannelPlatformType;
+      accessToken: string;
+      externalPageId?: string;
+      apiVersion?: string;
+      appId?: string;
+      appSecret?: string;
+      allowSandboxSimulation?: boolean;
+    },
+  ) => Promise<ResolvedChannelTokenMetadata | null>;
   connectChannelOAuth: (
     shopId: string,
     payload: {
@@ -46,22 +72,67 @@ export interface ChannelWorkspaceStoreState {
       externalPageId?: string;
       externalShopId?: string;
       pageName?: string;
-      pageShortCode: string;
+      pageShortCode?: string;
+      avatarUrl?: string;
       oauthCode?: string;
       accessToken?: string;
       refreshToken?: string;
+      apiVersion?: string;
+      appId?: string;
+      appSecret?: string;
+      webhookVerifySecret?: string;
+      subscribedFields?: string[];
+      autoHidePhoneComments?: boolean;
+      syncEchoMessagesFromNativeApp?: boolean;
+      allowSandboxSimulation?: boolean;
       metaDatasetId?: string;
       capiAccessToken?: string;
     },
   ) => Promise<boolean>;
+  batchConnectChannels: (
+    shopId: string,
+    payload: {
+      channelType: ChannelPlatformType;
+      apiVersion?: string;
+      appId?: string;
+      appSecret?: string;
+      webhookVerifySecret?: string;
+      metaDatasetId?: string;
+      capiAccessToken?: string;
+      pages: Array<{
+        externalPageId: string;
+        pageName: string;
+        pageShortCode?: string;
+        avatarUrl?: string;
+        pageAccessToken: string;
+      }>;
+    },
+  ) => Promise<number>;
+  syncChannelWebhook: (
+    shopId: string,
+    channelId: string,
+  ) => Promise<{
+    webhookStatus: string;
+    subscribedFields: string[];
+    webhookCallbackUrl: string;
+    webhookVerifyToken: string;
+  } | null>;
   updateChannelIntegration: (
     shopId: string,
     channelId: string,
     payload: {
       pageName?: string;
       pageShortCode?: string;
+      avatarUrl?: string;
       accessToken?: string;
       refreshToken?: string;
+      apiVersion?: string;
+      appId?: string;
+      appSecret?: string;
+      webhookVerifySecret?: string;
+      subscribedFields?: string[];
+      autoHidePhoneComments?: boolean;
+      syncEchoMessagesFromNativeApp?: boolean;
       metaDatasetId?: string;
       capiAccessToken?: string;
       isActive?: boolean;
@@ -103,6 +174,7 @@ export const useChannelWorkspaceStore =
   createPersistedStore<ChannelWorkspaceStoreState>(
     (set, get) => ({
       channels: [],
+      saasBlueprints: [],
       selectedChannelIds: [],
       isMergeMode: true,
       activePresetId: null,
@@ -145,10 +217,40 @@ export const useChannelWorkspaceStore =
         }
       },
 
+      fetchSaasWebhookConfig: async (shopId) => {
+        if (!shopId) return;
+        try {
+          const res: any = await getSaasWebhookConfigApi(shopId);
+          const data = res?.data ?? res;
+          set((state) => {
+            state.saasBlueprints = data?.platforms || [];
+          });
+        } catch {}
+      },
+
+      resolveChannelTokenMetadata: async (shopId, payload) => {
+        if (!shopId || !payload.accessToken.trim()) return null;
+        const res: any = await resolveChannelTokenMetadataApi(shopId, payload);
+        return (res?.data ?? res) as ResolvedChannelTokenMetadata;
+      },
+
       connectChannelOAuth: async (shopId, payload) => {
         await connectChannelOAuthApi(shopId, payload);
         await get().fetchShopChannels(shopId);
         return true;
+      },
+
+      batchConnectChannels: async (shopId, payload) => {
+        const res: any = await batchConnectChannelsApi(shopId, payload);
+        await get().fetchShopChannels(shopId);
+        const data = res?.data ?? res;
+        return Number(data?.connectedCount || payload.pages.length);
+      },
+
+      syncChannelWebhook: async (shopId, channelId) => {
+        const res: any = await syncChannelWebhookApi(shopId, channelId);
+        await get().fetchShopChannels(shopId);
+        return (res?.data ?? res) || null;
       },
 
       updateChannelIntegration: async (shopId, channelId, payload) => {
