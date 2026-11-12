@@ -5,6 +5,10 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from "axios";
+import {
+  resolveFrontendApiBaseUrl,
+  TUNNEL_REQUEST_HEADERS,
+} from "@/config/tunnel";
 
 interface RetryQueueItem {
   resolve: (value?: any) => void;
@@ -25,9 +29,14 @@ export const refreshAccessToken = async (): Promise<string> => {
 
   try {
     const { data: resData } = await axios.post(
-      `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+      `${resolveFrontendApiBaseUrl()}/auth/refresh`,
       {},
-      { withCredentials: true },
+      {
+        withCredentials: true,
+        headers: {
+          ...TUNNEL_REQUEST_HEADERS,
+        },
+      },
     );
 
     const newToken = resData.data.accessToken;
@@ -50,10 +59,11 @@ export const refreshAccessToken = async (): Promise<string> => {
 };
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: resolveFrontendApiBaseUrl(),
   timeout: Number(process.env.NEXT_PUBLIC_TIMEOUT) || 10000,
   headers: {
     "Content-Type": "application/json",
+    ...TUNNEL_REQUEST_HEADERS,
   },
   withCredentials: true,
 });

@@ -1,5 +1,9 @@
-import { SocketNamespaceEnum } from "@/common/enum";
 import { io, type Socket } from "socket.io-client";
+import { SocketNamespaceEnum } from "@/common/enum";
+import {
+  resolveFrontendSocketBaseUrl,
+  TUNNEL_REQUEST_HEADERS,
+} from "@/config/tunnel";
 
 const getDeviceId = (): string => {
   if (typeof window === "undefined") return "ssr-client";
@@ -21,12 +25,12 @@ const OPTIONS: any = {
   reconnectionDelayMax: 8000,
   timeout: 10000,
   withCredentials: true,
+  extraHeaders: {
+    ...TUNNEL_REQUEST_HEADERS,
+  },
 };
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ||
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ||
-  "http://localhost:3000";
+const BASE_URL = resolveFrontendSocketBaseUrl();
 
 const socketCache: Partial<Record<SocketNamespaceEnum, Socket>> = {};
 
