@@ -157,6 +157,9 @@ export default function OmnichannelSettingsPage() {
   const syncChannelWebhook = useChannelWorkspaceStore(
     (s) => s.syncChannelWebhook,
   );
+  const refreshChannelPageToken = useChannelWorkspaceStore(
+    (s) => s.refreshChannelPageToken,
+  );
   const syncChannelPostsComments = useChannelWorkspaceStore(
     (s) => s.syncChannelPostsComments,
   );
@@ -225,6 +228,9 @@ export default function OmnichannelSettingsPage() {
   const [externalPageId, setExternalPageId] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
+  const [userAccessToken, setUserAccessToken] = useState("");
+  const [autoExchangeNeverExpiringToken, setAutoExchangeNeverExpiringToken] =
+    useState(true);
   const [refreshToken, setRefreshToken] = useState("");
   const [metaDatasetId, setMetaDatasetId] = useState("");
   const [capiAccessToken, setCapiAccessToken] = useState("");
@@ -262,6 +268,9 @@ export default function OmnichannelSettingsPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRunningDoctor, setIsRunningDoctor] = useState(false);
   const [syncingWebhookChannelId, setSyncingWebhookChannelId] = useState<
+    string | null
+  >(null);
+  const [refreshingTokenChannelId, setRefreshingTokenChannelId] = useState<
     string | null
   >(null);
   const [syncingCommentsChannelId, setSyncingCommentsChannelId] = useState<
@@ -576,10 +585,19 @@ export default function OmnichannelSettingsPage() {
           appSecret: showCustomSaasOverride
             ? appSecret.trim() || undefined
             : undefined,
+          autoExchangeNeverExpiringToken,
           allowSandboxSimulation,
         });
         if (resolved) {
           setResolvedTokenMeta(resolved);
+          if (
+            resolved.resolvedUserAccessToken ||
+            resolved.tokenKind === "USER_TOKEN"
+          ) {
+            setUserAccessToken(
+              resolved.resolvedUserAccessToken || tokenToResolve,
+            );
+          }
           setCandidatePages(resolved.candidatePages || []);
           setSubscribedFields(resolved.subscribedFields || []);
           if (resolved.webhookCallbackUrl) {
@@ -711,6 +729,8 @@ export default function OmnichannelSettingsPage() {
     setExternalPageId("");
     setAvatarUrl("");
     setAccessToken("");
+    setUserAccessToken("");
+    setAutoExchangeNeverExpiringToken(true);
     setRefreshToken("");
     setAppSecret("");
     setMetaDatasetId("");
@@ -747,6 +767,7 @@ export default function OmnichannelSettingsPage() {
           appSecret: showCustomSaasOverride
             ? appSecret.trim() || undefined
             : undefined,
+          userAccessToken: userAccessToken.trim() || undefined,
           webhookVerifySecret: showCustomSaasOverride
             ? webhookVerifySecret.trim() || undefined
             : undefined,
@@ -776,6 +797,8 @@ export default function OmnichannelSettingsPage() {
         externalPageId: externalPageId.trim() || undefined,
         avatarUrl: avatarUrl.trim() || undefined,
         accessToken: accessToken.trim(),
+        userAccessToken: userAccessToken.trim() || undefined,
+        autoExchangeNeverExpiringToken,
         refreshToken: refreshToken.trim() || undefined,
         apiVersion: showCustomSaasOverride
           ? apiVersion.trim() || undefined
@@ -823,6 +846,25 @@ export default function OmnichannelSettingsPage() {
       showErrorToast(err?.response?.data?.message || "Failed");
     } finally {
       setSyncingWebhookChannelId(null);
+    }
+  };
+
+  const handleRefreshChannelPageToken = async (ch: ConnectedChannelItem) => {
+    if (!activeShopId) return;
+    setRefreshingTokenChannelId(ch.id);
+    try {
+      const res = await refreshChannelPageToken(activeShopId, ch.id);
+      if (res) {
+        showSuccessToast(
+          t("refreshPageTokenSuccessToast", {
+            name: ch.pageName,
+          }),
+        );
+      }
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setRefreshingTokenChannelId(null);
     }
   };
 
@@ -1148,7 +1190,7 @@ export default function OmnichannelSettingsPage() {
 
               return (
                 <GlassSurfaceCard key={ch.id} className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex flex-col sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
                       <GlassAvatar
                         src={ch.avatarUrl}
@@ -1156,7 +1198,7 @@ export default function OmnichannelSettingsPage() {
                         size="md"
                       />
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                           <TruncatedText
                             as="h4"
                             className="font-bold text-sm max-w-64"
@@ -1176,14 +1218,26 @@ export default function OmnichannelSettingsPage() {
                             ch.platformConfigJson?.saasAppProfileName) && (
                             <GlassBadge variant="secondary" size="sm">
                               <Layers className="w-3 h-3 mr-1 inline" />
-                              {boundProfile?.name ||
-                                ch.platformConfigJson?.saasAppProfileName}
+                              <TruncatedText className="max-w-24">
+                                {boundProfile?.name ||
+                                  ch.platformConfigJson?.saasAppProfileName}
+                              </TruncatedText>
                             </GlassBadge>
                           )}
                           {ch.hasAppSecretConfigured && (
                             <GlassBadge variant="success" size="sm">
                               <ShieldCheck className="w-3 h-3 mr-1 inline" />
-                              HMAC Proof
+                              <TruncatedText>HMAC Proof</TruncatedText>
+                            </GlassBadge>
+                          )}
+                          {(ch.isNeverExpiringPageToken ||
+                            ch.platformConfigJson?.isNeverExpiringPageToken ||
+                            !ch.tokenExpiresAt) && (
+                            <GlassBadge variant="success" size="sm">
+                              <KeyRound className="w-3 h-3 mr-1 inline" />
+                              <TruncatedText>
+                                {t("neverExpiringTokenBadge")}
+                              </TruncatedText>
                             </GlassBadge>
                           )}
                           <GlassBadge
@@ -1223,9 +1277,9 @@ export default function OmnichannelSettingsPage() {
                         {ch.webhookCallbackUrl && (
                           <div className="flex items-center gap-2 mt-1 text-[11px] text-muted-foreground">
                             <Link2 className="w-3 h-3 shrink-0 text-primary" />
-                            <span className="font-mono truncate max-w-md">
+                            <TruncatedText>
                               {ch.webhookCallbackUrl}
-                            </span>
+                            </TruncatedText>
                             <button
                               type="button"
                               onClick={() =>
@@ -1237,7 +1291,9 @@ export default function OmnichannelSettingsPage() {
                               className="text-primary hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
                             >
                               <Copy className="w-3 h-3" />
-                              {t("copyWebhookUrlBtn")}
+                              <TruncatedText>
+                                {t("copyWebhookUrlBtn")}
+                              </TruncatedText>
                             </button>
                           </div>
                         )}
@@ -1249,6 +1305,22 @@ export default function OmnichannelSettingsPage() {
                         can="CHANNEL_INTEGRATION_CONNECT"
                         mode="hide"
                       >
+                        <PatternButton
+                          type="button"
+                          variant="glass"
+                          color="warning"
+                          size="sm"
+                          rounded="full"
+                          isLoading={refreshingTokenChannelId === ch.id}
+                          onClick={() => handleRefreshChannelPageToken(ch)}
+                          icon={<KeyRound className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>
+                            {t("refreshPageTokenBtn")}
+                          </TruncatedText>
+                        </PatternButton>
+
                         <PatternButton
                           type="button"
                           variant="glass"
@@ -2801,6 +2873,16 @@ export default function OmnichannelSettingsPage() {
                 </div>
 
                 <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs font-medium">
+                      {t("autoExchangeNeverExpiringLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={autoExchangeNeverExpiringToken}
+                      onCheckedChange={setAutoExchangeNeverExpiringToken}
+                    />
+                  </div>
+
                   <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40">
                     <TruncatedText className="text-xs font-medium">
                       {t("autoHidePhoneCommentsLabel")}

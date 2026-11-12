@@ -1453,7 +1453,11 @@
       "zeroTouchConnectHint": "Đã kế thừa đầy đủ App ID, App Secret (HMAC Proof) và Webhook từ Hồ sơ SaaS đã chọn. Bạn chỉ cần dán Access Token bên dưới để tự động lấy đúng Trang và tự tiêm Webhook!",
       "showOverrideBtn": "Tùy chỉnh riêng App ID / Secret cho kênh này",
       "hideOverrideBtn": "Ẩn tùy chỉnh riêng (Dùng chuẩn theo Hồ sơ SaaS)"
-    }
+    },
+    "neverExpiringTokenBadge": "Token Vĩnh viễn (Không hết hạn)",
+    "refreshPageTokenBtn": "Vĩnh viễn hóa Token",
+    "refreshPageTokenSuccessToast": "Đã tự động lấy lại và nâng cấp Page Access Token vĩnh viễn cho trang {name}",
+    "autoExchangeNeverExpiringLabel": "Tự động đổi sang Page Access Token vĩnh viễn (Không bao giờ hết hạn khi nhắn tin)"
   },
   "SettingsPermissions": {
     "title": "Phân quyền nhân sự & Giám sát ca trực",

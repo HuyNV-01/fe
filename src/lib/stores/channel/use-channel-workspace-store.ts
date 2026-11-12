@@ -17,6 +17,7 @@ import {
   listShopChannelsApi,
   type MarketplaceStockReservationItem,
   type MergedOmnichannelConversationItem,
+  refreshChannelPageTokenApi,
   removeChannelIntegrationApi,
   replayFailedWebhookApi,
   type ResolvedChannelTokenCandidatePage,
@@ -119,6 +120,7 @@ export interface ChannelWorkspaceStoreState {
       apiVersion?: string;
       appId?: string;
       appSecret?: string;
+      autoExchangeNeverExpiringToken?: boolean;
       allowSandboxSimulation?: boolean;
     },
   ) => Promise<ResolvedChannelTokenMetadata | null>;
@@ -134,7 +136,9 @@ export interface ChannelWorkspaceStoreState {
       avatarUrl?: string;
       oauthCode?: string;
       accessToken?: string;
+      userAccessToken?: string;
       refreshToken?: string;
+      autoExchangeNeverExpiringToken?: boolean;
       apiVersion?: string;
       appId?: string;
       appSecret?: string;
@@ -155,6 +159,7 @@ export interface ChannelWorkspaceStoreState {
       apiVersion?: string;
       appId?: string;
       appSecret?: string;
+      userAccessToken?: string;
       webhookVerifySecret?: string;
       metaDatasetId?: string;
       capiAccessToken?: string;
@@ -175,6 +180,20 @@ export interface ChannelWorkspaceStoreState {
     subscribedFields: string[];
     webhookCallbackUrl: string;
     webhookVerifyToken: string;
+  } | null>;
+  refreshChannelPageToken: (
+    shopId: string,
+    channelId: string,
+  ) => Promise<{
+    channelId: string;
+    pageName: string;
+    pageShortCode: string;
+    healed: boolean;
+    isNeverExpiringPageToken: boolean;
+    tokenExpiresAt: string | null;
+    webhookStatus: string;
+    recoverySource: string | null;
+    refreshedAt: string;
   } | null>;
   syncChannelPostsComments: (
     shopId: string,
@@ -203,7 +222,9 @@ export interface ChannelWorkspaceStoreState {
       pageShortCode?: string;
       avatarUrl?: string;
       accessToken?: string;
+      userAccessToken?: string;
       refreshToken?: string;
+      autoExchangeNeverExpiringToken?: boolean;
       apiVersion?: string;
       appId?: string;
       appSecret?: string;
@@ -395,6 +416,12 @@ export const useChannelWorkspaceStore =
 
       syncChannelWebhook: async (shopId, channelId) => {
         const res: any = await syncChannelWebhookApi(shopId, channelId);
+        await get().fetchShopChannels(shopId);
+        return (res?.data ?? res) || null;
+      },
+
+      refreshChannelPageToken: async (shopId, channelId) => {
+        const res: any = await refreshChannelPageTokenApi(shopId, channelId);
         await get().fetchShopChannels(shopId);
         return (res?.data ?? res) || null;
       },

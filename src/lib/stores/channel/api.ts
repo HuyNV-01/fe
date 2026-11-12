@@ -36,6 +36,10 @@ export interface ChannelPlatformSaasConfig {
   webhookAutoInjected?: boolean;
   webhookInjectedAt?: string | null;
   subscribedAppsVerifiedOnPlatform?: boolean;
+  isNeverExpiringPageToken?: boolean;
+  lastTokenRefreshedAt?: string | null;
+  autoRefreshPageTokenEnabled?: boolean;
+  tokenRecoverySource?: string | null;
 }
 
 export interface SaasAppProfileItem {
@@ -73,6 +77,8 @@ export interface ConnectedChannelItem {
   apiVersion?: string;
   appId?: string | null;
   hasAppSecretConfigured?: boolean;
+  isNeverExpiringPageToken?: boolean;
+  hasRefreshOrUserToken?: boolean;
   platformConfigJson?: ChannelPlatformSaasConfig | null;
   webhookCallbackUrl?: string;
   webhookVerifyToken?: string;
@@ -92,6 +98,7 @@ export interface ResolvedChannelTokenCandidatePage {
   avatarUrl: string | null;
   category?: string | null;
   pageAccessToken?: string;
+  isNeverExpiringPageToken?: boolean;
   tasks?: string[];
   subscribedFields: string[];
   igBusinessAccount?: {
@@ -127,6 +134,8 @@ export interface ResolvedChannelTokenMetadata {
   resolvedFromLiveApi: boolean;
   webhookCallbackUrl: string;
   webhookVerifyToken: string;
+  resolvedUserAccessToken?: string | null;
+  isNeverExpiringPageToken?: boolean;
   diagnosticMessage?: string | null;
 }
 
@@ -289,6 +298,7 @@ export const resolveChannelTokenMetadataApi = async (
     apiVersion?: string;
     appId?: string;
     appSecret?: string;
+    autoExchangeNeverExpiringToken?: boolean;
     allowSandboxSimulation?: boolean;
   },
 ) => {
@@ -307,7 +317,9 @@ export const connectChannelOAuthApi = async (
     avatarUrl?: string;
     oauthCode?: string;
     accessToken?: string;
+    userAccessToken?: string;
     refreshToken?: string;
+    autoExchangeNeverExpiringToken?: boolean;
     apiVersion?: string;
     appId?: string;
     appSecret?: string;
@@ -331,6 +343,7 @@ export const batchConnectChannelsApi = async (
     apiVersion?: string;
     appId?: string;
     appSecret?: string;
+    userAccessToken?: string;
     webhookVerifySecret?: string;
     metaDatasetId?: string;
     capiAccessToken?: string;
@@ -353,6 +366,13 @@ export const syncChannelWebhookApi = async (
   return apiClient.post(`/channels/${shopId}/${channelId}/sync-webhook`);
 };
 
+export const refreshChannelPageTokenApi = async (
+  shopId: string,
+  channelId: string,
+) => {
+  return apiClient.post(`/channels/${shopId}/${channelId}/refresh-page-token`);
+};
+
 export const syncChannelPostsCommentsApi = async (
   shopId: string,
   channelId: string,
@@ -373,7 +393,9 @@ export const updateChannelIntegrationApi = async (
     pageShortCode?: string;
     avatarUrl?: string;
     accessToken?: string;
+    userAccessToken?: string;
     refreshToken?: string;
+    autoExchangeNeverExpiringToken?: boolean;
     apiVersion?: string;
     appId?: string;
     appSecret?: string;
