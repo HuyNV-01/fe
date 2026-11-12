@@ -1402,6 +1402,8 @@
     "copiedVerifyTokenToast": "Đã sao chép mã xác minh Verify Token!",
     "syncWebhookBtn": "Đồng bộ lại sự kiện",
     "syncWebhookSuccessToast": "Đã đăng ký và kích hoạt thành công {count} luồng sự kiện tin nhắn & bình luận!",
+    "syncPostsCommentsBtn": "Quét bình luận bài viết",
+    "syncPostsCommentsSuccessToast": "Đã quét {posts} bài viết trên trang và đồng bộ {comments} bình luận mới vào hộp thư!",
     "allowSandboxSimulationLabel": "Chế độ thử nghiệm nội bộ (Cho phép tạo trang mẫu khi máy chủ không kết nối mạng ngoài)",
     "autoHidePhoneCommentsLabel": "Tự động ẩn ngay bình luận có chứa số điện thoại khách hàng để chống lộ khách",
     "syncEchoMessagesLabel": "Đồng bộ cả tin nhắn khi chủ shop trả lời trực tiếp trên ứng dụng Facebook / Zalo",
@@ -1551,7 +1553,10 @@
       "tagIncludeLabel": "Chỉ hiện hội thoại có gắn thẻ",
       "tagExcludeLabel": "Ẩn hội thoại có gắn thẻ",
       "advancedFilterTitle": "Bộ lọc 18 tiêu chí & kết hợp thẻ phân loại",
-      "resetFilterBtn": "Đặt lại bộ lọc"
+      "resetFilterBtn": "Đặt lại bộ lọc",
+      "commentsOnlyTooltip": "Chỉ hiện hội thoại Bình luận từ bài viết",
+      "syncOrganicCommentsTooltip": "Đồng bộ tức thì bình luận từ các bài viết thường (chưa chạy quảng cáo) trên Fanpage",
+      "syncedOrganicCommentsToast": "Đã đồng bộ bài viết trên trang và kéo về {count} bình luận mới!"
     },
     "collision": {
       "lockedByAgent": "{agentName} đang mở và tư vấn khách hàng này",
@@ -1663,7 +1668,8 @@
       "deleteOnPlatformConfirmTitle": "Xóa bình luận này khỏi bài viết trên Trang?",
       "deleteOnPlatformConfirmDesc": "Bình luận sẽ bị xóa vĩnh viễn trên bài viết Fanpage/Instagram, nhưng nội dung gốc vẫn được lưu lại trong hộp thư để cửa hàng đối chiếu khi cần.",
       "deletedByAgentBadge": "Nhân viên đã xóa khỏi bài viết (Vẫn lưu vết nội bộ)",
-      "deletedOnPlatformToast": "Đã xóa bình luận trên bài viết và lưu lại nhật ký xử lý"
+      "deletedOnPlatformToast": "Đã xóa bình luận trên bài viết và lưu lại nhật ký xử lý",
+      "platformEditSyncedBadge": "Đã gửi bản sửa cho khách"
     }
   },
   "PermissionCatalog": {

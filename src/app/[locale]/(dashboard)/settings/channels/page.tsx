@@ -157,6 +157,9 @@ export default function OmnichannelSettingsPage() {
   const syncChannelWebhook = useChannelWorkspaceStore(
     (s) => s.syncChannelWebhook,
   );
+  const syncChannelPostsComments = useChannelWorkspaceStore(
+    (s) => s.syncChannelPostsComments,
+  );
   const updateChannelIntegration = useChannelWorkspaceStore(
     (s) => s.updateChannelIntegration,
   );
@@ -259,6 +262,9 @@ export default function OmnichannelSettingsPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRunningDoctor, setIsRunningDoctor] = useState(false);
   const [syncingWebhookChannelId, setSyncingWebhookChannelId] = useState<
+    string | null
+  >(null);
+  const [syncingCommentsChannelId, setSyncingCommentsChannelId] = useState<
     string | null
   >(null);
   const [simulatingChannelId, setSimulatingChannelId] = useState<string | null>(
@@ -820,6 +826,26 @@ export default function OmnichannelSettingsPage() {
     }
   };
 
+  const handleSyncChannelPostsComments = async (ch: ConnectedChannelItem) => {
+    if (!activeShopId) return;
+    setSyncingCommentsChannelId(ch.id);
+    try {
+      const res = await syncChannelPostsComments(activeShopId, ch.id);
+      if (res) {
+        showSuccessToast(
+          t("syncPostsCommentsSuccessToast", {
+            posts: res.postsScanned || 0,
+            comments: res.newCommentsSynced || 0,
+          }),
+        );
+      }
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setSyncingCommentsChannelId(null);
+    }
+  };
+
   const handleRunTokenDoctor = async () => {
     if (!activeShopId) return;
     setIsRunningDoctor(true);
@@ -1237,6 +1263,25 @@ export default function OmnichannelSettingsPage() {
                           <TruncatedText>{t("syncWebhookBtn")}</TruncatedText>
                         </PatternButton>
                       </PermissionGate>
+
+                      {(ch.channelType === "FACEBOOK_PAGE" ||
+                        ch.channelType === "INSTAGRAM") && (
+                        <PatternButton
+                          type="button"
+                          variant="glass"
+                          color="info"
+                          size="sm"
+                          rounded="full"
+                          isLoading={syncingCommentsChannelId === ch.id}
+                          onClick={() => handleSyncChannelPostsComments(ch)}
+                          icon={<RefreshCw className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>
+                            {t("syncPostsCommentsBtn")}
+                          </TruncatedText>
+                        </PatternButton>
+                      )}
 
                       <PatternButton
                         type="button"

@@ -157,7 +157,7 @@ export const ChatInput = ({
     string | undefined
   >(undefined);
   const [commentReplyMode, setCommentReplyMode] =
-    useState<CommentReplyModeType>("REPLY_COMMENT_AND_PRIVATE_INBOX");
+    useState<CommentReplyModeType>("REPLY_COMMENT_ONLY");
   const [autoHideCommentOnReply, setAutoHideCommentOnReply] = useState(true);
   const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
 

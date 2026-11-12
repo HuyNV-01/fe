@@ -353,6 +353,17 @@ export const syncChannelWebhookApi = async (
   return apiClient.post(`/channels/${shopId}/${channelId}/sync-webhook`);
 };
 
+export const syncChannelPostsCommentsApi = async (
+  shopId: string,
+  channelId: string,
+) => {
+  return apiClient.post(`/channels/${shopId}/${channelId}/sync-posts-comments`);
+};
+
+export const syncAllShopPostsCommentsApi = async (shopId: string) => {
+  return apiClient.post(`/channels/${shopId}/sync-all-posts-comments`);
+};
+
 export const updateChannelIntegrationApi = async (
   shopId: string,
   channelId: string,

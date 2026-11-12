@@ -365,6 +365,10 @@ export interface IMessageMetadata {
   productCards?: IQuickReplyProductCard[];
   translation?: IMessageTranslation;
   // Universal Comment Response & Anti-Competitor Shielding (F03.3 & F03.4)
+  externalCustomerName?: string;
+  externalCustomerAvatar?: string | null;
+  externalCustomerPsid?: string | null;
+  skipPlatformDispatch?: boolean;
   externalCommentId?: string;
   externalPostId?: string;
   isHiddenOnPlatform?: boolean;
@@ -378,6 +382,8 @@ export interface IMessageMetadata {
   deletedByAgentId?: string | null;
   platformDeliveryStatus?: "DISPATCHED" | "SIMULATED_SANDBOX" | "FAILED";
   platformExternalId?: string | null;
+  platformEditedExternalId?: string | null;
+  platformEditSyncedAt?: string;
   autoHideCommentOnReply?: boolean;
   originalTextBeforePlatformEdit?: string;
   privateReplySentAt?: string;
@@ -563,6 +569,7 @@ export interface IConversationDetails {
   conversationId: string;
   type: ConversationTypeEnum;
   name?: string;
+  avatar?: string | null;
   disappearingTtl: number | null;
   shopId?: string | null;
   channelType?: string;

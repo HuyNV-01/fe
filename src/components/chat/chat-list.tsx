@@ -119,6 +119,12 @@ export default function ChatList() {
       if (omnichannelFilter.noOrder && c.hasOrderCreated) {
         return false;
       }
+      if (
+        omnichannelFilter.interactionType &&
+        c.interactionType !== omnichannelFilter.interactionType
+      ) {
+        return false;
+      }
 
       const convTags = c.activeTagIdsJson || [];
       if (
@@ -247,13 +253,25 @@ export default function ChatList() {
             const formattedSubtitle = (
               <div className="flex flex-col gap-1 w-full min-w-0">
                 <span className="inline-flex items-center gap-1.5 truncate w-full">
-                  {channelInfo && (
+                  {(channelInfo || chat.pageShortCode) && (
                     <GlassBadge
                       variant="primary"
                       size="sm"
                       className="px-1.5 py-0 text-[9px] shrink-0"
                     >
-                      {channelInfo.pageShortCode}
+                      {channelInfo?.pageShortCode || chat.pageShortCode}
+                    </GlassBadge>
+                  )}
+                  {(chat.interactionType === "COMMENT" ||
+                    chat.interactionType === "LIVESTREAM") && (
+                    <GlassBadge
+                      variant="info"
+                      size="sm"
+                      className="px-1.5 py-0 text-[9px] shrink-0"
+                    >
+                      {chat.interactionType === "LIVESTREAM"
+                        ? "Live"
+                        : "Bình luận"}
                     </GlassBadge>
                   )}
                   {chat.isGhostedByAgent && (
@@ -317,7 +335,7 @@ export default function ChatList() {
                 avatarFallback={
                   chat.name?.substring(0, 2).toUpperCase() || UNKNOWN
                 }
-                avatarUrl={chat.avatar}
+                avatarUrl={chat.avatar || chat.channelAvatarUrl || undefined}
                 timestamp={chat.lastMessageAt}
                 badge={unreadBadge}
                 subtitle={formattedSubtitle}

@@ -834,6 +834,15 @@ export const useChatStore = createPersistedStore<ChatState>(
         }
 
         const convIndex = state.conversations.findIndex((c) => c.id === convId);
+        const msgMeta = (message.metadata || {}) as Record<string, any>;
+        const incomingCustomerAvatar =
+          (!isMe &&
+            (message.sender?.avatar || msgMeta.externalCustomerAvatar)) ||
+          null;
+        const incomingCustomerName =
+          (!isMe && (message.sender?.name || msgMeta.externalCustomerName)) ||
+          null;
+
         if (convIndex !== -1) {
           const updatedConv = { ...state.conversations[convIndex] };
           updatedConv.lastMessage =
@@ -849,6 +858,25 @@ export const useChatStore = createPersistedStore<ChatState>(
           updatedConv.lastMessageExpiresAt =
             message.expiresAt || message.metadata?.expiresAt || null;
 
+          if (incomingCustomerAvatar && !updatedConv.avatar) {
+            updatedConv.avatar = incomingCustomerAvatar;
+          }
+          if (
+            incomingCustomerName &&
+            (!updatedConv.name || updatedConv.name.includes("#"))
+          ) {
+            updatedConv.name = incomingCustomerName;
+          }
+          if (msgMeta.interactionType) {
+            updatedConv.interactionType = msgMeta.interactionType;
+          }
+          if (msgMeta.sourcePostId && !updatedConv.sourcePostId) {
+            updatedConv.sourcePostId = msgMeta.sourcePostId;
+          }
+          if (msgMeta.pageShortCode && !updatedConv.pageShortCode) {
+            updatedConv.pageShortCode = msgMeta.pageShortCode;
+          }
+
           const currentUnread = Number(updatedConv.unreadCount || 0);
 
           if (isViewing || isMe) {
@@ -860,7 +888,35 @@ export const useChatStore = createPersistedStore<ChatState>(
           state.conversations.splice(convIndex, 1);
           state.conversations.unshift(updatedConv);
         } else {
-          get().fetchInbox({ page: 1 });
+          // Chèn lạc quan (Optimistic Unshift 0ms) ngay khi có hội thoại bình luận bài viết hoặc tin nhắn mới
+          const optimisticConv: IConversation = {
+            id: convId,
+            type: ConversationTypeEnum.DIRECT,
+            name:
+              incomingCustomerName || message.sender?.name || "Khách hàng mới",
+            avatar: incomingCustomerAvatar || message.sender?.avatar || null,
+            lastMessage: message.content,
+            lastMessageAt: message.createdAt,
+            lastMessageType: message.type,
+            lastMessageSenderId: message.senderId,
+            lastMessageStatus: initialStatus,
+            unreadCount: isViewing || isMe ? 0 : 1,
+            shopId: message.shopId || null,
+            channelType: msgMeta.channelType || undefined,
+            interactionType: msgMeta.interactionType || "INBOX",
+            sourcePostId:
+              msgMeta.sourcePostId || msgMeta.externalPostId || null,
+            sourceAdId: msgMeta.sourceAdId || null,
+            pageShortCode: msgMeta.pageShortCode || undefined,
+            pageName: msgMeta.pageName || undefined,
+            supportStatus: isMe
+              ? "WAITING_CUSTOMER_REPLY"
+              : "WAITING_AGENT_REPLY",
+          };
+          state.conversations.unshift(optimisticConv);
+          setTimeout(() => {
+            get().fetchInbox({ page: 1 });
+          }, 50);
         }
       });
 

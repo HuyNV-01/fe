@@ -40,6 +40,7 @@ export interface IResetPassword {
 
 export interface ICallbackLogin {
   accessToken: string;
+  refreshToken?: string;
 }
 
 export interface IPaginationMeta {

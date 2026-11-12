@@ -25,6 +25,8 @@ import {
   runTokenDoctorHealthCheckApi,
   type SaasAppProfileItem,
   type SaasWebhookBlueprintItem,
+  syncAllShopPostsCommentsApi,
+  syncChannelPostsCommentsApi,
   syncChannelWebhookApi,
   updateChannelIntegrationApi,
   updateSaasAppProfileApi,
@@ -173,6 +175,24 @@ export interface ChannelWorkspaceStoreState {
     subscribedFields: string[];
     webhookCallbackUrl: string;
     webhookVerifyToken: string;
+  } | null>;
+  syncChannelPostsComments: (
+    shopId: string,
+    channelId: string,
+  ) => Promise<{
+    channelId: string;
+    pageName: string;
+    pageShortCode: string;
+    postsScanned: number;
+    newCommentsSynced: number;
+    syncedFromLiveApi: boolean;
+    syncedAt: string;
+  } | null>;
+  syncAllShopPostsComments: (shopId: string) => Promise<{
+    shopId: string;
+    channelsChecked: number;
+    postsScanned: number;
+    newCommentsSynced: number;
   } | null>;
   updateChannelIntegration: (
     shopId: string,
@@ -375,6 +395,18 @@ export const useChannelWorkspaceStore =
 
       syncChannelWebhook: async (shopId, channelId) => {
         const res: any = await syncChannelWebhookApi(shopId, channelId);
+        await get().fetchShopChannels(shopId);
+        return (res?.data ?? res) || null;
+      },
+
+      syncChannelPostsComments: async (shopId, channelId) => {
+        const res: any = await syncChannelPostsCommentsApi(shopId, channelId);
+        await get().fetchShopChannels(shopId);
+        return (res?.data ?? res) || null;
+      },
+
+      syncAllShopPostsComments: async (shopId) => {
+        const res: any = await syncAllShopPostsCommentsApi(shopId);
         await get().fetchShopChannels(shopId);
         return (res?.data ?? res) || null;
       },

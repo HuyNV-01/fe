@@ -344,11 +344,18 @@ export const MessageBubble = memo(
           setShowBookmarkPicker(false);
         }}
       >
-        {!isMe && isGroupChat && !isContinuous && displayName && (
-          <span className="text-[11px] font-medium text-muted-foreground ml-10 mb-1 select-none">
-            {displayName}
-          </span>
-        )}
+        {!isMe &&
+          (isGroupChat || isCommentThread) &&
+          !isContinuous &&
+          (displayName ||
+            message.sender?.name ||
+            message.metadata?.externalCustomerName) && (
+            <span className="text-[11px] font-medium text-muted-foreground ml-10 mb-1 select-none">
+              {displayName ||
+                message.sender?.name ||
+                message.metadata?.externalCustomerName}
+            </span>
+          )}
 
         <div
           className={cn(
@@ -358,10 +365,20 @@ export const MessageBubble = memo(
         >
           {!isMe && (
             <div className="w-7 sm:w-8 shrink-0 flex flex-col justify-end">
-              {isLastInGroup ? (
+              {isLastInGroup || !isContinuous ? (
                 <GlassAvatar
-                  src={avatarUrl}
-                  name={displayName || "U"}
+                  src={
+                    avatarUrl ||
+                    message.sender?.avatar ||
+                    message.metadata?.externalCustomerAvatar ||
+                    undefined
+                  }
+                  name={
+                    displayName ||
+                    message.sender?.name ||
+                    message.metadata?.externalCustomerName ||
+                    "Khách hàng"
+                  }
                   size="xs"
                 />
               ) : (
@@ -1020,7 +1037,12 @@ export const MessageBubble = memo(
                   </span>
                 )}
               {!isRecalled && message.metadata?.isEdited && (
-                <span className="italic">{t("editedLabel")}</span>
+                <span className="italic">
+                  {t("editedLabel")}
+                  {isMe && message.metadata?.platformEditSyncedAt
+                    ? ` • ${tInbox("commentActions.platformEditSyncedBadge")}`
+                    : ""}
+                </span>
               )}
               <span title={fullTimeTitle}>{timeString}</span>
               {StatusIcon}

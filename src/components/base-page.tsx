@@ -14,6 +14,7 @@ export default function BasePage({ children }: { children?: React.ReactNode }) {
   const tError = useTranslations("Messages.error");
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get("token");
+  const refreshTokenFromUrl = searchParams.get("refreshToken") || undefined;
   const router = useRouter();
   const tokenProcessed = useRef(false);
   const callbackLoginThird = useAuthStore((s) => s.callbackLoginThird);
@@ -22,7 +23,7 @@ export default function BasePage({ children }: { children?: React.ReactNode }) {
     if (tokenFromUrl && !tokenProcessed.current) {
       tokenProcessed.current = true;
       callbackLoginThird(
-        { accessToken: tokenFromUrl },
+        { accessToken: tokenFromUrl, refreshToken: refreshTokenFromUrl },
         {
           onSuccess: (code) => {
             router.replace(config.routes.public.home);

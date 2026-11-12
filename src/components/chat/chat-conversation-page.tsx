@@ -606,7 +606,12 @@ export default function ChatConversationPage({
       <div className="flex-none z-20 bg-background/95 border-b">
         <ChatHeader
           displayName={resolvedHeaderName}
-          avatarUrl={currentConversation?.avatar}
+          avatarUrl={
+            currentConversation?.avatar ||
+            currentDetails?.avatar ||
+            currentConversation?.channelAvatarUrl ||
+            undefined
+          }
           isOnline={currentConversation?.isOnline}
           isTyping={isPartnerTyping}
           isMuted={currentConversation?.isMuted}
@@ -883,9 +888,20 @@ export default function ChatConversationPage({
                           avatarUrl={
                             isMe
                               ? currentUser.user.avatar || undefined
-                              : msg.sender?.avatar || undefined
+                              : msg.sender?.avatar ||
+                                msg.metadata?.externalCustomerAvatar ||
+                                currentConversation?.avatar ||
+                                currentDetails?.avatar ||
+                                currentConversation?.channelAvatarUrl ||
+                                undefined
                           }
-                          displayName={isMe ? t("me") : msg.sender?.name}
+                          displayName={
+                            isMe
+                              ? t("me")
+                              : msg.sender?.name ||
+                                msg.metadata?.externalCustomerName ||
+                                resolvedHeaderName
+                          }
                           displayReaders={readReceiptsMap[msg.id]}
                           bookmarkTags={bookmarkTags}
                           allTagsMap={allTagsMap}

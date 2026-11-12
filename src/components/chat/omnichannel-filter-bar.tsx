@@ -11,6 +11,8 @@ import {
   RotateCcw,
   CheckSquare,
   Layers,
+  MessageSquare,
+  RefreshCw,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
@@ -22,7 +24,9 @@ import {
   TruncatedText,
 } from "@/components/toolkit";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
+import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 import { useTagStore } from "@/lib/stores/tags/use-tag-store";
+import { showErrorToast, showSuccessToast } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuTrigger } from "../ui/dropdown-menu";
 
@@ -50,7 +54,34 @@ export const OmnichannelFilterBar = ({
   const bulkAssignConversationTags = useTagStore(
     (s) => s.bulkAssignConversationTags,
   );
+  const fetchInbox = useChatStore((s) => s.fetchInbox);
+  const syncAllShopPostsComments = useChannelWorkspaceStore(
+    (s) => s.syncAllShopPostsComments,
+  );
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [isSyncingOrganicComments, setIsSyncingOrganicComments] =
+    useState(false);
+
+  const handleSyncOrganicComments = async () => {
+    if (!shopId || isSyncingOrganicComments) return;
+    setIsSyncingOrganicComments(true);
+    try {
+      const res = await syncAllShopPostsComments(shopId);
+      await Promise.all([
+        fetchInbox({ page: 1 }),
+        queryOmnichannelInbox(shopId),
+      ]);
+      showSuccessToast(
+        t("syncedOrganicCommentsToast", {
+          count: res?.newCommentsSynced || 0,
+        }),
+      );
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setIsSyncingOrganicComments(false);
+    }
+  };
 
   const applyPatch = (patch: Record<string, any>) => {
     setOmnichannelFilter(patch);
@@ -211,6 +242,54 @@ export const OmnichannelFilterBar = ({
                 className="h-7 w-7 shrink-0"
               >
                 <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+              </PatternButton>
+            </TruncatedText>
+
+            <TruncatedText
+              onlyWhenTruncated={false}
+              tooltipContent={t("commentsOnlyTooltip")}
+              className="inline-flex"
+            >
+              <PatternButton
+                type="button"
+                size="icon"
+                rounded="full"
+                variant={
+                  filter.interactionType === "COMMENT" ? "solid" : "outline"
+                }
+                color={
+                  filter.interactionType === "COMMENT" ? "primary" : "neutral"
+                }
+                onClick={() =>
+                  applyPatch({
+                    interactionType:
+                      filter.interactionType === "COMMENT"
+                        ? undefined
+                        : "COMMENT",
+                  })
+                }
+                className="h-7 w-7 shrink-0"
+              >
+                <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+              </PatternButton>
+            </TruncatedText>
+
+            <TruncatedText
+              onlyWhenTruncated={false}
+              tooltipContent={t("syncOrganicCommentsTooltip")}
+              className="inline-flex"
+            >
+              <PatternButton
+                type="button"
+                size="icon"
+                rounded="full"
+                variant="outline"
+                color="info"
+                isLoading={isSyncingOrganicComments}
+                onClick={handleSyncOrganicComments}
+                className="h-7 w-7 shrink-0"
+              >
+                <RefreshCw className="w-3.5 h-3.5 shrink-0" />
               </PatternButton>
             </TruncatedText>
           </div>
