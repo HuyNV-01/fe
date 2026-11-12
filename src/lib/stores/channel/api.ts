@@ -17,6 +17,8 @@ export type WebhookHealthStatusType =
   | "RATE_LIMITED";
 
 export interface ChannelPlatformSaasConfig {
+  saasAppProfileId?: string | null;
+  saasAppProfileName?: string | null;
   apiVersion?: string;
   appId?: string;
   webhookVerifyToken?: string;
@@ -31,12 +33,38 @@ export interface ChannelPlatformSaasConfig {
   autoHidePhoneComments?: boolean;
   autoHideKeywordComments?: string[];
   syncEchoMessagesFromNativeApp?: boolean;
+  webhookAutoInjected?: boolean;
+  webhookInjectedAt?: string | null;
+  subscribedAppsVerifiedOnPlatform?: boolean;
+}
+
+export interface SaasAppProfileItem {
+  id: string;
+  name: string;
+  channelType: ChannelPlatformType;
+  apiVersion: string;
+  appId: string;
+  hasAppSecretConfigured: boolean;
+  webhookVerifyToken: string;
+  webhookCallbackUrl: string;
+  subscribedFields: string[];
+  autoHidePhoneComments: boolean;
+  syncEchoMessagesFromNativeApp: boolean;
+  autoInjectWebhookOnConnect: boolean;
+  isDefault: boolean;
+  isActive: boolean;
+  appWebhookRegistered: boolean;
+  connectedChannelsCount: number;
+  lastVerifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ConnectedChannelItem {
   id: string;
   shopId: string;
   channelType: ChannelPlatformType;
+  saasAppProfileId?: string | null;
   externalPageId: string;
   externalShopId?: string | null;
   pageName: string;
@@ -76,6 +104,8 @@ export interface ResolvedChannelTokenCandidatePage {
 
 export interface ResolvedChannelTokenMetadata {
   channelType: ChannelPlatformType;
+  saasAppProfileId?: string | null;
+  saasAppProfileName?: string | null;
   tokenKind:
     | "PAGE_TOKEN"
     | "USER_TOKEN"
@@ -185,11 +215,76 @@ export const getSaasWebhookConfigApi = async (shopId: string) => {
   return apiClient.get(`/channels/${shopId}/saas-webhook-config`);
 };
 
+export const listSaasAppProfilesApi = async (shopId: string) => {
+  return apiClient.get(`/channels/${shopId}/saas-profiles`);
+};
+
+export const createSaasAppProfileApi = async (
+  shopId: string,
+  data: {
+    name: string;
+    channelType: ChannelPlatformType;
+    apiVersion?: string;
+    appId: string;
+    appSecret?: string;
+    webhookVerifyToken?: string;
+    subscribedFields?: string[];
+    autoHidePhoneComments?: boolean;
+    syncEchoMessagesFromNativeApp?: boolean;
+    autoInjectWebhookOnConnect?: boolean;
+    isDefault?: boolean;
+    autoRegisterAppWebhookOnPlatform?: boolean;
+  },
+) => {
+  return apiClient.post(`/channels/${shopId}/saas-profiles`, data);
+};
+
+export const updateSaasAppProfileApi = async (
+  shopId: string,
+  profileId: string,
+  data: {
+    name?: string;
+    apiVersion?: string;
+    appId?: string;
+    appSecret?: string;
+    webhookVerifyToken?: string;
+    subscribedFields?: string[];
+    autoHidePhoneComments?: boolean;
+    syncEchoMessagesFromNativeApp?: boolean;
+    autoInjectWebhookOnConnect?: boolean;
+    isDefault?: boolean;
+    isActive?: boolean;
+    propagateToBoundChannels?: boolean;
+  },
+) => {
+  return apiClient.patch(
+    `/channels/${shopId}/saas-profiles/${profileId}`,
+    data,
+  );
+};
+
+export const deleteSaasAppProfileApi = async (
+  shopId: string,
+  profileId: string,
+) => {
+  return apiClient.delete(`/channels/${shopId}/saas-profiles/${profileId}`);
+};
+
+export const injectWebhooksForSaasProfileApi = async (
+  shopId: string,
+  profileId: string,
+) => {
+  return apiClient.post(
+    `/channels/${shopId}/saas-profiles/${profileId}/inject-all-webhooks`,
+  );
+};
+
 export const resolveChannelTokenMetadataApi = async (
   shopId: string,
   data: {
     channelType: ChannelPlatformType;
     accessToken: string;
+    saasAppProfileId?: string;
     externalPageId?: string;
     apiVersion?: string;
     appId?: string;
@@ -204,6 +299,7 @@ export const connectChannelOAuthApi = async (
   shopId: string,
   data: {
     channelType: ChannelPlatformType;
+    saasAppProfileId?: string;
     externalPageId?: string;
     externalShopId?: string;
     pageName?: string;
@@ -231,6 +327,7 @@ export const batchConnectChannelsApi = async (
   shopId: string,
   data: {
     channelType: ChannelPlatformType;
+    saasAppProfileId?: string;
     apiVersion?: string;
     appId?: string;
     appSecret?: string;
@@ -260,6 +357,7 @@ export const updateChannelIntegrationApi = async (
   shopId: string,
   channelId: string,
   data: {
+    saasAppProfileId?: string;
     pageName?: string;
     pageShortCode?: string;
     avatarUrl?: string;

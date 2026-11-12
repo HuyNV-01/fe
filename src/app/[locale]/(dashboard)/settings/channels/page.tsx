@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/correctness/useExhaustiveDependencies: <explanation> */
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Share2,
   Plus,
@@ -24,6 +24,8 @@ import {
   ShieldCheck,
   Code2,
   Link2,
+  Layers,
+  Star,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
@@ -37,6 +39,7 @@ import {
   GlassTabs,
   GlassBadge,
   GlassAvatar,
+  GlassAlert,
   GlassModal,
   GlassEmptyState,
   PatternButton,
@@ -52,6 +55,7 @@ import {
   type ConnectedChannelItem,
   type ResolvedChannelTokenCandidatePage,
   type ResolvedChannelTokenMetadata,
+  type SaasAppProfileItem,
   simulateOmnichannelWebhookApi,
 } from "@/lib/stores/channel/api";
 import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
@@ -67,6 +71,7 @@ import { cn } from "@/lib/utils";
 
 type ChannelsTabMode =
   | "CONNECTED_CHANNELS"
+  | "SAAS_APP_PROFILES"
   | "ROUTING_AND_SLA"
   | "MARKETPLACE_BRIDGE"
   | "WEBHOOK_INSPECTOR";
@@ -114,6 +119,7 @@ export default function OmnichannelSettingsPage() {
   const membersRefreshTick = usePermissionStore((s) => s.membersRefreshTick);
   const channels = useChannelWorkspaceStore((s) => s.channels);
   const saasBlueprints = useChannelWorkspaceStore((s) => s.saasBlueprints);
+  const saasProfiles = useChannelWorkspaceStore((s) => s.saasProfiles);
   const webhookLogs = useChannelWorkspaceStore((s) => s.webhookLogs);
   const marketplaceReservations = useChannelWorkspaceStore(
     (s) => s.marketplaceReservations,
@@ -123,6 +129,21 @@ export default function OmnichannelSettingsPage() {
   );
   const fetchSaasWebhookConfig = useChannelWorkspaceStore(
     (s) => s.fetchSaasWebhookConfig,
+  );
+  const fetchSaasAppProfiles = useChannelWorkspaceStore(
+    (s) => s.fetchSaasAppProfiles,
+  );
+  const createSaasAppProfile = useChannelWorkspaceStore(
+    (s) => s.createSaasAppProfile,
+  );
+  const updateSaasAppProfile = useChannelWorkspaceStore(
+    (s) => s.updateSaasAppProfile,
+  );
+  const deleteSaasAppProfile = useChannelWorkspaceStore(
+    (s) => s.deleteSaasAppProfile,
+  );
+  const injectWebhooksForSaasProfile = useChannelWorkspaceStore(
+    (s) => s.injectWebhooksForSaasProfile,
   );
   const resolveChannelTokenMetadata = useChannelWorkspaceStore(
     (s) => s.resolveChannelTokenMetadata,
@@ -157,8 +178,35 @@ export default function OmnichannelSettingsPage() {
   const [inspectingLog, setInspectingLog] =
     useState<ChannelWebhookLogItem | null>(null);
 
+  // State cho Tab Quản lý Đa Hồ sơ SaaS (SAAS_APP_PROFILES)
+  const [saasProfileModalOpen, setSaasProfileModalOpen] = useState(false);
+  const [editingSaasProfile, setEditingSaasProfile] =
+    useState<SaasAppProfileItem | null>(null);
+  const [profName, setProfName] = useState("");
+  const [profChannelType, setProfChannelType] =
+    useState<ChannelPlatformType>("FACEBOOK_PAGE");
+  const [profApiVersion, setProfApiVersion] = useState("v27.1");
+  const [profAppId, setProfAppId] = useState("");
+  const [profAppSecret, setProfAppSecret] = useState("");
+  const [profVerifyToken, setProfVerifyToken] = useState("");
+  const [profAutoHidePhone, setProfAutoHidePhone] = useState(true);
+  const [profSyncEcho, setProfSyncEcho] = useState(true);
+  const [profAutoInjectWebhook, setProfAutoInjectWebhook] = useState(true);
+  const [profIsDefault, setProfIsDefault] = useState(true);
+  const [isSavingSaasProfile, setIsSavingSaasProfile] = useState(false);
+  const [injectingProfileId, setInjectingProfileId] = useState<string | null>(
+    null,
+  );
+  const [deletingProfileId, setDeletingProfileId] = useState<string | null>(
+    null,
+  );
+
+  // State cho Modal Kết nối Kênh (Chỉ cần chọn Hồ sơ SaaS & dán Access Token)
   const [channelType, setChannelType] =
     useState<ChannelPlatformType>("FACEBOOK_PAGE");
+  const [selectedSaasProfileId, setSelectedSaasProfileId] =
+    useState<string>("");
+  const [showCustomSaasOverride, setShowCustomSaasOverride] = useState(false);
   const [apiVersion, setApiVersion] = useState("v27.1");
   const [appId, setAppId] = useState("");
   const [appSecret, setAppSecret] = useState("");
@@ -188,6 +236,7 @@ export default function OmnichannelSettingsPage() {
   const [subscribedFields, setSubscribedFields] = useState<string[]>([]);
   const [isResolvingTokenMeta, setIsResolvingTokenMeta] = useState(false);
 
+  const [editSaasProfileId, setEditSaasProfileId] = useState<string>("");
   const [editPageName, setEditPageName] = useState("");
   const [editPageShortCode, setEditPageShortCode] = useState("");
   const [editAvatarUrl, setEditAvatarUrl] = useState("");
@@ -292,6 +341,7 @@ export default function OmnichannelSettingsPage() {
     if (!activeShopId) return;
     fetchShopChannels(activeShopId);
     fetchSaasWebhookConfig(activeShopId);
+    fetchSaasAppProfiles(activeShopId);
     loadWorkspaceSettings();
     fetchWebhookLogs(activeShopId, {
       processingStatus:
@@ -304,28 +354,56 @@ export default function OmnichannelSettingsPage() {
     webhookStatusFilter,
     fetchShopChannels,
     fetchSaasWebhookConfig,
+    fetchSaasAppProfiles,
     loadWorkspaceSettings,
     fetchWebhookLogs,
     fetchMarketplaceReservations,
   ]);
 
+  const matchingPlatformProfiles = useMemo(
+    () => saasProfiles.filter((p) => p.channelType === channelType),
+    [saasProfiles, channelType],
+  );
+
+  // Tự động chọn Hồ sơ SaaS mặc định của nền tảng khi mở Modal Kết nối kênh hoặc đổi loại kênh
   useEffect(() => {
+    const defaultProf =
+      matchingPlatformProfiles.find((p) => p.isDefault && p.isActive) ||
+      matchingPlatformProfiles[0];
+
+    if (defaultProf) {
+      setSelectedSaasProfileId(defaultProf.id);
+      setApiVersion(defaultProf.apiVersion);
+      setAppId(defaultProf.appId);
+      setWebhookCallbackUrl(defaultProf.webhookCallbackUrl);
+      setWebhookVerifySecret(defaultProf.webhookVerifyToken);
+      setAutoHidePhoneComments(defaultProf.autoHidePhoneComments);
+      setSyncEchoMessagesFromNativeApp(
+        defaultProf.syncEchoMessagesFromNativeApp,
+      );
+      return;
+    }
+
+    setSelectedSaasProfileId("");
     const bp = saasBlueprints.find((item) => item.channelType === channelType);
     if (bp) {
       setApiVersion(
         bp.defaultApiVersion || DEFAULT_API_VERSION_BY_PLATFORM[channelType],
       );
-      if (bp.defaultAppId && !appId) {
-        setAppId(bp.defaultAppId);
-      }
+      setAppId(bp.defaultAppId || "");
       setWebhookCallbackUrl(bp.webhookCallbackUrl);
-      if (!webhookVerifySecret) {
-        setWebhookVerifySecret(bp.webhookVerifyToken);
-      }
+      setWebhookVerifySecret(bp.webhookVerifyToken);
     } else {
       setApiVersion(DEFAULT_API_VERSION_BY_PLATFORM[channelType]);
     }
-  }, [channelType, saasBlueprints]);
+  }, [channelType, matchingPlatformProfiles, saasBlueprints]);
+
+  const activeSelectedSaasProfile = useMemo(
+    () =>
+      matchingPlatformProfiles.find((p) => p.id === selectedSaasProfileId) ||
+      null,
+    [matchingPlatformProfiles, selectedSaasProfileId],
+  );
 
   const handleCopyText = async (value: string, toastMessage: string) => {
     if (!value) return;
@@ -335,10 +413,147 @@ export default function OmnichannelSettingsPage() {
     } catch {}
   };
 
+  const handleOpenCreateSaasProfileModal = (
+    defaultPlat: ChannelPlatformType = "FACEBOOK_PAGE",
+  ) => {
+    setEditingSaasProfile(null);
+    setProfChannelType(defaultPlat);
+    setProfName("");
+    setProfApiVersion(DEFAULT_API_VERSION_BY_PLATFORM[defaultPlat]);
+    setProfAppId("");
+    setProfAppSecret("");
+    const bp = saasBlueprints.find((b) => b.channelType === defaultPlat);
+    setProfVerifyToken(
+      bp?.webhookVerifyToken || "pancake_seller_os_verify_2026",
+    );
+    setProfAutoHidePhone(true);
+    setProfSyncEcho(true);
+    setProfAutoInjectWebhook(true);
+    setProfIsDefault(
+      !saasProfiles.some((p) => p.channelType === defaultPlat && p.isDefault),
+    );
+    setSaasProfileModalOpen(true);
+  };
+
+  const handleOpenEditSaasProfileModal = (prof: SaasAppProfileItem) => {
+    setEditingSaasProfile(prof);
+    setProfChannelType(prof.channelType);
+    setProfName(prof.name);
+    setProfApiVersion(prof.apiVersion);
+    setProfAppId(prof.appId);
+    setProfAppSecret("");
+    setProfVerifyToken(prof.webhookVerifyToken);
+    setProfAutoHidePhone(prof.autoHidePhoneComments);
+    setProfSyncEcho(prof.syncEchoMessagesFromNativeApp);
+    setProfAutoInjectWebhook(prof.autoInjectWebhookOnConnect);
+    setProfIsDefault(prof.isDefault);
+    setSaasProfileModalOpen(true);
+  };
+
+  const handleSaveSaasProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeShopId || !profName.trim() || !profAppId.trim()) return;
+    setIsSavingSaasProfile(true);
+    try {
+      if (editingSaasProfile) {
+        await updateSaasAppProfile(activeShopId, editingSaasProfile.id, {
+          name: profName.trim(),
+          apiVersion: profApiVersion.trim() || undefined,
+          appId: profAppId.trim(),
+          appSecret: profAppSecret.trim() || undefined,
+          webhookVerifyToken: profVerifyToken.trim() || undefined,
+          autoHidePhoneComments: profAutoHidePhone,
+          syncEchoMessagesFromNativeApp: profSyncEcho,
+          autoInjectWebhookOnConnect: profAutoInjectWebhook,
+          isDefault: profIsDefault,
+          propagateToBoundChannels: true,
+        });
+        showSuccessToast(
+          t("saasProfilesTab.updatedProfileToast", { name: profName.trim() }),
+        );
+      } else {
+        await createSaasAppProfile(activeShopId, {
+          name: profName.trim(),
+          channelType: profChannelType,
+          apiVersion: profApiVersion.trim() || undefined,
+          appId: profAppId.trim(),
+          appSecret: profAppSecret.trim() || undefined,
+          webhookVerifyToken: profVerifyToken.trim() || undefined,
+          autoHidePhoneComments: profAutoHidePhone,
+          syncEchoMessagesFromNativeApp: profSyncEcho,
+          autoInjectWebhookOnConnect: profAutoInjectWebhook,
+          isDefault: profIsDefault,
+          autoRegisterAppWebhookOnPlatform: true,
+        });
+        showSuccessToast(
+          t("saasProfilesTab.createdProfileToast", { name: profName.trim() }),
+        );
+      }
+      setSaasProfileModalOpen(false);
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setIsSavingSaasProfile(false);
+    }
+  };
+
+  const handleSetDefaultSaasProfile = async (prof: SaasAppProfileItem) => {
+    if (!activeShopId || prof.isDefault) return;
+    try {
+      await updateSaasAppProfile(activeShopId, prof.id, {
+        isDefault: true,
+        propagateToBoundChannels: false,
+      });
+      showSuccessToast(
+        t("saasProfilesTab.setDefaultSuccessToast", { name: prof.name }),
+      );
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    }
+  };
+
+  const handleInjectAllWebhooksForProfile = async (
+    prof: SaasAppProfileItem,
+  ) => {
+    if (!activeShopId) return;
+    setInjectingProfileId(prof.id);
+    try {
+      const res = await injectWebhooksForSaasProfile(activeShopId, prof.id);
+      showSuccessToast(
+        t("saasProfilesTab.injectedAllWebhooksToast", {
+          successCount: res?.injectedSuccessCount || 0,
+          totalCount: res?.totalChannels || 0,
+        }),
+      );
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setInjectingProfileId(null);
+    }
+  };
+
+  const handleDeleteSaasProfile = async (profileId: string) => {
+    if (!activeShopId) return;
+    setDeletingProfileId(profileId);
+    try {
+      await deleteSaasAppProfile(activeShopId, profileId);
+      showInfoToast(t("saasProfilesTab.deletedProfileToast"));
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setDeletingProfileId(null);
+    }
+  };
+
   const handleAutoResolveTokenMetadata = useCallback(
-    async (rawTok?: string, targetPlat?: ChannelPlatformType) => {
+    async (
+      rawTok?: string,
+      targetPlat?: ChannelPlatformType,
+      overrideProfileId?: string,
+    ) => {
       const tokenToResolve = (rawTok ?? accessToken).trim();
       const platformToUse = targetPlat ?? channelType;
+      const profileIdToUse = overrideProfileId ?? selectedSaasProfileId;
       if (!activeShopId || tokenToResolve.length < 6) return;
 
       setIsResolvingTokenMeta(true);
@@ -346,10 +561,15 @@ export default function OmnichannelSettingsPage() {
         const resolved = await resolveChannelTokenMetadata(activeShopId, {
           channelType: platformToUse,
           accessToken: tokenToResolve,
+          saasAppProfileId: profileIdToUse || undefined,
           externalPageId: externalPageId.trim() || undefined,
-          apiVersion: apiVersion.trim() || undefined,
-          appId: appId.trim() || undefined,
-          appSecret: appSecret.trim() || undefined,
+          apiVersion: showCustomSaasOverride
+            ? apiVersion.trim() || undefined
+            : undefined,
+          appId: showCustomSaasOverride ? appId.trim() || undefined : undefined,
+          appSecret: showCustomSaasOverride
+            ? appSecret.trim() || undefined
+            : undefined,
           allowSandboxSimulation,
         });
         if (resolved) {
@@ -384,7 +604,6 @@ export default function OmnichannelSettingsPage() {
               t("autoFetchTokenSuccessToast", { name: resolved.pageName }),
             );
           } else {
-            // Khi User Access Token trả về nhiều Fanpage, yêu cầu người bán chọn đích danh để không bao giờ ra sai Page
             setPageName("");
             setPageShortCode("");
             setExternalPageId("");
@@ -407,6 +626,8 @@ export default function OmnichannelSettingsPage() {
       activeShopId,
       accessToken,
       channelType,
+      selectedSaasProfileId,
+      showCustomSaasOverride,
       externalPageId,
       apiVersion,
       appId,
@@ -420,6 +641,9 @@ export default function OmnichannelSettingsPage() {
 
   const handleOpenEditChannel = (ch: ConnectedChannelItem) => {
     setEditingChannel(ch);
+    setEditSaasProfileId(
+      ch.saasAppProfileId || ch.platformConfigJson?.saasAppProfileId || "",
+    );
     setEditPageName(ch.pageName);
     setEditPageShortCode(ch.pageShortCode);
     setEditAvatarUrl(ch.avatarUrl || "");
@@ -450,6 +674,7 @@ export default function OmnichannelSettingsPage() {
     setIsUpdatingChannel(true);
     try {
       await updateChannelIntegration(activeShopId, editingChannel.id, {
+        saasAppProfileId: editSaasProfileId || undefined,
         pageName: editPageName.trim() || undefined,
         pageShortCode: editPageShortCode.trim().toUpperCase() || undefined,
         avatarUrl: editAvatarUrl.trim() || undefined,
@@ -484,6 +709,7 @@ export default function OmnichannelSettingsPage() {
     setAppSecret("");
     setMetaDatasetId("");
     setCapiAccessToken("");
+    setShowCustomSaasOverride(false);
     setResolvedTokenMeta(null);
     setCandidatePages([]);
     setSelectedBatchPageIds([]);
@@ -507,10 +733,17 @@ export default function OmnichannelSettingsPage() {
       if (selectedPagesForBatch.length > 1 && !externalPageId.trim()) {
         const connectedCount = await batchConnectChannels(activeShopId, {
           channelType,
-          apiVersion: apiVersion.trim() || undefined,
-          appId: appId.trim() || undefined,
-          appSecret: appSecret.trim() || undefined,
-          webhookVerifySecret: webhookVerifySecret.trim() || undefined,
+          saasAppProfileId: selectedSaasProfileId || undefined,
+          apiVersion: showCustomSaasOverride
+            ? apiVersion.trim() || undefined
+            : undefined,
+          appId: showCustomSaasOverride ? appId.trim() || undefined : undefined,
+          appSecret: showCustomSaasOverride
+            ? appSecret.trim() || undefined
+            : undefined,
+          webhookVerifySecret: showCustomSaasOverride
+            ? webhookVerifySecret.trim() || undefined
+            : undefined,
           metaDatasetId: metaDatasetId.trim() || undefined,
           capiAccessToken: capiAccessToken.trim() || undefined,
           pages: selectedPagesForBatch.map((p) => ({
@@ -531,16 +764,23 @@ export default function OmnichannelSettingsPage() {
 
       await connectChannelOAuth(activeShopId, {
         channelType,
+        saasAppProfileId: selectedSaasProfileId || undefined,
         pageName: pageName.trim() || undefined,
         pageShortCode: pageShortCode.trim().toUpperCase() || undefined,
         externalPageId: externalPageId.trim() || undefined,
         avatarUrl: avatarUrl.trim() || undefined,
         accessToken: accessToken.trim(),
         refreshToken: refreshToken.trim() || undefined,
-        apiVersion: apiVersion.trim() || undefined,
-        appId: appId.trim() || undefined,
-        appSecret: appSecret.trim() || undefined,
-        webhookVerifySecret: webhookVerifySecret.trim() || undefined,
+        apiVersion: showCustomSaasOverride
+          ? apiVersion.trim() || undefined
+          : undefined,
+        appId: showCustomSaasOverride ? appId.trim() || undefined : undefined,
+        appSecret: showCustomSaasOverride
+          ? appSecret.trim() || undefined
+          : undefined,
+        webhookVerifySecret: showCustomSaasOverride
+          ? webhookVerifySecret.trim() || undefined
+          : undefined,
         subscribedFields:
           subscribedFields.length > 0 ? subscribedFields : undefined,
         autoHidePhoneComments,
@@ -773,6 +1013,26 @@ export default function OmnichannelSettingsPage() {
             <PermissionGate can="CHANNEL_INTEGRATION_CONNECT" mode="disable">
               <PatternButton
                 type="button"
+                variant="glass"
+                color="primary"
+                size="sm"
+                rounded="full"
+                onClick={() => {
+                  setActiveTab("SAAS_APP_PROFILES");
+                  handleOpenCreateSaasProfileModal();
+                }}
+                icon={<Layers className="w-3.5 h-3.5" />}
+                iconPosition="left"
+              >
+                <TruncatedText>
+                  {t("saasProfilesTab.addProfileBtn")}
+                </TruncatedText>
+              </PatternButton>
+            </PermissionGate>
+
+            <PermissionGate can="CHANNEL_INTEGRATION_CONNECT" mode="disable">
+              <PatternButton
+                type="button"
                 variant="solid"
                 color="primary"
                 size="sm"
@@ -798,6 +1058,11 @@ export default function OmnichannelSettingsPage() {
             badge: channels.length,
           },
           {
+            key: "SAAS_APP_PROFILES",
+            label: <TruncatedText>{t("tabs.saasAppProfiles")}</TruncatedText>,
+            badge: saasProfiles.length,
+          },
+          {
             key: "ROUTING_AND_SLA",
             label: <TruncatedText>{t("tabs.routingAndSla")}</TruncatedText>,
           },
@@ -814,6 +1079,7 @@ export default function OmnichannelSettingsPage() {
         ]}
       />
 
+      {/* TAB 1: DANH SÁCH KÊNH BÁN HÀNG ĐÃ KẾT NỐI */}
       {activeTab === "CONNECTED_CHANNELS" && (
         <div className="space-y-3">
           {channels.length === 0 ? (
@@ -848,6 +1114,12 @@ export default function OmnichannelSettingsPage() {
                 ch.channelType === "TIKTOK_SHOP" ||
                 ch.channelType === "LAZADA";
 
+              const boundProfile = saasProfiles.find(
+                (p) =>
+                  p.id === ch.saasAppProfileId ||
+                  p.id === ch.platformConfigJson?.saasAppProfileId,
+              );
+
               return (
                 <GlassSurfaceCard key={ch.id} className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -874,6 +1146,14 @@ export default function OmnichannelSettingsPage() {
                                 DEFAULT_API_VERSION_BY_PLATFORM[ch.channelType]}
                             </TruncatedText>
                           </GlassBadge>
+                          {(boundProfile ||
+                            ch.platformConfigJson?.saasAppProfileName) && (
+                            <GlassBadge variant="secondary" size="sm">
+                              <Layers className="w-3 h-3 mr-1 inline" />
+                              {boundProfile?.name ||
+                                ch.platformConfigJson?.saasAppProfileName}
+                            </GlassBadge>
+                          )}
                           {ch.hasAppSecretConfigured && (
                             <GlassBadge variant="success" size="sm">
                               <ShieldCheck className="w-3 h-3 mr-1 inline" />
@@ -1051,6 +1331,273 @@ export default function OmnichannelSettingsPage() {
         </div>
       )}
 
+      {/* TAB 2: QUẢN LÝ ĐA CẤU HÌNH ỨNG DỤNG SAAS & TỰ ĐỘNG TIÊM WEBHOOK (SAAS_APP_PROFILES) */}
+      {activeTab === "SAAS_APP_PROFILES" && (
+        <div className="space-y-4">
+          <GlassAlert
+            variant="info"
+            title={t("saasProfilesTab.bannerTitle")}
+            description={t("saasProfilesTab.bannerDesc")}
+          />
+
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">
+                {t("saasProfilesTab.sectionHeading", {
+                  count: saasProfiles.length,
+                })}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {t("saasProfilesTab.sectionSubheading")}
+              </p>
+            </div>
+
+            <PermissionGate can="CHANNEL_INTEGRATION_CONNECT" mode="disable">
+              <PatternButton
+                type="button"
+                variant="solid"
+                color="primary"
+                size="sm"
+                rounded="full"
+                onClick={() => handleOpenCreateSaasProfileModal()}
+                icon={<Plus className="w-4 h-4" />}
+                iconPosition="left"
+              >
+                <TruncatedText>
+                  {t("saasProfilesTab.addProfileBtn")}
+                </TruncatedText>
+              </PatternButton>
+            </PermissionGate>
+          </div>
+
+          {saasProfiles.length === 0 ? (
+            <GlassEmptyState
+              icon={<Layers className="w-6 h-6" />}
+              title={
+                <TruncatedText>{t("saasProfilesTab.emptyTitle")}</TruncatedText>
+              }
+              description={t("saasProfilesTab.emptyDesc")}
+              action={
+                <PermissionGate
+                  can="CHANNEL_INTEGRATION_CONNECT"
+                  mode="disable"
+                >
+                  <PatternButton
+                    type="button"
+                    variant="solid"
+                    color="primary"
+                    size="md"
+                    rounded="full"
+                    onClick={() => handleOpenCreateSaasProfileModal()}
+                    icon={<Plus className="w-4 h-4" />}
+                    iconPosition="left"
+                  >
+                    <TruncatedText>
+                      {t("saasProfilesTab.addProfileBtn")}
+                    </TruncatedText>
+                  </PatternButton>
+                </PermissionGate>
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {saasProfiles.map((prof) => (
+                <GlassSurfaceCard key={prof.id} className="p-4">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <TruncatedText
+                          as="h4"
+                          className="font-bold text-sm max-w-80"
+                        >
+                          {prof.name}
+                        </TruncatedText>
+                        <GlassBadge variant="primary" size="sm">
+                          {t(`platforms.${prof.channelType}`)}
+                        </GlassBadge>
+                        <GlassBadge variant="info" size="sm">
+                          {prof.apiVersion}
+                        </GlassBadge>
+                        {prof.isDefault && (
+                          <GlassBadge variant="warning" size="sm">
+                            <Star className="w-3 h-3 mr-1 inline fill-current" />
+                            {t("saasProfilesTab.defaultBadge")}
+                          </GlassBadge>
+                        )}
+                        {prof.hasAppSecretConfigured && (
+                          <GlassBadge variant="success" size="sm">
+                            <ShieldCheck className="w-3 h-3 mr-1 inline" />
+                            HMAC Secret
+                          </GlassBadge>
+                        )}
+                        {prof.autoInjectWebhookOnConnect && (
+                          <GlassBadge variant="success" size="sm" dot>
+                            {t("saasProfilesTab.autoInjectBadge")}
+                          </GlassBadge>
+                        )}
+                        <GlassBadge variant="secondary" size="sm">
+                          {t("saasProfilesTab.boundChannelsCount", {
+                            count: prof.connectedChannelsCount,
+                          })}
+                        </GlassBadge>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground">
+                        App ID:{" "}
+                        <span className="font-mono font-semibold text-foreground">
+                          {prof.appId}
+                        </span>{" "}
+                        •{" "}
+                        {t("subscribedFieldsBadge", {
+                          count: prof.subscribedFields?.length || 0,
+                        })}
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px] text-muted-foreground">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Link2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="font-mono truncate">
+                            {prof.webhookCallbackUrl}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleCopyText(
+                                prof.webhookCallbackUrl,
+                                t("copiedWebhookUrlToast"),
+                              )
+                            }
+                            className="text-primary hover:underline font-semibold inline-flex items-center gap-1 shrink-0 cursor-pointer"
+                          >
+                            <Copy className="w-3 h-3" />
+                            {t("copyWebhookUrlBtn")}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <KeyRound className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="font-mono truncate">
+                            Verify Token: {prof.webhookVerifyToken}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleCopyText(
+                                prof.webhookVerifyToken,
+                                t("copiedVerifyTokenToast"),
+                              )
+                            }
+                            className="text-primary hover:underline font-semibold inline-flex items-center gap-1 shrink-0 cursor-pointer"
+                          >
+                            <Copy className="w-3 h-3" />
+                            {t("copyWebhookUrlBtn")}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap shrink-0">
+                      <PermissionGate
+                        can="CHANNEL_INTEGRATION_CONNECT"
+                        mode="hide"
+                      >
+                        <PatternButton
+                          type="button"
+                          variant="glass"
+                          color="primary"
+                          size="sm"
+                          rounded="full"
+                          onClick={() => {
+                            setChannelType(prof.channelType);
+                            setSelectedSaasProfileId(prof.id);
+                            setConnectModalOpen(true);
+                          }}
+                          icon={<Plus className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>
+                            {t("saasProfilesTab.quickConnectWithProfileBtn")}
+                          </TruncatedText>
+                        </PatternButton>
+
+                        <PatternButton
+                          type="button"
+                          variant="glass"
+                          color="success"
+                          size="sm"
+                          rounded="full"
+                          isLoading={injectingProfileId === prof.id}
+                          onClick={() =>
+                            handleInjectAllWebhooksForProfile(prof)
+                          }
+                          icon={<Zap className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>
+                            {t("saasProfilesTab.injectAllWebhooksBtn")}
+                          </TruncatedText>
+                        </PatternButton>
+
+                        {!prof.isDefault && (
+                          <PatternButton
+                            type="button"
+                            variant="ghost"
+                            color="warning"
+                            size="sm"
+                            rounded="full"
+                            onClick={() => handleSetDefaultSaasProfile(prof)}
+                            icon={<Star className="w-3.5 h-3.5" />}
+                            iconPosition="left"
+                          >
+                            <TruncatedText>
+                              {t("saasProfilesTab.setDefaultBtn")}
+                            </TruncatedText>
+                          </PatternButton>
+                        )}
+
+                        <PatternButton
+                          type="button"
+                          variant="ghost"
+                          color="neutral"
+                          size="sm"
+                          rounded="full"
+                          onClick={() => handleOpenEditSaasProfileModal(prof)}
+                          icon={<Pencil className="w-3.5 h-3.5" />}
+                          iconPosition="left"
+                        >
+                          <TruncatedText>{t("editChannelBtn")}</TruncatedText>
+                        </PatternButton>
+
+                        {saasProfiles.filter(
+                          (p) => p.channelType === prof.channelType,
+                        ).length > 1 && (
+                          <PatternButton
+                            type="button"
+                            variant="ghost"
+                            color="danger"
+                            size="sm"
+                            rounded="full"
+                            isLoading={deletingProfileId === prof.id}
+                            onClick={() => handleDeleteSaasProfile(prof.id)}
+                            icon={<Trash2 className="w-3.5 h-3.5" />}
+                            iconPosition="left"
+                          >
+                            <TruncatedText>
+                              {t("saasProfilesTab.deleteProfileBtn")}
+                            </TruncatedText>
+                          </PatternButton>
+                        )}
+                      </PermissionGate>
+                    </div>
+                  </div>
+                </GlassSurfaceCard>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: QUY TẮC CHIA KHÁCH & SLA */}
       {activeTab === "ROUTING_AND_SLA" && (
         <GlassSurfaceCard
           header={
@@ -1318,6 +1865,7 @@ export default function OmnichannelSettingsPage() {
         </GlassSurfaceCard>
       )}
 
+      {/* TAB 4: ĐƠN HÀNG SÀN TMĐT & GIỮ TỒN KHO */}
       {activeTab === "MARKETPLACE_BRIDGE" && (
         <div className="space-y-3">
           {marketplaceReservations.length === 0 ? (
@@ -1385,6 +1933,7 @@ export default function OmnichannelSettingsPage() {
         </div>
       )}
 
+      {/* TAB 5: NHẬT KÝ SỰ KIỆN WEBHOOK & REPLAY */}
       {activeTab === "WEBHOOK_INSPECTOR" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1493,7 +2042,229 @@ export default function OmnichannelSettingsPage() {
         </div>
       )}
 
-      {/* Modal Kết nối Kênh mới — Cấu hình SaaS Chuyên nghiệp (API v27.1 + App ID + App Secret + Tự động nhận đúng Page) */}
+      {/* MODAL TẠO / CẬP NHẬT HỒ SƠ CẤU HÌNH ỨNG DỤNG SAAS (SAAS_APP_PROFILES) */}
+      <GlassModal
+        open={saasProfileModalOpen}
+        onOpenChange={setSaasProfileModalOpen}
+        title={
+          <TruncatedText as="span">
+            {editingSaasProfile
+              ? t("saasProfilesTab.editModalTitle")
+              : t("saasProfilesTab.createModalTitle")}
+          </TruncatedText>
+        }
+        description={t("saasProfilesTab.modalDesc")}
+        size="lg"
+        footer={
+          <PatternButton
+            type="submit"
+            form="saas-app-profile-form"
+            variant="solid"
+            color="primary"
+            size="md"
+            rounded="full"
+            fullWidth
+            isLoading={isSavingSaasProfile}
+            icon={<CheckCircle2 className="w-4 h-4" />}
+            iconPosition="left"
+          >
+            <TruncatedText>{t("saasProfilesTab.saveProfileBtn")}</TruncatedText>
+          </PatternButton>
+        }
+      >
+        <form
+          id="saas-app-profile-form"
+          onSubmit={handleSaveSaasProfileSubmit}
+          className="p-2"
+        >
+          <FieldGroup>
+            <FieldSet>
+              <FieldGroup>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>
+                        {t("saasProfilesTab.profileNameLabel")}
+                      </TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Layers className="h-4 w-4 text-primary mr-2 shrink-0" />
+                        <Input
+                          required
+                          value={profName}
+                          onChange={(e) => setProfName(e.target.value)}
+                          placeholder={t(
+                            "saasProfilesTab.profileNamePlaceholder",
+                          )}
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("channelTypeLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <Select
+                      value={profChannelType}
+                      disabled={Boolean(editingSaasProfile)}
+                      onValueChange={(val) => {
+                        const nextPlat = val as ChannelPlatformType;
+                        setProfChannelType(nextPlat);
+                        setProfApiVersion(
+                          DEFAULT_API_VERSION_BY_PLATFORM[nextPlat],
+                        );
+                      }}
+                    >
+                      <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                        <SelectTrigger className="w-full h-full rounded-full cursor-pointer border-0 shadow-none bg-transparent px-3.5">
+                          <div className="flex items-center gap-2">
+                            <Globe className="h-4 w-4 text-primary shrink-0" />
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                      </LiquidGlassInput>
+                      <ContentSelect>
+                        {CHANNEL_PLATFORMS.map((plat) => (
+                          <ItemSelect key={plat} value={plat}>
+                            <TruncatedText>
+                              {t(`platforms.${plat}`)}
+                            </TruncatedText>
+                          </ItemSelect>
+                        ))}
+                      </ContentSelect>
+                    </Select>
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("apiVersionLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Code2 className="h-4 w-4 text-primary mr-2 shrink-0" />
+                        <Input
+                          required
+                          value={profApiVersion}
+                          onChange={(e) => setProfApiVersion(e.target.value)}
+                          placeholder={t("apiVersionPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("appIdLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          required
+                          value={profAppId}
+                          onChange={(e) => setProfAppId(e.target.value)}
+                          placeholder={t("appIdPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>{t("appSecretLabel")}</TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          type="password"
+                          value={profAppSecret}
+                          onChange={(e) => setProfAppSecret(e.target.value)}
+                          placeholder={
+                            editingSaasProfile
+                              ? t("newAccessTokenOptionalPlaceholder")
+                              : t("appSecretPlaceholder")
+                          }
+                          className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>
+                        {t("webhookVerifySecretLabel")}
+                      </TruncatedText>
+                    </FieldLabel>
+                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                      <div className="flex items-center px-3.5 w-full h-full">
+                        <Input
+                          value={profVerifyToken}
+                          onChange={(e) => setProfVerifyToken(e.target.value)}
+                          placeholder={t("webhookVerifySecretPlaceholder")}
+                          className="flex h-full w-full py-2 text-sm font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                        />
+                      </div>
+                    </LiquidGlassInput>
+                  </Field>
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs font-medium">
+                      {t("saasProfilesTab.autoInjectOnConnectLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={profAutoInjectWebhook}
+                      onCheckedChange={setProfAutoInjectWebhook}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs font-medium">
+                      {t("saasProfilesTab.setAsDefaultLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={profIsDefault}
+                      onCheckedChange={setProfIsDefault}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs font-medium">
+                      {t("autoHidePhoneCommentsLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={profAutoHidePhone}
+                      onCheckedChange={setProfAutoHidePhone}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-border/40">
+                    <TruncatedText className="text-xs font-medium">
+                      {t("syncEchoMessagesLabel")}
+                    </TruncatedText>
+                    <Switch
+                      checked={profSyncEcho}
+                      onCheckedChange={setProfSyncEcho}
+                    />
+                  </div>
+                </div>
+              </FieldGroup>
+            </FieldSet>
+          </FieldGroup>
+        </form>
+      </GlassModal>
+
+      {/* MODAL KẾT NỐI KÊNH BÁN HÀNG MỚI — CHỈ CẦN CHỌN HỒ SƠ SAAS & DÁN ACCESS TOKEN */}
       <GlassModal
         open={connectModalOpen}
         onOpenChange={setConnectModalOpen}
@@ -1543,13 +2314,14 @@ export default function OmnichannelSettingsPage() {
                       onValueChange={(val) => {
                         const nextPlat = val as ChannelPlatformType;
                         setChannelType(nextPlat);
-                        setApiVersion(
-                          DEFAULT_API_VERSION_BY_PLATFORM[nextPlat],
+                        const defaultProf = saasProfiles.find(
+                          (p) => p.channelType === nextPlat && p.isDefault,
                         );
                         if (accessToken.trim().length >= 8) {
                           void handleAutoResolveTokenMetadata(
                             accessToken,
                             nextPlat,
+                            defaultProf?.id,
                           );
                         }
                       }}
@@ -1576,133 +2348,132 @@ export default function OmnichannelSettingsPage() {
 
                   <Field>
                     <FieldLabel>
-                      <TruncatedText>{t("apiVersionLabel")}</TruncatedText>
+                      <TruncatedText>
+                        {t("saasProfilesTab.selectProfileLabel")}
+                      </TruncatedText>
                     </FieldLabel>
-                    <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                      <div className="flex items-center px-3.5 w-full h-full">
-                        <Code2 className="h-4 w-4 text-primary mr-2 shrink-0" />
-                        <Input
-                          value={apiVersion}
-                          onChange={(e) => setApiVersion(e.target.value)}
-                          placeholder={t("apiVersionPlaceholder")}
-                          className="flex h-full w-full py-2 text-sm font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                        />
-                      </div>
-                    </LiquidGlassInput>
+                    <Select
+                      value={selectedSaasProfileId || "SYSTEM_DEFAULT"}
+                      onValueChange={(val) => {
+                        const nextId = val === "SYSTEM_DEFAULT" ? "" : val;
+                        setSelectedSaasProfileId(nextId);
+                        if (accessToken.trim().length >= 8) {
+                          void handleAutoResolveTokenMetadata(
+                            accessToken,
+                            channelType,
+                            nextId,
+                          );
+                        }
+                      }}
+                    >
+                      <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                        <SelectTrigger className="w-full h-full rounded-full cursor-pointer border-0 shadow-none bg-transparent px-3.5">
+                          <div className="flex items-center gap-2">
+                            <Layers className="h-4 w-4 text-primary shrink-0" />
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                      </LiquidGlassInput>
+                      <ContentSelect>
+                        {matchingPlatformProfiles.map((prof) => (
+                          <ItemSelect key={prof.id} value={prof.id}>
+                            <TruncatedText>
+                              {prof.name} ({prof.apiVersion} • App ID:{" "}
+                              {prof.appId})
+                            </TruncatedText>
+                          </ItemSelect>
+                        ))}
+                        {matchingPlatformProfiles.length === 0 && (
+                          <ItemSelect value="SYSTEM_DEFAULT">
+                            <TruncatedText>
+                              {t("saasProfilesTab.systemDefaultProfileOption")}
+                            </TruncatedText>
+                          </ItemSelect>
+                        )}
+                      </ContentSelect>
+                    </Select>
                   </Field>
                 </div>
 
-                {/* Khối cấu hình SaaS App ID + App Secret (Tạo chữ ký HMAC-SHA256 appsecret_proof) */}
-                <GlassSurfaceCard className="p-3 space-y-3">
-                  <div>
-                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-primary" />
-                      {t("saasArchitectureTitle")}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {t("saasArchitectureDesc")}
-                    </p>
+                {/* Thẻ tóm tắt Cấu hình SaaS đang áp dụng (Chỉ cần dán Access Token là tự tiêm Webhook) */}
+                <GlassSurfaceCard className="p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span className="text-xs font-bold text-foreground">
+                        {activeSelectedSaasProfile
+                          ? activeSelectedSaasProfile.name
+                          : t("saasArchitectureTitle")}
+                      </span>
+                      <GlassBadge variant="info" size="sm">
+                        {activeSelectedSaasProfile?.apiVersion || apiVersion}
+                      </GlassBadge>
+                      <GlassBadge variant="success" size="sm" dot>
+                        {t("saasProfilesTab.autoInjectBadge")}
+                      </GlassBadge>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomSaasOverride((v) => !v)}
+                      className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      {showCustomSaasOverride
+                        ? t("saasProfilesTab.hideOverrideBtn")
+                        : t("saasProfilesTab.showOverrideBtn")}
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field>
-                      <FieldLabel>
-                        <TruncatedText>{t("appIdLabel")}</TruncatedText>
-                      </FieldLabel>
-                      <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                        <div className="flex items-center px-3.5 w-full h-full">
-                          <Input
-                            value={appId}
-                            onChange={(e) => setAppId(e.target.value)}
-                            placeholder={t("appIdPlaceholder")}
-                            className="flex h-full w-full py-2 text-sm font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                          />
-                        </div>
-                      </LiquidGlassInput>
-                    </Field>
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("saasProfilesTab.zeroTouchConnectHint")}
+                  </p>
 
-                    <Field>
-                      <FieldLabel>
-                        <TruncatedText>{t("appSecretLabel")}</TruncatedText>
-                      </FieldLabel>
-                      <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
-                        <div className="flex items-center px-3.5 w-full h-full">
-                          <Input
-                            type="password"
-                            value={appSecret}
-                            onChange={(e) => setAppSecret(e.target.value)}
-                            placeholder={t("appSecretPlaceholder")}
-                            className="flex h-full w-full py-2 text-sm bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-                          />
-                        </div>
-                      </LiquidGlassInput>
-                    </Field>
-                  </div>
-
-                  {webhookCallbackUrl && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {showCustomSaasOverride && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-border/40">
                       <Field>
-                        <div className="flex items-center justify-between gap-2">
-                          <FieldLabel>
-                            <TruncatedText>
-                              {t("webhookCallbackUrlLabel")}
-                            </TruncatedText>
-                          </FieldLabel>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleCopyText(
-                                webhookCallbackUrl,
-                                t("copiedWebhookUrlToast"),
-                              )
-                            }
-                            className="text-[11px] text-primary font-semibold inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Copy className="w-3 h-3" />
-                            {t("copyWebhookUrlBtn")}
-                          </button>
-                        </div>
+                        <FieldLabel>
+                          <TruncatedText>{t("apiVersionLabel")}</TruncatedText>
+                        </FieldLabel>
                         <LiquidGlassInput className="w-full h-9 overflow-hidden p-0">
                           <div className="flex items-center px-3 w-full h-full">
                             <Input
-                              readOnly
-                              value={webhookCallbackUrl}
-                              className="flex h-full w-full py-1.5 text-xs font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                              value={apiVersion}
+                              onChange={(e) => setApiVersion(e.target.value)}
+                              placeholder="v27.1"
+                              className="flex h-full w-full py-1.5 text-xs font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 px-0"
                             />
                           </div>
                         </LiquidGlassInput>
                       </Field>
 
                       <Field>
-                        <div className="flex items-center justify-between gap-2">
-                          <FieldLabel>
-                            <TruncatedText>
-                              {t("webhookVerifySecretLabel")}
-                            </TruncatedText>
-                          </FieldLabel>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleCopyText(
-                                webhookVerifySecret,
-                                t("copiedVerifyTokenToast"),
-                              )
-                            }
-                            className="text-[11px] text-primary font-semibold inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Copy className="w-3 h-3" />
-                            {t("copyWebhookUrlBtn")}
-                          </button>
-                        </div>
+                        <FieldLabel>
+                          <TruncatedText>{t("appIdLabel")}</TruncatedText>
+                        </FieldLabel>
                         <LiquidGlassInput className="w-full h-9 overflow-hidden p-0">
                           <div className="flex items-center px-3 w-full h-full">
                             <Input
-                              value={webhookVerifySecret}
-                              onChange={(e) =>
-                                setWebhookVerifySecret(e.target.value)
-                              }
-                              placeholder={t("webhookVerifySecretPlaceholder")}
-                              className="flex h-full w-full py-1.5 text-xs font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                              value={appId}
+                              onChange={(e) => setAppId(e.target.value)}
+                              placeholder={t("appIdPlaceholder")}
+                              className="flex h-full w-full py-1.5 text-xs font-mono bg-transparent! border-none shadow-none focus-visible:ring-0 px-0"
+                            />
+                          </div>
+                        </LiquidGlassInput>
+                      </Field>
+
+                      <Field>
+                        <FieldLabel>
+                          <TruncatedText>{t("appSecretLabel")}</TruncatedText>
+                        </FieldLabel>
+                        <LiquidGlassInput className="w-full h-9 overflow-hidden p-0">
+                          <div className="flex items-center px-3 w-full h-full">
+                            <Input
+                              type="password"
+                              value={appSecret}
+                              onChange={(e) => setAppSecret(e.target.value)}
+                              placeholder={t("appSecretPlaceholder")}
+                              className="flex h-full w-full py-1.5 text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-0"
                             />
                           </div>
                         </LiquidGlassInput>
@@ -1711,7 +2482,7 @@ export default function OmnichannelSettingsPage() {
                   )}
                 </GlassSurfaceCard>
 
-                {/* Nhập Access Token để tự động gọi Graph API / Zalo OA lấy đúng Tên & Avatar Trang */}
+                {/* Nhập Access Token để tự động gọi Graph API / Zalo OA lấy đúng Tên, Avatar Trang & Tự động Tiêm Webhook */}
                 <Field>
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <FieldLabel>
@@ -1773,7 +2544,7 @@ export default function OmnichannelSettingsPage() {
                   </p>
                 </Field>
 
-                {/* Danh sách Fanpage / OA tự động nhận diện từ Access Token (Hỗ trợ chọn đích danh 1 trang hoặc chọn nhiều trang) */}
+                {/* Danh sách Fanpage / OA tự động nhận diện từ Access Token */}
                 {candidatePages.length > 0 && (
                   <GlassSurfaceCard className="p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1849,9 +2620,6 @@ export default function OmnichannelSettingsPage() {
                                   ID: {cand.externalPageId} •{" "}
                                   {cand.pageShortCode}
                                   {cand.category ? ` • ${cand.category}` : ""}
-                                  {cand.igBusinessAccount
-                                    ? ` • IG: @${cand.igBusinessAccount.username || cand.igBusinessAccount.name}`
-                                    : ""}
                                 </p>
                               </div>
                             </button>
@@ -2024,7 +2792,7 @@ export default function OmnichannelSettingsPage() {
         </form>
       </GlassModal>
 
-      {/* Modal Chỉnh sửa Kênh tích hợp (PATCH /channels/:shopId/:channelId) */}
+      {/* Modal Chỉnh sửa Kênh tích hợp */}
       <GlassModal
         open={Boolean(editingChannel)}
         onOpenChange={(open) => {
@@ -2060,6 +2828,52 @@ export default function OmnichannelSettingsPage() {
           <FieldGroup>
             <FieldSet>
               <FieldGroup>
+                {editingChannel && (
+                  <Field>
+                    <FieldLabel>
+                      <TruncatedText>
+                        {t("saasProfilesTab.selectProfileLabel")}
+                      </TruncatedText>
+                    </FieldLabel>
+                    <Select
+                      value={editSaasProfileId || "SYSTEM_DEFAULT"}
+                      onValueChange={(val) =>
+                        setEditSaasProfileId(
+                          val === "SYSTEM_DEFAULT" ? "" : val,
+                        )
+                      }
+                    >
+                      <LiquidGlassInput className="w-full h-10 overflow-hidden p-0">
+                        <SelectTrigger className="w-full h-full rounded-full cursor-pointer border-0 shadow-none bg-transparent px-3.5">
+                          <div className="flex items-center gap-2">
+                            <Layers className="h-4 w-4 text-primary shrink-0" />
+                            <SelectValue />
+                          </div>
+                        </SelectTrigger>
+                      </LiquidGlassInput>
+                      <ContentSelect>
+                        {saasProfiles
+                          .filter(
+                            (p) => p.channelType === editingChannel.channelType,
+                          )
+                          .map((prof) => (
+                            <ItemSelect key={prof.id} value={prof.id}>
+                              <TruncatedText>
+                                {prof.name} ({prof.apiVersion} • App ID:{" "}
+                                {prof.appId})
+                              </TruncatedText>
+                            </ItemSelect>
+                          ))}
+                        <ItemSelect value="SYSTEM_DEFAULT">
+                          <TruncatedText>
+                            {t("saasProfilesTab.systemDefaultProfileOption")}
+                          </TruncatedText>
+                        </ItemSelect>
+                      </ContentSelect>
+                    </Select>
+                  </Field>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Field>
                     <FieldLabel>

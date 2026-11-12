@@ -6,10 +6,14 @@ import {
   type ChannelWebhookLogItem,
   type ConnectedChannelItem,
   connectChannelOAuthApi,
+  createSaasAppProfileApi,
+  deleteSaasAppProfileApi,
   getMarketplaceReservationsApi,
   getMergedInboxConversationsApi,
   getSaasWebhookConfigApi,
   getWebhookLogsApi,
+  injectWebhooksForSaasProfileApi,
+  listSaasAppProfilesApi,
   listShopChannelsApi,
   type MarketplaceStockReservationItem,
   type MergedOmnichannelConversationItem,
@@ -19,9 +23,11 @@ import {
   type ResolvedChannelTokenMetadata,
   resolveChannelTokenMetadataApi,
   runTokenDoctorHealthCheckApi,
+  type SaasAppProfileItem,
   type SaasWebhookBlueprintItem,
   syncChannelWebhookApi,
   updateChannelIntegrationApi,
+  updateSaasAppProfileApi,
 } from "./api";
 
 export type {
@@ -33,12 +39,14 @@ export type {
   MergedOmnichannelConversationItem,
   ResolvedChannelTokenCandidatePage,
   ResolvedChannelTokenMetadata,
+  SaasAppProfileItem,
   SaasWebhookBlueprintItem,
 };
 
 export interface ChannelWorkspaceStoreState {
   channels: ConnectedChannelItem[];
   saasBlueprints: SaasWebhookBlueprintItem[];
+  saasProfiles: SaasAppProfileItem[];
   selectedChannelIds: string[];
   isMergeMode: boolean;
   activePresetId: string | null;
@@ -47,17 +55,64 @@ export interface ChannelWorkspaceStoreState {
   mergedTotal: number;
   marketplaceReservations: MarketplaceStockReservationItem[];
   isLoadingChannels: boolean;
+  isLoadingSaasProfiles: boolean;
   isLoadingWebhookLogs: boolean;
   isLoadingMergedInbox: boolean;
   isLoadingMarketplaceReservations: boolean;
 
   fetchShopChannels: (shopId: string) => Promise<void>;
   fetchSaasWebhookConfig: (shopId: string) => Promise<void>;
+  fetchSaasAppProfiles: (shopId: string) => Promise<void>;
+  createSaasAppProfile: (
+    shopId: string,
+    payload: {
+      name: string;
+      channelType: ChannelPlatformType;
+      apiVersion?: string;
+      appId: string;
+      appSecret?: string;
+      webhookVerifyToken?: string;
+      subscribedFields?: string[];
+      autoHidePhoneComments?: boolean;
+      syncEchoMessagesFromNativeApp?: boolean;
+      autoInjectWebhookOnConnect?: boolean;
+      isDefault?: boolean;
+      autoRegisterAppWebhookOnPlatform?: boolean;
+    },
+  ) => Promise<SaasAppProfileItem | null>;
+  updateSaasAppProfile: (
+    shopId: string,
+    profileId: string,
+    payload: {
+      name?: string;
+      apiVersion?: string;
+      appId?: string;
+      appSecret?: string;
+      webhookVerifyToken?: string;
+      subscribedFields?: string[];
+      autoHidePhoneComments?: boolean;
+      syncEchoMessagesFromNativeApp?: boolean;
+      autoInjectWebhookOnConnect?: boolean;
+      isDefault?: boolean;
+      isActive?: boolean;
+      propagateToBoundChannels?: boolean;
+    },
+  ) => Promise<SaasAppProfileItem | null>;
+  deleteSaasAppProfile: (shopId: string, profileId: string) => Promise<boolean>;
+  injectWebhooksForSaasProfile: (
+    shopId: string,
+    profileId: string,
+  ) => Promise<{
+    profileId: string;
+    totalChannels: number;
+    injectedSuccessCount: number;
+  } | null>;
   resolveChannelTokenMetadata: (
     shopId: string,
     payload: {
       channelType: ChannelPlatformType;
       accessToken: string;
+      saasAppProfileId?: string;
       externalPageId?: string;
       apiVersion?: string;
       appId?: string;
@@ -69,6 +124,7 @@ export interface ChannelWorkspaceStoreState {
     shopId: string,
     payload: {
       channelType: ChannelPlatformType;
+      saasAppProfileId?: string;
       externalPageId?: string;
       externalShopId?: string;
       pageName?: string;
@@ -93,6 +149,7 @@ export interface ChannelWorkspaceStoreState {
     shopId: string,
     payload: {
       channelType: ChannelPlatformType;
+      saasAppProfileId?: string;
       apiVersion?: string;
       appId?: string;
       appSecret?: string;
@@ -121,6 +178,7 @@ export interface ChannelWorkspaceStoreState {
     shopId: string,
     channelId: string,
     payload: {
+      saasAppProfileId?: string;
       pageName?: string;
       pageShortCode?: string;
       avatarUrl?: string;
@@ -175,6 +233,7 @@ export const useChannelWorkspaceStore =
     (set, get) => ({
       channels: [],
       saasBlueprints: [],
+      saasProfiles: [],
       selectedChannelIds: [],
       isMergeMode: true,
       activePresetId: null,
@@ -183,6 +242,7 @@ export const useChannelWorkspaceStore =
       mergedTotal: 0,
       marketplaceReservations: [],
       isLoadingChannels: false,
+      isLoadingSaasProfiles: false,
       isLoadingWebhookLogs: false,
       isLoadingMergedInbox: false,
       isLoadingMarketplaceReservations: false,
@@ -224,8 +284,68 @@ export const useChannelWorkspaceStore =
           const data = res?.data ?? res;
           set((state) => {
             state.saasBlueprints = data?.platforms || [];
+            if (Array.isArray(data?.saasProfiles)) {
+              state.saasProfiles = data.saasProfiles;
+            }
           });
         } catch {}
+      },
+
+      fetchSaasAppProfiles: async (shopId) => {
+        if (!shopId) return;
+        set((state) => {
+          state.isLoadingSaasProfiles = true;
+        });
+        try {
+          const res: any = await listSaasAppProfilesApi(shopId);
+          const list: SaasAppProfileItem[] = res?.data ?? res ?? [];
+          set((state) => {
+            state.saasProfiles = Array.isArray(list) ? list : [];
+          });
+        } finally {
+          set((state) => {
+            state.isLoadingSaasProfiles = false;
+          });
+        }
+      },
+
+      createSaasAppProfile: async (shopId, payload) => {
+        const res: any = await createSaasAppProfileApi(shopId, payload);
+        const created: SaasAppProfileItem = res?.data ?? res;
+        await get().fetchSaasAppProfiles(shopId);
+        return created || null;
+      },
+
+      updateSaasAppProfile: async (shopId, profileId, payload) => {
+        const res: any = await updateSaasAppProfileApi(
+          shopId,
+          profileId,
+          payload,
+        );
+        const updated: SaasAppProfileItem = res?.data ?? res;
+        await Promise.all([
+          get().fetchSaasAppProfiles(shopId),
+          get().fetchShopChannels(shopId),
+        ]);
+        return updated || null;
+      },
+
+      deleteSaasAppProfile: async (shopId, profileId) => {
+        await deleteSaasAppProfileApi(shopId, profileId);
+        await get().fetchSaasAppProfiles(shopId);
+        return true;
+      },
+
+      injectWebhooksForSaasProfile: async (shopId, profileId) => {
+        const res: any = await injectWebhooksForSaasProfileApi(
+          shopId,
+          profileId,
+        );
+        await Promise.all([
+          get().fetchSaasAppProfiles(shopId),
+          get().fetchShopChannels(shopId),
+        ]);
+        return (res?.data ?? res) || null;
       },
 
       resolveChannelTokenMetadata: async (shopId, payload) => {
@@ -236,13 +356,19 @@ export const useChannelWorkspaceStore =
 
       connectChannelOAuth: async (shopId, payload) => {
         await connectChannelOAuthApi(shopId, payload);
-        await get().fetchShopChannels(shopId);
+        await Promise.all([
+          get().fetchShopChannels(shopId),
+          get().fetchSaasAppProfiles(shopId),
+        ]);
         return true;
       },
 
       batchConnectChannels: async (shopId, payload) => {
         const res: any = await batchConnectChannelsApi(shopId, payload);
-        await get().fetchShopChannels(shopId);
+        await Promise.all([
+          get().fetchShopChannels(shopId),
+          get().fetchSaasAppProfiles(shopId),
+        ]);
         const data = res?.data ?? res;
         return Number(data?.connectedCount || payload.pages.length);
       },
@@ -255,13 +381,19 @@ export const useChannelWorkspaceStore =
 
       updateChannelIntegration: async (shopId, channelId, payload) => {
         await updateChannelIntegrationApi(shopId, channelId, payload);
-        await get().fetchShopChannels(shopId);
+        await Promise.all([
+          get().fetchShopChannels(shopId),
+          get().fetchSaasAppProfiles(shopId),
+        ]);
         return true;
       },
 
       disconnectChannel: async (shopId, channelId) => {
         await removeChannelIntegrationApi(shopId, channelId);
-        await get().fetchShopChannels(shopId);
+        await Promise.all([
+          get().fetchShopChannels(shopId),
+          get().fetchSaasAppProfiles(shopId),
+        ]);
         return true;
       },
 

@@ -1276,7 +1276,8 @@
       "connectedChannels": "Kênh bán hàng đã kết nối",
       "routingAndSla": "Quy tắc chia khách & cam kết phản hồi",
       "webhookInspector": "Nhật ký sự kiện & xử lý lỗi đồng bộ",
-      "marketplaceBridge": "Đơn hàng sàn TMĐT & giữ tồn kho"
+      "marketplaceBridge": "Đơn hàng sàn TMĐT & giữ tồn kho",
+      "saasAppProfiles": "Cấu hình Ứng dụng SaaS & Webhook"
     },
     "platforms": {
       "FACEBOOK_PAGE": "Facebook Fanpage",
@@ -1416,7 +1417,41 @@
     "batchConnectSubmitBtn": "Kết nối cùng lúc {count} Trang đã chọn",
     "batchConnectedSuccessToast": "Đã kết nối và kích hoạt nhận tin nhắn cho {count} Trang bán hàng!",
     "saasArchitectureTitle": "Cấu hình Ứng dụng Đối tác (App ID, App Secret & Webhook)",
-    "saasArchitectureDesc": "Cung cấp phiên bản API (VD: v27.1), App ID và App Secret giúp hệ thống tạo chữ ký bảo mật chuẩn của Facebook/Zalo/Sàn TMĐT, đảm bảo lấy đúng Fanpage và không bị từ chối kết nối."
+    "saasArchitectureDesc": "Cung cấp phiên bản API (VD: v27.1), App ID và App Secret giúp hệ thống tạo chữ ký bảo mật chuẩn của Facebook/Zalo/Sàn TMĐT, đảm bảo lấy đúng Fanpage và không bị từ chối kết nối.",
+    "saasProfilesTab": {
+      "bannerTitle": "Kiến Trúc Đa Hồ Sơ Ứng Dụng SaaS (Multi-Profile SaaS) & Tự Động Tiêm Webhook 2 Tầng",
+      "bannerDesc": "Một nền tảng (Facebook, Instagram, Zalo OA, TikTok Shop, Shopee) có thể cấu hình nhiều Hồ sơ Ứng dụng SaaS (nhiều App ID / Business Manager khác nhau để cách ly hạn ngạch Rate-Limit). Khi đã cấu hình SaaS tại đây, ở bước kết nối kênh bán hàng bạn CHỈ CẦN DÁN ACCESS TOKEN — hệ thống sẽ tự động lấy thông tin Trang và tự động tiêm (Auto-Inject) Webhook!",
+      "sectionHeading": "Danh sách Hồ sơ Ứng dụng SaaS ({count})",
+      "sectionSubheading": "Quản lý tập trung API Version (v27.1), App ID, App Secret (HMAC-SHA256) và Verify Token dùng chung cho nhiều Fanpage / OA / Gian hàng.",
+      "addProfileBtn": "Thêm cấu hình SaaS mới",
+      "emptyTitle": "Chưa có Hồ sơ Ứng dụng SaaS nào",
+      "emptyDesc": "Hãy tạo ít nhất một Hồ sơ SaaS cho Facebook, Zalo OA hoặc Sàn TMĐT để tự động hóa hoàn toàn việc kết nối kênh chỉ bằng Access Token.",
+      "defaultBadge": "Mặc định",
+      "autoInjectBadge": "Tự động tiêm Webhook",
+      "boundChannelsCount": "{count} kênh đang dùng",
+      "quickConnectWithProfileBtn": "Kết nối kênh bằng SaaS này",
+      "injectAllWebhooksBtn": "Tự tiêm lại Webhook",
+      "setDefaultBtn": "Đặt mặc định",
+      "deleteProfileBtn": "Xóa",
+      "createModalTitle": "Tạo Hồ sơ Cấu hình Ứng dụng SaaS mới",
+      "editModalTitle": "Cập nhật Hồ sơ Cấu hình Ứng dụng SaaS",
+      "modalDesc": "Thiết lập thông số Ứng dụng Đối tác (App ID, App Secret, API Version v27.1, Verify Token). Hệ thống tự động đăng ký Webhook cấp Ứng dụng và tự động tiêm xuống mọi kênh liên kết.",
+      "profileNameLabel": "Tên định danh Hồ sơ SaaS (Phân biệt theo BM / Thương hiệu)",
+      "profileNamePlaceholder": "VD: Meta App BM Chính — Hệ thống Fanpage Thời Trang",
+      "autoInjectOnConnectLabel": "Tự động tiêm đăng ký Webhook (subscribed_apps) ngay khi nhập Access Token kết nối kênh",
+      "setAsDefaultLabel": "Đặt làm Hồ sơ SaaS mặc định cho nền tảng này (Khi kết nối kênh mới sẽ tự động chọn)",
+      "saveProfileBtn": "Lưu Hồ sơ SaaS & Đồng bộ Webhook",
+      "createdProfileToast": "Đã tạo Hồ sơ SaaS \"{name}\" và kích hoạt cấu hình Webhook!",
+      "updatedProfileToast": "Đã cập nhật Hồ sơ SaaS \"{name}\" và đồng bộ xuống các kênh liên kết!",
+      "deletedProfileToast": "Đã xóa Hồ sơ cấu hình SaaS",
+      "setDefaultSuccessToast": "Đã đặt \"{name}\" làm Hồ sơ SaaS mặc định!",
+      "injectedAllWebhooksToast": "Đã tự động tiêm và xác minh Webhook thành công cho {successCount}/{totalCount} kênh!",
+      "selectProfileLabel": "Hồ sơ Ứng dụng SaaS áp dụng",
+      "systemDefaultProfileOption": "Sử dụng cấu hình SaaS mặc định của hệ thống",
+      "zeroTouchConnectHint": "Đã kế thừa đầy đủ App ID, App Secret (HMAC Proof) và Webhook từ Hồ sơ SaaS đã chọn. Bạn chỉ cần dán Access Token bên dưới để tự động lấy đúng Trang và tự tiêm Webhook!",
+      "showOverrideBtn": "Tùy chỉnh riêng App ID / Secret cho kênh này",
+      "hideOverrideBtn": "Ẩn tùy chỉnh riêng (Dùng chuẩn theo Hồ sơ SaaS)"
+    }
   },
   "SettingsPermissions": {
     "title": "Phân quyền nhân sự & Giám sát ca trực",

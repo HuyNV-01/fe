@@ -30,6 +30,9 @@ export const useOmnichannelSocket = () => {
   const fetchShopChannels = useChannelWorkspaceStore(
     (s) => s.fetchShopChannels,
   );
+  const fetchSaasAppProfiles = useChannelWorkspaceStore(
+    (s) => s.fetchSaasAppProfiles,
+  );
   const fetchWebhookLogs = useChannelWorkspaceStore((s) => s.fetchWebhookLogs);
   const fetchMergedConversations = useChannelWorkspaceStore(
     (s) => s.fetchMergedConversations,
@@ -321,6 +324,34 @@ export const useOmnichannelSocket = () => {
       },
     );
 
+    const cleanOutboundDeliveryStatus = socketService.on<{
+      conversationId: string;
+      messageId?: string;
+      platformDeliveryStatus?: "DISPATCHED" | "SIMULATED_SANDBOX" | "FAILED";
+      platformExternalId?: string | null;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.OUTBOUND_DELIVERY_STATUS,
+      (payload) => {
+        if (!payload?.conversationId || !payload?.messageId) return;
+        useChatStore.setState((state) => {
+          const msgs = state.messages[payload.conversationId];
+          if (!msgs) return;
+          const target = msgs.find((m) => m.id === payload.messageId);
+          if (target) {
+            target.metadata = {
+              ...(target.metadata || {}),
+              platformDeliveryStatus:
+                payload.platformDeliveryStatus || "DISPATCHED",
+              platformExternalId:
+                payload.platformExternalId ??
+                target.metadata?.platformExternalId,
+            };
+          }
+        });
+      },
+    );
+
     const cleanChannelIntegrationUpdated = socketService.on<{
       shopId: string;
       action: string;
@@ -335,6 +366,9 @@ export const useOmnichannelSocket = () => {
         if (targetShopId) {
           fetchShopChannels(targetShopId);
           fetchMergedConversations(targetShopId);
+          if (payload?.action === "SAAS_PROFILE_CREATED") {
+            fetchSaasAppProfiles(targetShopId);
+          }
         }
         if (
           payload?.action === "WEBHOOK_INBOUND" ||
@@ -447,6 +481,7 @@ export const useOmnichannelSocket = () => {
       cleanCommentLikeUpdated();
       cleanCommentPrivateReplySent();
       cleanCommentDeletedOnPlatform();
+      cleanOutboundDeliveryStatus();
       cleanChannelIntegrationUpdated();
       cleanChannelIntegrationRemoved();
       cleanTokenHealthChecked();
@@ -458,6 +493,7 @@ export const useOmnichannelSocket = () => {
     currentUser?.user?.id,
     activeShopId,
     fetchShopChannels,
+    fetchSaasAppProfiles,
     fetchWebhookLogs,
     fetchMergedConversations,
     fetchInbox,
