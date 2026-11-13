@@ -5,6 +5,11 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from "axios";
+import {
+  resolveFrontendApiBaseUrl,
+  TUNNEL_REQUEST_HEADERS,
+} from "@/config/tunnel";
+import { socketService } from "@/services/socket/socket-client";
 
 interface RetryQueueItem {
   resolve: (value?: any) => void;
@@ -13,6 +18,72 @@ interface RetryQueueItem {
 
 const refreshAndRetryQueue: RetryQueueItem[] = [];
 let isRefreshing = false;
+
+/**
+ * Đọc `refreshToken` đã lưu từ `localStorage` hoặc `auth-storage` (Zustand Persist)
+ * để đảm bảo ngay cả khi trình duyệt chặn Third-Party Cookie trên tên miền Ngrok (`.ngrok-free.app`),
+ * yêu cầu `/auth/refresh` vẫn luôn gửi kèm `refreshToken` qua Header và Body.
+ */
+const getStoredRefreshToken = (): string | null => {
+  if (typeof window === "undefined") return null;
+  const direct = localStorage.getItem("refreshToken");
+  if (direct && direct.trim()) {
+    return direct.trim();
+  }
+  try {
+    const rawAuthStorage = localStorage.getItem("auth-storage");
+    if (rawAuthStorage) {
+      const parsed = JSON.parse(rawAuthStorage);
+      const fromStore = parsed?.state?.currentAccount?.refreshToken;
+      if (typeof fromStore === "string" && fromStore.trim()) {
+        return fromStore.trim();
+      }
+    }
+  } catch {
+    // Bỏ qua lỗi đọc JSON
+  }
+  return null;
+};
+
+/**
+ * Đồng bộ cặp `accessToken` và `refreshToken` mới vào cả `localStorage`, `auth-storage` (Zustand)
+ * và cập nhật tức thì cho kết nối WebSocket (`socketService.updateAuthToken`),
+ * ngăn chặn triệt để tình trạng F5 trên Ngrok bị nạp lại token cũ đã hết hạn.
+ */
+const syncRefreshedTokensEverywhere = (
+  newAccessToken: string,
+  newRefreshToken?: string,
+): void => {
+  if (typeof window === "undefined") return;
+
+  localStorage.setItem("accessToken", newAccessToken);
+  if (newRefreshToken) {
+    localStorage.setItem("refreshToken", newRefreshToken);
+  }
+
+  try {
+    const rawAuthStorage = localStorage.getItem("auth-storage");
+    if (rawAuthStorage) {
+      const parsed = JSON.parse(rawAuthStorage);
+      if (parsed?.state?.currentAccount) {
+        parsed.state.currentAccount.accessToken = newAccessToken;
+        if (newRefreshToken) {
+          parsed.state.currentAccount.refreshToken = newRefreshToken;
+        }
+        parsed.state.authenticated = true;
+        localStorage.setItem("auth-storage", JSON.stringify(parsed));
+      }
+    }
+  } catch {
+    // Bỏ qua nếu localStorage bị khóa
+  }
+
+  try {
+    socketService.updateAuthToken(newAccessToken);
+  } catch {
+    // Bỏ qua nếu socket chưa khởi tạo
+  }
+};
 
 export const refreshAccessToken = async (): Promise<string> => {
   if (isRefreshing) {
@@ -24,17 +95,34 @@ export const refreshAccessToken = async (): Promise<string> => {
   isRefreshing = true;
 
   try {
+    const storedRefreshToken = getStoredRefreshToken();
+    const refreshHeaders: Record<string, string> = {
+      ...TUNNEL_REQUEST_HEADERS,
+    };
+    if (storedRefreshToken) {
+      refreshHeaders.Authorization = `Bearer ${storedRefreshToken}`;
+      refreshHeaders["x-refresh-token"] = storedRefreshToken;
+    }
+
     const { data: resData } = await axios.post(
-      `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
-      {},
-      { withCredentials: true },
+      `${resolveFrontendApiBaseUrl()}/auth/refresh`,
+      storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
+      {
+        withCredentials: true,
+        headers: refreshHeaders,
+        timeout: 10000,
+      },
     );
 
-    const newToken = resData.data.accessToken;
+    const payloadData = resData?.data ?? resData;
+    const newToken: string = payloadData?.accessToken;
+    const newRefreshToken: string | undefined = payloadData?.refreshToken;
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem("accessToken", newToken);
+    if (!newToken) {
+      throw new Error("EMPTY_REFRESHED_ACCESS_TOKEN");
     }
+
+    syncRefreshedTokensEverywhere(newToken, newRefreshToken);
 
     refreshAndRetryQueue.forEach((prom) => prom.resolve(newToken));
     refreshAndRetryQueue.length = 0;
@@ -50,10 +138,11 @@ export const refreshAccessToken = async (): Promise<string> => {
 };
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
-  timeout: Number(process.env.NEXT_PUBLIC_TIMEOUT) || 10000,
+  baseURL: resolveFrontendApiBaseUrl(),
+  timeout: Number(process.env.NEXT_PUBLIC_TIMEOUT) || 15000,
   headers: {
     "Content-Type": "application/json",
+    ...TUNNEL_REQUEST_HEADERS,
   },
   withCredentials: true,
 });
@@ -96,7 +185,9 @@ apiClient.interceptors.response.use(
     };
 
     if (
+      !originalRequest ||
       originalRequest.url?.includes("/auth/login") ||
+      originalRequest.url?.includes("/auth/refresh") ||
       originalRequest.url?.includes("/login")
     ) {
       return Promise.reject(error);
@@ -113,11 +204,18 @@ apiClient.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }
         return apiClient(originalRequest);
-      } catch (refreshError) {
-        if (typeof window !== "undefined") {
+      } catch (refreshError: any) {
+        const refreshStatus = refreshError?.response?.status;
+        // Chỉ đăng xuất khi máy chủ xác nhận Refresh Token không còn hiệu lực (401 / 403),
+        // không đăng xuất khi chỉ bị gián đoạn mạng Ngrok tạm thời (timeout / 502 / 504)
+        if (
+          typeof window !== "undefined" &&
+          (refreshStatus === 401 || refreshStatus === 403)
+        ) {
           localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
           localStorage.removeItem("activeShopId");
-          localStorage.clear();
+          localStorage.removeItem("auth-storage");
           window.location.href = "/login";
         }
         return Promise.reject(refreshError);

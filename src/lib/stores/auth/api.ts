@@ -1,4 +1,5 @@
 import config from "@/config";
+import { resolveFrontendApiBaseUrl } from "@/config/tunnel";
 import apiClient from "@/lib/http/axios-client";
 import type {
   IForgotPassword,
@@ -46,7 +47,7 @@ export const resetPasswordApi = async (payload: { data: IResetPassword }) => {
 };
 
 export const loginWithGoogleApi = async () => {
-  const rootUrl = process.env.NEXT_PUBLIC_API_URL;
+  const rootUrl = resolveFrontendApiBaseUrl();
   window.location.href = `${rootUrl}${config.routes.protected.google}`;
 };
 

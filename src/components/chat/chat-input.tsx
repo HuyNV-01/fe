@@ -14,6 +14,7 @@ import {
   GlassIconButton,
   PatternButton,
 } from "@/components/toolkit";
+import { PermissionGate } from "@/components/iam/permission-gate";
 import {
   ImageLightboxModal,
   type LightboxImageItem,
@@ -32,14 +33,23 @@ import {
   FileText,
   Volume2,
   Eye,
+  EyeOff,
   Plus,
   Ban,
   BarChart3,
   Link2,
   AtSign,
+  StickyNote,
+  Zap,
+  Languages,
+  ShoppingBag,
+  MessageSquare,
+  MessageSquareShare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
+import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
+import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import { MessageTypeEnum, SocketNamespaceEnum } from "@/common/enum";
 import { SOCKET_EVENTS } from "@/constant/socket-events";
 import { socketService } from "@/services/socket/socket-client";
@@ -47,8 +57,15 @@ import { formatFileSize } from "@/utils/crypto-e2ee";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { getLinkPreviewApi } from "@/lib/stores/chat/api";
-import type { ILinkPreviewMetadata } from "@/types/chat";
+import type {
+  CommentReplyModeType,
+  ILinkPreviewMetadata,
+  IQuickReplyProductCard,
+} from "@/types/chat";
 import { CreatePollModal } from "./create-poll-modal";
+import { QuickReplyPopover } from "./quick-reply-popover";
+import { useRouter } from "@/i18n/navigation";
+import config from "@/config";
 
 const COMMON_EMOJIS = [
   "😀",
@@ -77,7 +94,18 @@ interface SelectedFilePreview {
 export interface IChatInputProps {
   onSendMessage: (
     content: string,
-    options?: { mentionedUserIds?: string[]; mentionAll?: boolean },
+    options?: {
+      mentionedUserIds?: string[];
+      mentionAll?: boolean;
+      productCards?: IQuickReplyProductCard[];
+      quickReplyShortcutUsed?: string;
+      commentReplyMode?: CommentReplyModeType;
+      autoHideCommentOnReply?: boolean;
+    },
+  ) => Promise<void> | void;
+  onSendInternalNote?: (
+    content: string,
+    mentionedUserIds?: string[],
   ) => Promise<void> | void;
   onSendAttachments?: (files: File[], content?: string) => Promise<void> | void;
   onConfirmEdit?: (
@@ -86,6 +114,8 @@ export interface IChatInputProps {
   ) => Promise<void> | void;
   onScrollToMessage?: (messageId: string) => void;
   disabled?: boolean;
+  isCollisionLockedByOther?: boolean;
+  isCommentThread?: boolean;
   blockState?: {
     isBlocked: boolean;
     blockedByMe: boolean;
@@ -97,13 +127,17 @@ export interface IChatInputProps {
 
 export const ChatInput = ({
   onSendMessage,
+  onSendInternalNote,
   onSendAttachments,
   onConfirmEdit,
   onScrollToMessage,
   disabled,
+  isCollisionLockedByOther = false,
+  isCommentThread = false,
   blockState,
   onUnblockPartner,
 }: IChatInputProps) => {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [selectedItems, setSelectedItems] = useState<SelectedFilePreview[]>([]);
   const [previewLightboxIndex, setPreviewLightboxIndex] = useState<
@@ -112,6 +146,20 @@ export const ChatInput = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
+
+  // Sprint 2 states: Internal Note (Alt+N), Quick Reply (/shortcut), Product Cards, Comment Reply Mode & Draft Translation
+  const [isInternalNoteMode, setIsInternalNoteMode] = useState(false);
+  const [quickReplyQuery, setQuickReplyQuery] = useState<string | null>(null);
+  const [attachedProductCards, setAttachedProductCards] = useState<
+    IQuickReplyProductCard[]
+  >([]);
+  const [quickReplyShortcutUsed, setQuickReplyShortcutUsed] = useState<
+    string | undefined
+  >(undefined);
+  const [commentReplyMode, setCommentReplyMode] =
+    useState<CommentReplyModeType>("REPLY_COMMENT_ONLY");
+  const [autoHideCommentOnReply, setAutoHideCommentOnReply] = useState(true);
+  const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
 
   const selectedItemsRef = useRef<SelectedFilePreview[]>([]);
   selectedItemsRef.current = selectedItems;
@@ -138,6 +186,9 @@ export const ChatInput = ({
     useState<ILinkPreviewMetadata | null>(null);
   const lastPreviewedUrlRef = useRef<string | null>(null);
 
+  const activeShopId = usePermissionStore((s) => s.activeShopId);
+  const currentUser = useAuthStore((s) => s.currentAccount?.user);
+
   const {
     activeConversationId,
     conversations,
@@ -146,10 +197,12 @@ export const ChatInput = ({
     editingMessage,
     setReplyingTo,
     setEditingMessage,
+    translateMessageOrDraft,
   } = useChatStore();
   const t = useTranslations("Chat.Detail.conversation.input");
   const tBubble = useTranslations("Chat.Detail.conversation.bubble");
   const tHeader = useTranslations("Chat.Detail.header");
+  const tInbox = useTranslations("OmnichannelInbox");
 
   const activeReply = activeConversationId
     ? replyingTo[activeConversationId]
@@ -160,13 +213,29 @@ export const ChatInput = ({
 
   const currentConv = conversations.find((c) => c.id === activeConversationId);
   const isGroupChat = currentConv?.type === "GROUP";
+  const canMentionColleagues =
+    isGroupChat ||
+    isInternalNoteMode ||
+    Boolean(currentConv?.shopId || activeShopId);
   const groupMembers = activeConversationId
     ? conversationDetails[activeConversationId]?.members || []
     : [];
 
-  // Lọc danh sách thành viên khi gõ @
+  // Phím tắt toàn cục Alt+N để bật/tắt chế độ Ghi chú nội bộ (F03.5)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === "n" || e.key === "N")) {
+        e.preventDefault();
+        setIsInternalNoteMode((prev) => !prev);
+        setTimeout(() => textareaRef.current?.focus(), 20);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
+
   const mentionCandidates =
-    isGroupChat && mentionQuery !== null
+    canMentionColleagues && mentionQuery !== null
       ? groupMembers.filter((m) =>
           (m.nickname || m.name || "")
             .toLowerCase()
@@ -174,9 +243,24 @@ export const ChatInput = ({
         )
       : [];
 
-  // Tự động phát hiện thay đổi @mention trong ô nhập
-  const detectMentionTrigger = (text: string, cursorPosition: number) => {
-    if (!isGroupChat) {
+  const detectMentionAndQuickReplyTrigger = (
+    text: string,
+    cursorPosition: number,
+  ) => {
+    // 1. Kiểm tra gõ /shortcut ở đầu dòng
+    if (activeShopId && text.startsWith("/")) {
+      const firstToken = text.slice(1).split(/\s/)[0] || "";
+      if (!text.includes(" ")) {
+        setQuickReplyQuery(firstToken);
+      } else {
+        setQuickReplyQuery(null);
+      }
+    } else {
+      setQuickReplyQuery(null);
+    }
+
+    // 2. Kiểm tra gõ @mention đồng nghiệp
+    if (!canMentionColleagues) {
       setMentionQuery(null);
       return;
     }
@@ -215,7 +299,6 @@ export const ChatInput = ({
     setTimeout(() => textarea?.focus(), 10);
   };
 
-  // Tự động lấy bản xem trước liên kết khi người dùng nhập/dán URL
   useEffect(() => {
     const match = message.match(/https?:\/\/[^\s<>"'`]+/i);
     const url = match ? match[0] : null;
@@ -370,8 +453,22 @@ export const ChatInput = ({
     }
   }, [activeConversationId]);
 
+  const handleTranslateOutboundDraft = async () => {
+    if (!message.trim() || isTranslatingDraft) return;
+    setIsTranslatingDraft(true);
+    const res = await translateMessageOrDraft({
+      text: message.trim(),
+      targetLang: "en",
+      sourceLang: "vi",
+    });
+    if (res?.translatedText) {
+      setMessage(res.translatedText);
+    }
+    setIsTranslatingDraft(false);
+  };
+
   const handleSend = useCallback(() => {
-    if (disabled || isSubmittingRef.current) return;
+    if (disabled || isCollisionLockedByOther || isSubmittingRef.current) return;
 
     const trimmedMessage = message.trim();
     const hasFiles = selectedItems.length > 0;
@@ -388,8 +485,19 @@ export const ChatInput = ({
     setMessage("");
     setShowEmojiPicker(false);
     setMentionQuery(null);
+    setQuickReplyQuery(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
+    }
+
+    if (isInternalNoteMode && onSendInternalNote && trimmedMessage) {
+      onSendInternalNote(
+        trimmedMessage,
+        mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
+      );
+      setMentionedUserIds([]);
+      setMentionAll(false);
+      return;
     }
 
     if (hasFiles && onSendAttachments) {
@@ -409,17 +517,34 @@ export const ChatInput = ({
         mentionedUserIds:
           mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
         mentionAll: mentionAll || undefined,
+        productCards:
+          attachedProductCards.length > 0 ? attachedProductCards : undefined,
+        quickReplyShortcutUsed,
+        commentReplyMode: isCommentThread ? commentReplyMode : undefined,
+        autoHideCommentOnReply: isCommentThread
+          ? autoHideCommentOnReply
+          : undefined,
       });
       setMentionedUserIds([]);
       setMentionAll(false);
+      setAttachedProductCards([]);
+      setQuickReplyShortcutUsed(undefined);
     }
   }, [
     disabled,
+    isCollisionLockedByOther,
     message,
     selectedItems,
     activeEdit,
+    isInternalNoteMode,
     mentionedUserIds,
     mentionAll,
+    attachedProductCards,
+    quickReplyShortcutUsed,
+    isCommentThread,
+    commentReplyMode,
+    autoHideCommentOnReply,
+    onSendInternalNote,
     onSendAttachments,
     onConfirmEdit,
     onSendMessage,
@@ -446,6 +571,8 @@ export const ChatInput = ({
         setEditingMessage(activeConversationId, null);
       }
       setShowEmojiPicker(false);
+      setQuickReplyQuery(null);
+      setIsInternalNoteMode(false);
     }
   };
 
@@ -511,9 +638,12 @@ export const ChatInput = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setMessage(value);
-    detectMentionTrigger(value, e.target.selectionStart ?? value.length);
+    detectMentionAndQuickReplyTrigger(
+      value,
+      e.target.selectionStart ?? value.length,
+    );
 
-    if (!activeConversationId) return;
+    if (!activeConversationId || isInternalNoteMode) return;
 
     if (!value.trim()) {
       stopTypingNotification();
@@ -617,7 +747,96 @@ export const ChatInput = ({
 
   return (
     <div className="bg-background relative">
-      {isGroupChat && mentionQuery !== null && (
+      {/* Popover Thư viện Mẫu Câu Trả Lời Nhanh (/shortcut — F03.3 & F03.4) */}
+      {activeShopId && quickReplyQuery !== null && (
+        <QuickReplyPopover
+          open={quickReplyQuery !== null}
+          query={quickReplyQuery}
+          shopId={activeShopId}
+          customerName={currentConv?.name}
+          agentName={currentUser?.name}
+          pageName={currentConv?.pageName || currentConv?.pageShortCode}
+          onSelectQuickReply={(interpolatedText, tpl, productCards) => {
+            setMessage(interpolatedText);
+            setQuickReplyShortcutUsed(tpl.shortcut);
+            if (productCards && productCards.length > 0) {
+              setAttachedProductCards(productCards);
+            }
+            setQuickReplyQuery(null);
+            setTimeout(() => textareaRef.current?.focus(), 10);
+          }}
+          onOpenManageModal={() => {
+            setQuickReplyQuery(null);
+            router.push(config.routes.private.settingsQuickReplies);
+          }}
+        />
+      )}
+
+      {/* Thanh chọn Chế độ Phản hồi Bình luận Đa Kênh (Comment + Private Reply Inbox — F03.3 & F03.4) */}
+      {isCommentThread && !isInternalNoteMode && (
+        <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-2 rounded-xl bg-primary/5 border border-primary/20 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-semibold text-[11px] text-muted-foreground mr-1">
+              {tInbox("commentActions.modeLabel")}
+            </span>
+            {(
+              [
+                {
+                  mode: "REPLY_COMMENT_AND_PRIVATE_INBOX" as CommentReplyModeType,
+                  labelKey: "modeBoth",
+                  icon: MessageSquareShare,
+                },
+                {
+                  mode: "REPLY_COMMENT_ONLY" as CommentReplyModeType,
+                  labelKey: "modePublicOnly",
+                  icon: MessageSquare,
+                },
+                {
+                  mode: "SEND_PRIVATE_REPLY_ONLY" as CommentReplyModeType,
+                  labelKey: "modePrivateOnly",
+                  icon: SendHorizontal,
+                },
+              ] as const
+            ).map((opt) => {
+              const IconComp = opt.icon;
+              const isSelected = commentReplyMode === opt.mode;
+              return (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  onClick={() => setCommentReplyMode(opt.mode)}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer",
+                    isSelected
+                      ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                      : "bg-background/80 text-muted-foreground border-border/50 hover:text-foreground",
+                  )}
+                >
+                  <IconComp className="w-3 h-3 shrink-0" />
+                  <span>{tInbox(`commentActions.${opt.labelKey}` as any)}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setAutoHideCommentOnReply((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors cursor-pointer",
+              autoHideCommentOnReply
+                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40"
+                : "text-muted-foreground border-border/40",
+            )}
+          >
+            <EyeOff className="w-3 h-3 shrink-0" />
+            <span>{tInbox("commentActions.autoHideToggle")}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Popover @mention đồng nghiệp trong Nhóm hoặc Ghi chú nội bộ */}
+      {canMentionColleagues && mentionQuery !== null && (
         <LiquidGlass
           variant="primary"
           blur="xl"
@@ -628,27 +847,29 @@ export const ChatInput = ({
         >
           <ScrollArea className="max-h-48 pr-1">
             <div className="space-y-0.5">
-              <button
-                type="button"
-                onClick={() =>
-                  handleSelectMention({
-                    userId: "ALL",
-                    displayName: "All",
-                    isAll: true,
-                  })
-                }
-                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-primary/10 text-left text-xs font-semibold text-primary cursor-pointer"
-              >
-                <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                  <AtSign className="w-3.5 h-3.5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate">@All</p>
-                  <p className="text-[10px] text-muted-foreground font-normal truncate">
-                    {t("mentionAllDesc")}
-                  </p>
-                </div>
-              </button>
+              {isGroupChat && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleSelectMention({
+                      userId: "ALL",
+                      displayName: "All",
+                      isAll: true,
+                    })
+                  }
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-primary/10 text-left text-xs font-semibold text-primary cursor-pointer"
+                >
+                  <div className="h-7 w-7 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                    <AtSign className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate">@All</p>
+                    <p className="text-[10px] text-muted-foreground font-normal truncate">
+                      {t("mentionAllDesc")}
+                    </p>
+                  </div>
+                </button>
+              )}
 
               {mentionCandidates.map((member) => {
                 const label = member.nickname || member.name;
@@ -664,21 +885,54 @@ export const ChatInput = ({
                     }
                     className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-muted text-left text-xs cursor-pointer"
                   >
-                    <GlassAvatar
-                      src={member.avatar}
-                      name={label}
-                      size="xs"
-                    />
+                    <GlassAvatar src={member.avatar} name={label} size="xs" />
                     <span className="font-medium truncate">{label}</span>
                   </button>
                 );
               })}
-            </div>  
+            </div>
           </ScrollArea>
         </LiquidGlass>
       )}
 
-      {/* Khung xem trước Liên kết (Link Preview) ngay khi đang gõ */}
+      {/* Huy hiệu chế độ Ghi chú nội bộ (Alt+N — F03.5) */}
+      {isInternalNoteMode && (
+        <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs">
+          <div className="flex items-center gap-1.5 font-semibold">
+            <StickyNote className="w-3.5 h-3.5 shrink-0" />
+            <span>{tInbox("composer.internalNoteBadge")}</span>
+          </div>
+          <GlassIconButton
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6"
+            icon={<X className="w-3.5 h-3.5" />}
+            onClick={() => setIsInternalNoteMode(false)}
+          />
+        </div>
+      )}
+
+      {/* Thẻ sản phẩm đính kèm từ Quick Reply (F03.3) */}
+      {attachedProductCards.length > 0 && (
+        <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-2 rounded-xl bg-sky-500/10 border border-sky-500/30 text-xs">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            <ShoppingBag className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+            {attachedProductCards.map((card) => (
+              <GlassBadge key={card.skuCode} variant="info" size="sm">
+                {card.name} ({card.retailPrice.toLocaleString("vi-VN")}đ)
+              </GlassBadge>
+            ))}
+          </div>
+          <GlassIconButton
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 shrink-0"
+            icon={<X className="w-3.5 h-3.5" />}
+            onClick={() => setAttachedProductCards([])}
+          />
+        </div>
+      )}
+
       {draftLinkPreview && (
         <div className="flex items-center justify-between gap-2.5 px-3 py-2 mb-2 rounded-xl bg-muted/60 border border-border/60 text-xs">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -711,7 +965,6 @@ export const ChatInput = ({
         />
       )}
 
-      {/* Thanh hiển thị Trả lời / Chỉnh sửa tin nhắn */}
       {(activeReply || activeEdit) && activeConversationId && (
         <div className="flex items-center justify-between gap-2.5 sm:gap-3 px-3 sm:px-3.5 py-2 mb-2 rounded-2xl bg-primary/5 dark:bg-primary/10 border border-primary/20 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
           <button
@@ -761,7 +1014,6 @@ export const ChatInput = ({
         </div>
       )}
 
-      {/* Thanh xem trước tệp đính kèm đã chọn */}
       {selectedItems.length > 0 && (
         <LiquidGlassCard
           isolate={false}
@@ -843,7 +1095,6 @@ export const ChatInput = ({
                         />
                       )}
 
-                      {/* Lớp phủ xem ảnh ngay trong web */}
                       {isImage && (
                         <button
                           type="button"
@@ -942,11 +1193,10 @@ export const ChatInput = ({
         initialIndex={previewLightboxIndex ?? 0}
       />
 
-      {/* Bộ chọn Emoji nổi */}
       {showEmojiPicker && (
         <div
           ref={emojiContainerRef}
-          className="absolute bottom-full right-2 sm:right-4 mb-2 p-2.5 bg-background/95 backdrop-blur-xl border rounded-2xl shadow-xl grid grid-cols-4 gap-1.5 w-60 sm:w-64 max-w-[calc(100vw-2rem)] z-30 animate-in fade-in zoom-in-95 duration-150"
+          className="absolute bottom-full right-2 sm:right-4 mb-2 p-2.5 bg-background/95 border rounded-2xl shadow-xl grid grid-cols-4 gap-1.5 w-60 sm:w-64 max-w-[calc(100vw-2rem)] z-30 animate-in fade-in zoom-in-95 duration-150"
         >
           {COMMON_EMOJIS.map((emoji) => (
             <button
@@ -964,7 +1214,6 @@ export const ChatInput = ({
         </div>
       )}
 
-      {/* Input ẩn cho File và Hình ảnh/Video */}
       <input
         ref={fileInputRef}
         type="file"
@@ -981,9 +1230,49 @@ export const ChatInput = ({
         onChange={handleFileChange}
       />
 
-      <div className="flex items-end gap-1.5 sm:gap-2 bg-muted/50 p-1.5 sm:p-2 rounded-2xl border focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all">
+      <LiquidGlass
+        variant={isInternalNoteMode ? "warning" : "primary"}
+        blur="md"
+        rounded="2xl"
+        isolate={false}
+        className={cn(
+          "p-1.5 sm:p-2 border transition-all",
+          isInternalNoteMode
+            ? "border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/30"
+            : "focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50",
+        )}
+        contentClassName="flex items-end gap-1.5 sm:gap-2 w-full"
+      >
         {!isRecording && (
           <div className="flex gap-0.5 pb-0.5 shrink-0">
+            {activeShopId && (
+              <PermissionGate can="INBOX_INTERNAL_NOTE_WRITE" mode="hide">
+                <GlassIconButton
+                  type="button"
+                  variant={isInternalNoteMode ? "solid" : "ghost"}
+                  color={isInternalNoteMode ? "warning" : "neutral"}
+                  onClick={() => setIsInternalNoteMode((v) => !v)}
+                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  tooltip={tInbox("composer.internalNoteBadge")}
+                  icon={<StickyNote className="w-4 h-4 sm:w-5 sm:h-5" />}
+                />
+              </PermissionGate>
+            )}
+
+            {activeShopId && (
+              <GlassIconButton
+                type="button"
+                variant={quickReplyQuery !== null ? "solid" : "ghost"}
+                color={quickReplyQuery !== null ? "primary" : "neutral"}
+                onClick={() =>
+                  setQuickReplyQuery((prev) => (prev === null ? "" : null))
+                }
+                className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-primary"
+                tooltip={tInbox("composer.quickReplyHint")}
+                icon={<Zap className="w-4 h-4 sm:w-5 sm:h-5" />}
+              />
+            )}
+
             {isGroupChat && activeConversationId && (
               <GlassIconButton
                 type="button"
@@ -1073,15 +1362,34 @@ export const ChatInput = ({
               isComposingRef.current = false;
               compositionEndedAtRef.current = Date.now();
             }}
-            placeholder={t("placeholder")}
+            placeholder={
+              isInternalNoteMode
+                ? tInbox("composer.internalNotePlaceholder")
+                : activeShopId
+                  ? tInbox("composer.replyPlaceholder")
+                  : t("placeholder")
+            }
             className="min-h-8 sm:min-h-9 max-h-[150px] w-full resize-none border-0 bg-transparent px-1.5 sm:px-2 py-1.5 focus-visible:ring-0 shadow-none scrollbar-hide text-sm leading-relaxed"
             rows={1}
-            disabled={disabled}
+            disabled={disabled || isCollisionLockedByOther}
           />
         )}
 
         {!isRecording && (
           <div className="flex gap-0.5 sm:gap-1 pb-0.5 shrink-0">
+            {activeShopId && message.trim().length > 0 && (
+              <PermissionGate can="INBOX_TRANSLATION_USE" mode="hide">
+                <GlassIconButton
+                  type="button"
+                  variant="ghost"
+                  onClick={handleTranslateOutboundDraft}
+                  className="h-8 w-8 sm:h-9 sm:w-9 text-sky-500 hover:bg-sky-500/10"
+                  tooltip={tInbox("translation.translateDraftTooltip")}
+                  icon={<Languages className="w-4 h-4" />}
+                />
+              </PermissionGate>
+            )}
+
             <div className="hidden sm:inline-flex">
               <GlassIconButton
                 type="button"
@@ -1092,22 +1400,27 @@ export const ChatInput = ({
                 icon={<Smile className="w-4 h-4 sm:w-5 sm:h-5" />}
               />
             </div>
+
             <PatternButton
               type="button"
               onClick={handleSend}
               disabled={
-                (!message.trim() && selectedItems.length === 0) || disabled
+                (!message.trim() && selectedItems.length === 0) ||
+                disabled ||
+                isCollisionLockedByOther
               }
               size="icon"
               rounded="full"
               variant={
                 message.trim() || selectedItems.length > 0 ? "solid" : "ghost"
               }
-              color="primary"
+              color={isInternalNoteMode ? "warning" : "primary"}
               className={cn(
                 "h-8 w-8 sm:h-9 sm:w-9 transition-all duration-200",
                 message.trim() || selectedItems.length > 0
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm scale-100"
+                  ? isInternalNoteMode
+                    ? "bg-amber-500 text-white hover:bg-amber-600 shadow-sm scale-100"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm scale-100"
                   : "bg-transparent text-muted-foreground hover:bg-muted scale-95",
               )}
             >
@@ -1115,7 +1428,7 @@ export const ChatInput = ({
             </PatternButton>
           </div>
         )}
-      </div>
+      </LiquidGlass>
     </div>
   );
 };

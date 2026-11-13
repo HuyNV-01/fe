@@ -8,6 +8,176 @@ import type {
 } from "@/common/enum";
 import type { IUserRes } from "./common";
 
+export type TagCategoryType =
+  | "CONSULTATION_STATUS"
+  | "CUSTOMER_TIER"
+  | "MESSAGE_BOOKMARK"
+  | "DELIVERY_ISSUE"
+  | "MARKETING_SOURCE";
+
+export type TagApplicableScopeType =
+  | "CONVERSATION"
+  | "MESSAGE"
+  | "CUSTOMER"
+  | "ORDER";
+
+export type CommentReplyModeType =
+  | "REPLY_COMMENT_ONLY"
+  | "SEND_PRIVATE_REPLY_ONLY"
+  | "REPLY_COMMENT_AND_PRIVATE_INBOX";
+
+export interface IAutoTagRuleConfig {
+  triggerEvent:
+    | "NER_PHONE_EXTRACTED"
+    | "NER_ADDRESS_EXTRACTED"
+    | "POS_DRAFT_CREATED"
+    | "POS_ORDER_CONFIRMED"
+    | "VIETQR_PAID"
+    | "CARRIER_DELIVERY_FAILED"
+    | "KEYWORD_MATCH";
+  keywords?: string[];
+  removeTagIdsOnApply?: string[];
+}
+
+export interface ICustomTag {
+  id: string;
+  shopId: string;
+  name: string;
+  slug: string;
+  colorHex: string;
+  colorOklch: string;
+  category: TagCategoryType;
+  isMutuallyExclusiveGroup: boolean;
+  applicableScopesJson: TagApplicableScopeType[];
+  shortcutKey?: string | null;
+  sortOrder: number;
+  autoRuleConfigJson?: IAutoTagRuleConfig | null;
+  isActive: boolean;
+}
+
+export interface IMessageBookmarkItem {
+  assignmentId: string;
+  conversationId: string;
+  messageId: string;
+  tagId: string;
+  tagName: string;
+  tagSlug: string;
+  colorOklch: string;
+  colorHex: string;
+  messageSnippetPreview: string | null;
+  noteText: string | null;
+  assignedByUserId: string;
+  createdAt: string;
+}
+
+export interface IQuickReplyProductCard {
+  skuCode: string;
+  name: string;
+  retailPrice: number;
+  imageUrl?: string | null;
+  availableQty?: number;
+}
+
+export interface IQuickReplyTemplate {
+  id: string;
+  shopId: string;
+  shortcut: string;
+  title: string;
+  category: string;
+  contentTemplate: string;
+  attachmentsJson?: Array<{
+    fileId?: string;
+    url: string;
+    fileName: string;
+    mimeType?: string;
+  }> | null;
+  productCardsJson?: IQuickReplyProductCard[] | null;
+  sortOrder: number;
+  usageCount: number;
+  isActive: boolean;
+}
+
+export interface ICollisionLockState {
+  conversationId: string;
+  holderAgentId: string;
+  holderAgentName: string;
+  holderAgentAvatar?: string | null;
+  lockedAt: string;
+  expiresAt: string;
+  isForcedTakeOver?: boolean;
+}
+
+export interface IAccountabilityMilestone {
+  eventCode:
+    | "LEAD_INBOUND"
+    | "ASSIGNED_AGENT"
+    | "FIRST_SEEN"
+    | "FIRST_AGENT_REPLY_FRT"
+    | "INTERNAL_NOTE_ADDED"
+    | "CONVERSATION_TRANSFERRED"
+    | "CONVERSATION_SNOOZED"
+    | "CONVERSATION_UNSNOOZED"
+    | "MASKED_CALL_INITIATED"
+    | "MASKED_CALL_COMPLETED"
+    | "PHONE_COLLECTED"
+    | "ORDER_CREATED";
+  actorUserId?: string | null;
+  actorName?: string | null;
+  targetUserId?: string | null;
+  targetUserName?: string | null;
+  note?: string | null;
+  elapsedSecondsFromInbound?: number | null;
+  timestamp: string;
+}
+
+export interface IOmnichannelFilterState {
+  channelIds?: string[];
+  unreadOnly?: boolean;
+  unrepliedOnly?: boolean;
+  ghostedByAgentOnly?: boolean;
+  slaBreachedOnly?: boolean;
+  window24hExpiringOnly?: boolean;
+  snoozedOnly?: boolean;
+  hasPhone?: boolean;
+  noPhone?: boolean;
+  hasOrder?: boolean;
+  noOrder?: boolean;
+  interactionType?: "INBOX" | "COMMENT" | "LIVESTREAM" | "MARKETPLACE";
+  sourcePostId?: string;
+  sourceAdId?: string;
+  assignedAgentId?: string;
+  includeTagIds?: string[];
+  includeTagOperator?: "AND" | "OR";
+  includeTagMatchMode?: "AND" | "OR";
+  excludeTagIds?: string[];
+  searchKeyword?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface IOmnichannelSummaryCounts {
+  totalAll: number;
+  unrepliedCount: number;
+  ghostedCount: number;
+  slaBreachedCount: number;
+  window24hExpiringCount: number;
+  snoozedCount: number;
+  hasPhoneCount: number;
+  unconfirmedOrderCount: number;
+}
+
+export interface IMaskedVoipCallSession {
+  callSessionId: string;
+  conversationId: string;
+  maskedPhoneDisplay: string;
+  sipTrunkProvider?: string;
+  status: CallStatusEnum;
+  startedAt: string;
+  durationSeconds?: number;
+  recordingFileUrl?: string | null;
+  callDispositionTag?: string | null;
+}
+
 export interface IConversation {
   id: string;
   name?: string;
@@ -39,11 +209,27 @@ export interface IConversation {
   channelType?: string;
   channelIntegrationId?: string | null;
   externalThreadId?: string | null;
+  interactionType?: "INBOX" | "COMMENT" | "LIVESTREAM" | "MARKETPLACE";
+  customerId?: string | null;
   assignedAgentId?: string | null;
   supportStatus?: string;
   slaDeadlineAt?: string | null;
+  isSlaBreached?: boolean;
+  firstSeenAt?: string | null;
+  firstSeenByAgentId?: string | null;
+  isGhostedByAgent?: boolean;
   hasPhoneCollected?: boolean;
   hasOrderCreated?: boolean;
+  sourcePostId?: string | null;
+  sourceAdId?: string | null;
+  ctwaClickId?: string | null;
+  activeTagIdsJson?: string[] | null;
+  snoozedUntilAt?: string | null;
+  snoozeNote?: string | null;
+  accountabilityTimelineJson?: IAccountabilityMilestone[] | null;
+  pageShortCode?: string;
+  pageName?: string;
+  channelAvatarUrl?: string | null;
 }
 
 export interface IPollOption {
@@ -128,6 +314,20 @@ export interface IMessageCallInfo {
   participantIds: string[];
   startedAt?: string;
   endedAt?: string;
+  callDirection?: "INTERNAL_WEBRTC" | "OUTBOUND_SIP_PSTN" | "INBOUND_SIP_PSTN";
+  maskedPhoneDisplay?: string | null;
+  recordingFileId?: string | null;
+  recordingFileUrl?: string | null;
+  callDispositionTag?: string | null;
+  callNotes?: string | null;
+  waveformPeaks?: number[];
+}
+
+export interface IMessageTranslation {
+  translatedText: string;
+  sourceLang: string;
+  targetLang: string;
+  translatedAt: string;
 }
 
 export interface IMessageMetadata {
@@ -160,6 +360,36 @@ export interface IMessageMetadata {
   mentionAll?: boolean;
   expiresAt?: string;
   disappearingTtl?: number;
+  isInternalNote?: boolean;
+  quickReplyShortcutUsed?: string;
+  productCards?: IQuickReplyProductCard[];
+  translation?: IMessageTranslation;
+  // Universal Comment Response & Anti-Competitor Shielding (F03.3 & F03.4)
+  externalCustomerName?: string;
+  externalCustomerAvatar?: string | null;
+  externalCustomerPsid?: string | null;
+  skipPlatformDispatch?: boolean;
+  externalCommentId?: string;
+  externalPostId?: string;
+  isHiddenOnPlatform?: boolean;
+  hiddenByAgentId?: string;
+  hiddenAt?: string;
+  isLikedByPage?: boolean;
+  likedByAgentId?: string;
+  isDeletedOnPlatform?: boolean;
+  deletedOnPlatformAt?: string;
+  deletedByActor?: "CUSTOMER" | "AGENT";
+  deletedByAgentId?: string | null;
+  platformDeliveryStatus?: "DISPATCHED" | "SIMULATED_SANDBOX" | "FAILED";
+  platformExternalId?: string | null;
+  platformEditedExternalId?: string | null;
+  platformEditSyncedAt?: string;
+  autoHideCommentOnReply?: boolean;
+  originalTextBeforePlatformEdit?: string;
+  privateReplySentAt?: string;
+  privateReplyByAgentId?: string;
+  linkedInboxConversationId?: string;
+  commentReplyMode?: CommentReplyModeType;
 }
 
 export interface ISendMessagePayload {
@@ -253,6 +483,20 @@ export interface IMessage {
   readByUsers?: IUserRes[];
   expiresAt?: string | null;
   isLastMessage?: boolean;
+  shopId?: string | null;
+  direction?: "INBOUND" | "OUTBOUND" | "INTERNAL_NOTE" | "SYSTEM";
+  isInternalNote?: boolean;
+  messageTagIdsJson?: string[] | null;
+  extractedEntitiesJson?: {
+    phones?: string[];
+    provinceCode?: string | null;
+    districtCode?: string | null;
+    wardCode?: string | null;
+    addressLine?: string | null;
+    skuCodes?: string[];
+  } | null;
+  aiDraftConfidence?: number | null;
+  orderIdRef?: string | null;
 }
 
 export interface IUserStatusPayload {
@@ -325,7 +569,24 @@ export interface IConversationDetails {
   conversationId: string;
   type: ConversationTypeEnum;
   name?: string;
+  avatar?: string | null;
   disappearingTtl: number | null;
+  shopId?: string | null;
+  channelType?: string;
+  channelIntegrationId?: string | null;
+  interactionType?: "INBOX" | "COMMENT" | "LIVESTREAM" | "MARKETPLACE";
+  supportStatus?: string;
+  assignedAgentId?: string | null;
+  isGhostedByAgent?: boolean;
+  isSlaBreached?: boolean;
+  slaDeadlineAt?: string | null;
+  snoozedUntilAt?: string | null;
+  snoozeNote?: string | null;
+  activeTagIdsJson?: string[];
+  sourceAdId?: string | null;
+  sourcePostId?: string | null;
+  ctwaClickId?: string | null;
+  accountabilityTimelineJson?: IAccountabilityMilestone[];
   mySettings: {
     isMuted: boolean;
     soundEnabled: boolean;

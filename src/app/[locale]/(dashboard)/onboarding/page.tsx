@@ -102,10 +102,7 @@ export default function WorkspaceOnboardingPage() {
   useEffect(() => {
     if (!tabParam && pendingInvitations.length > 0) {
       setActiveTab("INVITATIONS");
-    } else if (
-      activeTab === "INVITATIONS" &&
-      pendingInvitations.length === 0
-    ) {
+    } else if (activeTab === "INVITATIONS" && pendingInvitations.length === 0) {
       setActiveTab("CREATE_SHOP");
     }
   }, [pendingInvitations.length, tabParam]);

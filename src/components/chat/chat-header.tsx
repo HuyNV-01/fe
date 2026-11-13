@@ -7,14 +7,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   GlassAvatar,
+  GlassBadge,
   GlassIconButton,
   PatternButton,
   ButtonBack,
   DropdownMenuContentCus,
   ItemMenu,
 } from "@/components/toolkit";
+import { PermissionGate } from "@/components/iam/permission-gate";
 import {
   Phone,
+  PhoneForwarded,
   Video,
   Bell,
   BellOff,
@@ -27,6 +30,10 @@ import {
   Search,
   FolderOpen,
   Trash2,
+  AlarmClock,
+  Bookmark,
+  AlertTriangle,
+  Megaphone,
 } from "lucide-react";
 import { EMPTY_STRING } from "@/constant";
 import { useTranslations } from "next-intl";
@@ -44,8 +51,17 @@ interface IChatHeaderProps {
   partnerId?: string;
   isBlocked?: boolean;
   statusText?: string;
+  shopId?: string | null;
+  sourceAdId?: string | null;
+  sourcePostId?: string | null;
+  isGhostedByAgent?: boolean;
+  isSlaBreached?: boolean;
+  snoozedUntilAt?: string | null;
   onAudioCall?: () => void;
   onVideoCall?: () => void;
+  onMaskedVoipCall?: () => void;
+  onOpenSnoozeAndTimeline?: () => void;
+  onOpenBookmarksSheet?: () => void;
   onToggleMute?: () => void;
   onAddGroupMembers?: () => void;
   onLeaveGroup?: () => void;
@@ -66,8 +82,17 @@ export const ChatHeader = memo(
     partnerId,
     isBlocked = false,
     statusText,
+    shopId,
+    sourceAdId,
+    sourcePostId,
+    isGhostedByAgent = false,
+    isSlaBreached = false,
+    snoozedUntilAt,
     onAudioCall,
     onVideoCall,
+    onMaskedVoipCall,
+    onOpenSnoozeAndTimeline,
+    onOpenBookmarksSheet,
     onToggleMute,
     onAddGroupMembers,
     onLeaveGroup,
@@ -76,6 +101,7 @@ export const ChatHeader = memo(
     onDeleteConversation,
   }: IChatHeaderProps) => {
     const t = useTranslations("Chat.Detail.header");
+    const tInbox = useTranslations("OmnichannelInbox");
     const router = useRouter();
 
     const handleViewProfile = () => {
@@ -106,7 +132,7 @@ export const ChatHeader = memo(
             />
 
             <div className="flex flex-col leading-tight min-w-0 flex-1 overflow-hidden">
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                 <h2
                   title={displayName}
                   className="font-semibold text-sm truncate min-w-0 max-w-full group-hover/header:text-primary transition-colors"
@@ -118,7 +144,54 @@ export const ChatHeader = memo(
                 ) : (
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 )}
+
+                {sourceAdId && (
+                  <GlassBadge
+                    variant="info"
+                    size="sm"
+                    className="hidden sm:inline-flex text-[10px] py-0 px-1.5"
+                  >
+                    <Megaphone className="w-2.5 h-2.5 mr-1 inline" />
+                    {tInbox("adAttribution.fromAdBadge", { adId: sourceAdId })}
+                  </GlassBadge>
+                )}
+
+                {!sourceAdId && sourcePostId && (
+                  <GlassBadge
+                    variant="secondary"
+                    size="sm"
+                    className="hidden sm:inline-flex text-[10px] py-0 px-1.5"
+                  >
+                    {tInbox("adAttribution.fromPostBadge", {
+                      postId: sourcePostId,
+                    })}
+                  </GlassBadge>
+                )}
+
+                {isGhostedByAgent && (
+                  <GlassBadge
+                    variant="danger"
+                    size="sm"
+                    dot
+                    pulse
+                    className="text-[10px] py-0 px-1.5"
+                  >
+                    <AlertTriangle className="w-2.5 h-2.5 mr-0.5 inline" />
+                    {tInbox("filters.slaBreached")}
+                  </GlassBadge>
+                )}
+
+                {!isGhostedByAgent && isSlaBreached && (
+                  <GlassBadge
+                    variant="warning"
+                    size="sm"
+                    className="text-[10px] py-0 px-1.5"
+                  >
+                    {tInbox("filters.slaBreached")}
+                  </GlassBadge>
+                )}
               </div>
+
               <span className="text-[11px] sm:text-xs text-muted-foreground truncate block">
                 {isTyping ? (
                   <span className="text-primary font-medium animate-pulse">
@@ -139,6 +212,44 @@ export const ChatHeader = memo(
         </div>
 
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+          {shopId && onMaskedVoipCall && (
+            <PermissionGate can="INBOX_VOIP_CALL_MASKED" mode="hide">
+              <PatternButton
+                type="button"
+                variant="glass"
+                color="success"
+                size="sm"
+                rounded="full"
+                onClick={onMaskedVoipCall}
+                className="hidden lg:inline-flex h-8 px-2.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 mr-1"
+                icon={<PhoneForwarded className="w-3.5 h-3.5" />}
+              >
+                {tInbox("composer.maskedCallBtn")}
+              </PatternButton>
+            </PermissionGate>
+          )}
+
+          {shopId && onOpenSnoozeAndTimeline && (
+            <GlassIconButton
+              variant={snoozedUntilAt ? "solid" : "ghost"}
+              color={snoozedUntilAt ? "warning" : "neutral"}
+              onClick={onOpenSnoozeAndTimeline}
+              tooltip={tInbox("composer.snoozeBtn")}
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-amber-500"
+              icon={<AlarmClock className="w-4 h-4 sm:w-5 sm:h-5" />}
+            />
+          )}
+
+          {shopId && onOpenBookmarksSheet && (
+            <GlassIconButton
+              variant="ghost"
+              onClick={onOpenBookmarksSheet}
+              tooltip={tInbox("composer.bookmarksBtn")}
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-sky-500"
+              icon={<Bookmark className="w-4 h-4 sm:w-5 sm:h-5" />}
+            />
+          )}
+
           <GlassIconButton
             variant="ghost"
             disabled={isBlocked}
@@ -201,7 +312,27 @@ export const ChatHeader = memo(
                 <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
               </PatternButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContentCus align="end" className="w-52">
+            <DropdownMenuContentCus align="end" className="w-56">
+              {shopId && onMaskedVoipCall && (
+                <ItemMenu
+                  onClick={onMaskedVoipCall}
+                  icon={
+                    <PhoneForwarded className="w-4 h-4 mr-2 text-emerald-500" />
+                  }
+                >
+                  {tInbox("composer.maskedCallBtn")}
+                </ItemMenu>
+              )}
+
+              {shopId && onOpenSnoozeAndTimeline && (
+                <ItemMenu
+                  onClick={onOpenSnoozeAndTimeline}
+                  icon={<AlarmClock className="w-4 h-4 mr-2 text-amber-500" />}
+                >
+                  {tInbox("composer.snoozeBtn")}
+                </ItemMenu>
+              )}
+
               {!isGroupChat && partnerId && (
                 <ItemMenu
                   onClick={handleViewProfile}

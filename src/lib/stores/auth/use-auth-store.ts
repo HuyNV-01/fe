@@ -32,7 +32,7 @@ interface AuthActions {
   setStatus: (status: TStoreStatus) => void;
   resetState: () => void;
 
-  setAccessToken: (token: string) => void;
+  setAccessToken: (token: string, refreshToken?: string) => void;
   updateCurrentUser: (patch: Partial<IUserRes>) => void;
 
   register: (payload: IRegister, cb?: ActionCallbacks) => Promise<void>;
@@ -72,23 +72,34 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
         state.status = status;
       }),
 
-    resetState: () =>
+    resetState: () => {
       set((state) => {
         state.currentAccount = undefined;
         state.value = undefined;
         state.status = "idle";
         state.authenticated = false;
-      }),
+      });
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+      }
+    },
 
-    setAccessToken: (token: string) => {
+    setAccessToken: (token: string, nextRefreshToken?: string) => {
       set((state) => {
         if (state.currentAccount) {
           state.currentAccount.accessToken = token;
+          if (nextRefreshToken) {
+            state.currentAccount.refreshToken = nextRefreshToken;
+          }
           state.authenticated = true;
         }
       });
       if (typeof window !== "undefined") {
         localStorage.setItem("accessToken", token);
+        if (nextRefreshToken) {
+          localStorage.setItem("refreshToken", nextRefreshToken);
+        }
       }
     },
 
@@ -168,6 +179,9 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
 
           if (typeof window !== "undefined") {
             localStorage.setItem("accessToken", response.data.accessToken);
+            if (response.data.refreshToken) {
+              localStorage.setItem("refreshToken", response.data.refreshToken);
+            }
           }
           cb?.onSuccess?.(response.code);
         }
@@ -200,6 +214,7 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
         });
         if (typeof window !== "undefined") {
           localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
           localStorage.removeItem("auth-storage");
           localStorage.removeItem("chat-storage");
         }
@@ -315,6 +330,9 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
       });
       if (typeof window !== "undefined") {
         localStorage.setItem("accessToken", payload.accessToken);
+        if (payload.refreshToken) {
+          localStorage.setItem("refreshToken", payload.refreshToken);
+        }
       }
 
       try {
@@ -325,6 +343,9 @@ export const useAuthStore = createPersistedStore<IAuthState & AuthActions>(
             state.currentAccount = {
               user: response.data,
               accessToken: payload.accessToken,
+              ...(payload.refreshToken
+                ? { refreshToken: payload.refreshToken }
+                : {}),
             };
             state.authenticated = true;
             state.status = "idle";
