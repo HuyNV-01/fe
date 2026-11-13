@@ -534,6 +534,18 @@ interface ChatState {
     toAgentId: string;
     timeline?: IAccountabilityMilestone[];
   }) => void;
+  handleBuyerSeenSynced: (payload: {
+    conversationId: string;
+    senderAction: "mark_seen" | "typing_on" | "typing_off";
+    platformDeliveryStatus?: "DISPATCHED" | "SIMULATED_SANDBOX" | "FAILED";
+    viewerUser?: { id: string; name: string; avatar: string | null } | null;
+    syncedAt: string;
+  }) => void;
+  handleNerEntitiesDetected: (payload: {
+    conversationId: string;
+    messageId: string;
+    extractedEntities: IMessage["extractedEntitiesJson"];
+  }) => void;
 }
 
 export const useChatStore = createPersistedStore<ChatState>(
@@ -1082,19 +1094,36 @@ export const useChatStore = createPersistedStore<ChatState>(
 
     updateMessageStatus: ({ conversationId, id, status, userId }) => {
       set((state) => {
+        const priority: Record<MessageStatus, number> = {
+          sending: 0,
+          failed: 0,
+          sent: 1,
+          delivered: 2,
+          read: 3,
+          removed: 4,
+        };
+
+        const syncConvLastStatus = (c?: IConversation) => {
+          if (!c) return;
+          const curP =
+            priority[(c.lastMessageStatus || "sent") as MessageStatus] || 0;
+          const nextP = priority[status] || 0;
+          if (nextP > curP) {
+            c.lastMessageStatus = status;
+          }
+        };
+        syncConvLastStatus(
+          state.conversations.find((c) => c.id === conversationId),
+        );
+        syncConvLastStatus(
+          state.tempConversations.find((c) => c.id === conversationId),
+        );
+
         const msgs = state.messages[conversationId];
         if (!msgs) return;
 
         const msg = msgs.find((m) => m.id === id);
         if (msg && msg.status !== "removed") {
-          const priority: Record<MessageStatus, number> = {
-            sending: 0,
-            failed: 0,
-            sent: 1,
-            delivered: 2,
-            read: 3,
-            removed: 4,
-          };
           const currentP = priority[msg.status as MessageStatus] || 0;
           const newP = priority[status] || 0;
 
@@ -1117,7 +1146,14 @@ export const useChatStore = createPersistedStore<ChatState>(
       });
     },
 
-    handleReadMessage: ({ conversationId, userId, lastReadAt, user }) => {
+    handleReadMessage: ({
+      conversationId,
+      userId,
+      lastReadAt,
+      user,
+      isBuyerReceipt,
+      platformSeenSynced,
+    }) => {
       const currentUser = useAuthStore.getState().currentAccount?.user;
       const readAtDate = parseSafeDate(lastReadAt);
 
@@ -1129,45 +1165,98 @@ export const useChatStore = createPersistedStore<ChatState>(
       }
 
       set((state) => {
+        const conv = state.conversations.find((c) => c.id === conversationId);
+        const tempConv = state.tempConversations.find(
+          (c) => c.id === conversationId,
+        );
+
         if (userId === currentUser?.id) {
-          const conv = state.conversations.find((c) => c.id === conversationId);
           if (conv) conv.unreadCount = 0;
-          const tempConv = state.tempConversations.find(
-            (c) => c.id === conversationId,
-          );
           if (tempConv) tempConv.unreadCount = 0;
+        }
+
+        // Đồng bộ trạng thái tích đôi xanh "Đã xem" (read) ngay trên danh sách hội thoại bên trái (ChatList)
+        // khi người nhận hoặc người mua ngoại vi đã xem tin nhắn
+        if (conv && conv.lastMessageSenderId !== userId) {
+          conv.lastMessageStatus = "read";
+        }
+        if (tempConv && tempConv.lastMessageSenderId !== userId) {
+          tempConv.lastMessageStatus = "read";
         }
 
         const msgs = state.messages[conversationId];
         if (!msgs) return;
 
+        const resolvedReaderUser =
+          user ||
+          (isBuyerReceipt ||
+          userId.startsWith("ext:") ||
+          userId.startsWith("customer:")
+            ? {
+                id: userId,
+                name: conv?.name || "Khách hàng",
+                email: "",
+                avatar: conv?.avatar || undefined,
+              }
+            : undefined);
+
         state.messages[conversationId] = msgs.map((msg) => {
-          const isMyMessage = msg.senderId === currentUser?.id;
+          if (msg.status === "removed") return msg;
 
+          const isReaderDifferentFromSender = msg.senderId !== userId;
+          if (!isReaderDifferentFromSender) return msg;
+
+          // Nếu là sự kiện Người mua đọc tin (isBuyerReceipt / ext: / customer:), chỉ áp dụng lên tin nhắn OUTBOUND / của người bán.
+          // Nếu là sự kiện Người xem / Nhân viên đọc tin, áp dụng lên cả tin nhắn đối phương / Người mua (INBOUND)
+          // để cả Người mua và Người xem đều thấy rõ trạng thái "Đã xem" ngay trong lúc chat.
+          const isBuyerReader = Boolean(
+            isBuyerReceipt ||
+              userId.startsWith("ext:") ||
+              userId.startsWith("customer:"),
+          );
           if (
-            isMyMessage &&
-            msg.status !== "read" &&
-            msg.status !== "removed"
+            isBuyerReader &&
+            msg.direction === "INBOUND" &&
+            msg.senderId !== currentUser?.id
           ) {
-            const msgDate = parseSafeDate(msg.createdAt);
-            if (!readAtDate || !msgDate || msgDate <= readAtDate) {
-              const newMsg = { ...msg, status: "read" as MessageStatus };
+            return msg;
+          }
 
-              if (!newMsg.readBy) newMsg.readBy = [];
-              if (!newMsg.readBy.includes(userId)) {
-                newMsg.readBy.push(userId);
-              }
+          const msgDate = parseSafeDate(msg.createdAt);
+          if (
+            !readAtDate ||
+            !msgDate ||
+            msgDate.getTime() <= readAtDate.getTime() + 5000
+          ) {
+            const newMsg: IMessage = {
+              ...msg,
+              status: "read",
+              metadata: {
+                ...(msg.metadata || {}),
+                ...(isBuyerReader ? { buyerReadAt: lastReadAt } : {}),
+                ...(platformSeenSynced
+                  ? { platformSeenSyncedAt: lastReadAt }
+                  : {}),
+              },
+            };
 
-              if (user) {
-                if (!newMsg.readByUsers) newMsg.readByUsers = [];
-                const exists = newMsg.readByUsers.some((u) => u.id === userId);
-                if (!exists) {
-                  newMsg.readByUsers.push(user);
-                }
-              }
-
-              return newMsg;
+            if (!newMsg.readBy) newMsg.readBy = [];
+            if (!newMsg.readBy.includes(userId)) {
+              newMsg.readBy = [...newMsg.readBy, userId];
             }
+
+            if (resolvedReaderUser) {
+              const prevReaders = Array.isArray(newMsg.readByUsers)
+                ? [...newMsg.readByUsers]
+                : [];
+              const exists = prevReaders.some((u) => u.id === userId);
+              if (!exists) {
+                prevReaders.push(resolvedReaderUser);
+              }
+              newMsg.readByUsers = prevReaders;
+            }
+
+            return newMsg;
           }
           return msg;
         });
@@ -1176,6 +1265,31 @@ export const useChatStore = createPersistedStore<ChatState>(
 
     updateMessageStatusBatch: ({ conversationId, messageIds, status }) => {
       set((state) => {
+        const priority: Record<MessageStatus, number> = {
+          sending: 0,
+          sent: 1,
+          delivered: 2,
+          read: 3,
+          failed: 0,
+          removed: 4,
+        };
+
+        const syncConvLastStatus = (c?: IConversation) => {
+          if (!c) return;
+          const curP =
+            priority[(c.lastMessageStatus || "sent") as MessageStatus] || 0;
+          const nextP = priority[status] || 0;
+          if (nextP > curP) {
+            c.lastMessageStatus = status;
+          }
+        };
+        syncConvLastStatus(
+          state.conversations.find((c) => c.id === conversationId),
+        );
+        syncConvLastStatus(
+          state.tempConversations.find((c) => c.id === conversationId),
+        );
+
         const msgs = state.messages[conversationId];
         if (!msgs) return;
 
@@ -1183,14 +1297,6 @@ export const useChatStore = createPersistedStore<ChatState>(
 
         state.messages[conversationId] = msgs.map((msg) => {
           if (targetIds.has(msg.id) && msg.status !== "removed") {
-            const priority: Record<MessageStatus, number> = {
-              sending: 0,
-              sent: 1,
-              delivered: 2,
-              read: 3,
-              failed: 0,
-              removed: 4,
-            };
             const currentP = priority[msg.status as MessageStatus] || 0;
             const newP = priority[status] || 0;
 
@@ -3097,6 +3203,63 @@ export const useChatStore = createPersistedStore<ChatState>(
             state.conversationDetails[
               conversationId
             ].accountabilityTimelineJson = timeline;
+          }
+        }
+      });
+    },
+
+    handleBuyerSeenSynced: ({ conversationId, viewerUser, syncedAt }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (!msgs) return;
+        state.messages[conversationId] = msgs.map((msg) => {
+          if (msg.direction === "INBOUND") {
+            const nextReaders = Array.isArray(msg.readByUsers)
+              ? [...msg.readByUsers]
+              : [];
+            if (
+              viewerUser &&
+              !nextReaders.some((r) => r.id === viewerUser.id)
+            ) {
+              nextReaders.push({
+                id: viewerUser.id,
+                name: viewerUser.name,
+                email: "",
+                avatar: viewerUser.avatar || undefined,
+              });
+            }
+            return {
+              ...msg,
+              status: "read",
+              readByUsers: nextReaders,
+              metadata: {
+                ...(msg.metadata || {}),
+                platformSeenSyncedAt: syncedAt,
+              },
+            };
+          }
+          return msg;
+        });
+      });
+    },
+
+    handleNerEntitiesDetected: ({
+      conversationId,
+      messageId,
+      extractedEntities,
+    }) => {
+      set((state) => {
+        const msgs = state.messages[conversationId];
+        if (msgs) {
+          const target = msgs.find((m) => m.id === messageId);
+          if (target) {
+            target.extractedEntitiesJson = extractedEntities;
+          }
+        }
+        if (extractedEntities?.phones && extractedEntities.phones.length > 0) {
+          const conv = state.conversations.find((c) => c.id === conversationId);
+          if (conv) {
+            conv.hasPhoneCollected = true;
           }
         }
       });

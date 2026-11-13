@@ -45,6 +45,9 @@ import {
   Heart,
   MessageSquareShare,
   Trash2,
+  Sparkles,
+  Phone,
+  MapPin,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 import type {
@@ -104,6 +107,7 @@ interface MessageBubbleProps {
   onDeleteCommentOnPlatform?: (message: IMessage) => void;
   onSendPrivateReplyFromComment?: (message: IMessage) => void;
   onOpenLinkedInboxConversation?: (inboxConversationId: string) => void;
+  onOpenCrm360Panel?: () => void;
   onCallbackCall?: (callType: CallTypeEnum) => void;
   onScrollToMessage?: (messageId: string) => void;
   onVotePoll?: (messageId: string, optionIds: string[]) => void;
@@ -162,6 +166,7 @@ export const MessageBubble = memo(
     onDeleteCommentOnPlatform,
     onSendPrivateReplyFromComment,
     onOpenLinkedInboxConversation,
+    onOpenCrm360Panel,
     onCallbackCall,
     onScrollToMessage,
     onVotePoll,
@@ -200,6 +205,15 @@ export const MessageBubble = memo(
     const productCards = message.metadata?.productCards || [];
     const translation = message.metadata?.translation;
     const messageTagIds = message.messageTagIdsJson || [];
+    const extractedEntities = message.extractedEntitiesJson;
+
+    const hasExtractedNerEntities = Boolean(
+      extractedEntities &&
+        ((extractedEntities.phones && extractedEntities.phones.length > 0) ||
+          extractedEntities.provinceCode ||
+          (extractedEntities.skuCodes &&
+            extractedEntities.skuCodes.length > 0)),
+    );
 
     const isHiddenOnPlatform = Boolean(message.metadata?.isHiddenOnPlatform);
     const isLikedByPage = Boolean(message.metadata?.isLikedByPage);
@@ -207,6 +221,8 @@ export const MessageBubble = memo(
     const privateReplySentAt = message.metadata?.privateReplySentAt;
     const linkedInboxConversationId =
       message.metadata?.linkedInboxConversationId;
+    const platformSeenSyncedAt = message.metadata?.platformSeenSyncedAt;
+    const buyerReadAt = message.metadata?.buyerReadAt;
 
     const imageGallery: LightboxImageItem[] = useMemo(() => {
       if (message.type !== MessageTypeEnum.IMAGE) return [];
@@ -245,8 +261,34 @@ export const MessageBubble = memo(
       [reactions],
     );
 
+    // Hiển thị trạng thái nhận và đã xem hai chiều cho cả tin nhắn người bán (isMe) và tin nhắn người mua (!isMe)
     const StatusIcon = useMemo(() => {
-      if (!isMe || isRecalled) return null;
+      if (isRecalled) return null;
+
+      if (!isMe) {
+        if (message.status === "read" || platformSeenSyncedAt) {
+          return (
+            <span
+              className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-medium"
+              title={
+                platformSeenSyncedAt
+                  ? t("status.buyerSeenSynced")
+                  : t("status.read")
+              }
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              {isLastInGroup && (
+                <span>
+                  {platformSeenSyncedAt
+                    ? t("status.buyerSeenSyncedShort")
+                    : t("status.read")}
+                </span>
+              )}
+            </span>
+          );
+        }
+        return null;
+      }
 
       switch (message.status) {
         case "sending":
@@ -283,10 +325,18 @@ export const MessageBubble = memo(
           return (
             <span
               className="inline-flex items-center gap-0.5 text-emerald-300 font-medium"
-              title={t("status.read")}
+              title={
+                buyerReadAt ? t("status.buyerReadConfirmed") : t("status.read")
+              }
             >
               <CheckCheck className="w-3.5 h-3.5 text-emerald-300" />
-              {isLastInGroup && <span>{t("status.read")}</span>}
+              {isLastInGroup && (
+                <span>
+                  {buyerReadAt
+                    ? t("status.buyerReadConfirmedShort")
+                    : t("status.read")}
+                </span>
+              )}
             </span>
           );
         case "failed":
@@ -309,7 +359,15 @@ export const MessageBubble = memo(
             </span>
           );
       }
-    }, [isMe, isRecalled, isLastInGroup, message.status, t]);
+    }, [
+      isMe,
+      isRecalled,
+      isLastInGroup,
+      message.status,
+      platformSeenSyncedAt,
+      buyerReadAt,
+      t,
+    ]);
 
     const formatReplyPreviewContent = () => {
       if (!replyPreview) return "";
@@ -908,6 +966,41 @@ export const MessageBubble = memo(
                   </p>
                 )}
 
+                {/* Huy hiệu Trích xuất Thực thể Thương mại Tiếng Việt (F04.1 & T05) */}
+                {!isRecalled && hasExtractedNerEntities && (
+                  <div className="mt-2 pt-1.5 border-t border-border/40 flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onOpenCrm360Panel?.()}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer",
+                        isMe && !isInternalNote
+                          ? "bg-white/20 text-white hover:bg-white/30"
+                          : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/35 hover:bg-emerald-500/25",
+                      )}
+                    >
+                      <Sparkles className="w-3 h-3 shrink-0" />
+                      <span>{t("nerExtractedBadge")}</span>
+                      {extractedEntities?.phones &&
+                        extractedEntities.phones.length > 0 && (
+                          <span className="inline-flex items-center gap-0.5 font-mono text-[10px] opacity-90">
+                            <Phone className="w-2.5 h-2.5" />
+                            {extractedEntities.phones[0].slice(0, 3)}••••
+                            {extractedEntities.phones[0].slice(-3)}
+                          </span>
+                        )}
+                      {extractedEntities?.provinceName && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] opacity-90">
+                          <MapPin className="w-2.5 h-2.5" />
+                          {extractedEntities.districtName
+                            ? `${extractedEntities.districtName}, ${extractedEntities.provinceName}`
+                            : extractedEntities.provinceName}
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                )}
+
                 {/* Bản dịch tự động đa ngôn ngữ 2 chiều (F03.11) */}
                 {translation?.translatedText && (
                   <div
@@ -1018,7 +1111,7 @@ export const MessageBubble = memo(
               </>
             )}
 
-            {/* Dòng thời gian + Nhãn chỉnh sửa + Icon trạng thái */}
+            {/* Dòng thời gian + Nhãn chỉnh sửa + Icon trạng thái hai chiều */}
             <div
               className={cn(
                 "flex items-center gap-1.5 text-[10px] mt-1 select-none opacity-80",
@@ -1360,8 +1453,9 @@ export const MessageBubble = memo(
             )}
         </div>
 
-        {isMe && displayReaders && displayReaders.length > 0 && (
-          <div className="mr-2">
+        {/* Hiển thị Avatar Đã xem hai chiều (cả tin nhắn người bán và tin nhắn người mua) */}
+        {displayReaders && displayReaders.length > 0 && (
+          <div className={cn(isMe ? "mr-2" : "ml-9")}>
             <MessageReadList readers={displayReaders} isMe={isMe} />
           </div>
         )}

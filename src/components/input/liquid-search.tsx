@@ -35,7 +35,6 @@ import {
 } from "../liquid-glass/liquid-popover";
 import { useTranslations } from "next-intl";
 
-// --- TYPES ---
 export interface SearchResultItem {
   id: string;
   title: React.ReactNode;
@@ -63,11 +62,15 @@ export interface LiquidSearchLabels {
   clear?: string;
 }
 
-interface LiquidSearchProps<T extends SearchResultItem = SearchResultItem> {
+export interface LiquidSearchProps<
+  T extends SearchResultItem = SearchResultItem,
+> {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   value?: string;
   onSearch?: (value: string) => void;
+  // Bổ sung onValueChange tương thích ngược với onSearch mà không ảnh hưởng các component hiện có
+  onValueChange?: (value: string) => void;
   loading?: boolean;
   results?: T[] | SearchGroup<T>[];
   onItemSelect?: (item: T) => void;
@@ -109,6 +112,7 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
   onOpenChange,
   value = "",
   onSearch,
+  onValueChange,
   onItemSelect,
   loading = false,
   results = [],
@@ -129,6 +133,14 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
 
   const isDialogOpen = open !== undefined ? open : internalOpen;
   const setOpen = onOpenChange || setInternalOpen;
+
+  const emitChange = React.useCallback(
+    (nextVal: string) => {
+      onSearch?.(nextVal);
+      onValueChange?.(nextVal);
+    },
+    [onSearch, onValueChange],
+  );
 
   const t = {
     placeholder: placeholder || labels.placeholder || tDefault("placeholder"),
@@ -175,9 +187,9 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
   const handleClear = React.useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      onSearch?.("");
+      emitChange("");
     },
-    [onSearch],
+    [emitChange],
   );
 
   const defaultRenderItem = (item: T) => (
@@ -267,7 +279,7 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
 
             <Input
               value={value}
-              onChange={(e) => onSearch?.(e.target.value)}
+              onChange={(e) => emitChange(e.target.value)}
               placeholder={t.placeholder}
               className={cn(
                 "flex h-full w-full py-2 text-sm",
@@ -354,7 +366,7 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
                   <CommandInput
                     value={value}
                     onValueChange={(val) => {
-                      onSearch?.(val);
+                      emitChange(val);
                       if (!isDialogOpen) setOpen(true);
                     }}
                     placeholder={t.placeholder}
@@ -429,7 +441,7 @@ export function LiquidSearch<T extends SearchResultItem = SearchResultItem>({
                 <Search className="h-5 w-5 text-muted-foreground/50" />
                 <CommandInput
                   value={value}
-                  onValueChange={onSearch}
+                  onValueChange={emitChange}
                   placeholder={t.placeholder}
                   useIcon={false}
                   className="flex h-full w-full bg-transparent text-base outline-none disabled:cursor-not-allowed disabled:opacity-50 border-none focus:ring-0 shadow-none"

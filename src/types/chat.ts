@@ -222,6 +222,7 @@ export interface IConversation {
   hasOrderCreated?: boolean;
   sourcePostId?: string | null;
   sourceAdId?: string | null;
+  sourceCampaignId?: string | null;
   ctwaClickId?: string | null;
   activeTagIdsJson?: string[] | null;
   snoozedUntilAt?: string | null;
@@ -390,6 +391,15 @@ export interface IMessageMetadata {
   privateReplyByAgentId?: string;
   linkedInboxConversationId?: string;
   commentReplyMode?: CommentReplyModeType;
+  buyerDeliveredAt?: string | null;
+  buyerReadAt?: string | null;
+  platformSeenSyncedAt?: string | null;
+  viewerReadBy?: Array<{
+    id: string;
+    name: string;
+    avatar: string | null;
+    readAt: string;
+  }>;
 }
 
 export interface ISendMessagePayload {
@@ -437,8 +447,11 @@ export interface IMessageStatusUpdatePayload {
 export interface IMessageReadPayload {
   conversationId: string;
   userId: string;
-  user: IUserRes;
+  user?: IUserRes;
   lastReadAt: string;
+  status?: MessageStatus;
+  isBuyerReceipt?: boolean;
+  platformSeenSynced?: boolean;
 }
 
 export interface IMessageRecalledPayload {
@@ -489,11 +502,37 @@ export interface IMessage {
   messageTagIdsJson?: string[] | null;
   extractedEntitiesJson?: {
     phones?: string[];
+    normalizedPhones?: Array<{
+      rawMatch: string;
+      localPhone: string;
+      e164Phone: string;
+      carrierName: string;
+    }>;
     provinceCode?: string | null;
+    provinceName?: string | null;
     districtCode?: string | null;
+    districtName?: string | null;
     wardCode?: string | null;
+    wardName?: string | null;
     addressLine?: string | null;
+    fullFormattedAddress?: string | null;
+    carrierCodes?: {
+      ghnProvinceId?: number;
+      ghnDistrictId?: number;
+      ghnWardCode?: string;
+      ghtkProvince?: string;
+      ghtkDistrict?: string;
+      ghtkWard?: string;
+      vtpProvinceId?: number;
+      jtCityCode?: string;
+    } | null;
     skuCodes?: string[];
+    colors?: string[];
+    sizes?: string[];
+    heightCm?: number | null;
+    weightKg?: number | null;
+    quantities?: number[];
+    processingTimeMs?: number;
   } | null;
   aiDraftConfidence?: number | null;
   orderIdRef?: string | null;
@@ -583,8 +622,10 @@ export interface IConversationDetails {
   snoozedUntilAt?: string | null;
   snoozeNote?: string | null;
   activeTagIdsJson?: string[];
+  customerId?: string | null;
   sourceAdId?: string | null;
   sourcePostId?: string | null;
+  sourceCampaignId?: string | null;
   ctwaClickId?: string | null;
   accountabilityTimelineJson?: IAccountabilityMilestone[];
   mySettings: {

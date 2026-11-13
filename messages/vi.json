@@ -472,7 +472,11 @@
             "sent": "Đã gửi",
             "delivered": "Đã nhận",
             "read": "Đã xem",
-            "failed": "Gửi thất bại"
+            "failed": "Gửi thất bại",
+            "buyerSeenSynced": "Đã gửi tín hiệu 'Đã xem' (mark_seen) sang ứng dụng của người mua",
+            "buyerSeenSyncedShort": "Đã báo Đã xem cho khách",
+            "buyerReadConfirmed": "Người mua đã mở xem tin nhắn này theo thời gian thực",
+            "buyerReadConfirmedShort": "Khách đã xem"
           },
           "poll": {
             "closed": "Đã kết thúc",
@@ -487,7 +491,8 @@
             "noOneChosenOption": "Chưa có ai chọn phương án này",
             "anonymousNoticeTitle": "Bình chọn ẩn danh",
             "anonymousNoticeDesc": "Danh tính của những người tham gia cuộc bình chọn này được bảo mật."
-          }
+          },
+          "nerExtractedBadge": "✨ Đã nhận diện SĐT / Địa chỉ — Bấm mở Hồ sơ CRM 360°"
         },
         "input": {
           "placeholder": "Nhập tin nhắn của bạn...",
@@ -2102,7 +2107,185 @@
     "aiAgentStudio": "Trợ lý AI tư vấn",
     "workforceAndSla": "Nhân sự, Ca trực & Hoa hồng",
     "financeAndPnL": "Sổ quỹ & Báo cáo Lãi/Lỗ",
-    "settingsAndIam": "Cài đặt kênh & Phân quyền"
+    "settingsAndIam": "Cài đặt kênh & Phân quyền",
+    "securityAudit": "Nhật ký bảo mật chuỗi băm"
+  },
+  "Crm360": {
+    "piiVault": {
+      "encryptedBadge": "AES-256-GCM",
+      "maskedBadge": "Đã mã hóa PII",
+      "unmaskedCountdownBadge": "Đang mở ({seconds}s)",
+      "unmask15sBtn": "Mở xem 15s",
+      "unmaskBtn": "Mở xem 15s",
+      "copyPhoneTooltip": "Sao chép số điện thoại",
+      "copyBtn": "Sao chép",
+      "hideImmediatelyTooltip": "Che lại số điện thoại ngay",
+      "maskedVoipCallTooltip": "Gọi tư vấn qua Tổng đài Ẩn SĐT",
+      "unmaskQuotaExceededTooltip": "Bạn đã hết hạn mức mở xem số điện thoại gốc trong giờ này",
+      "unmaskTooltip": "Mở xem số điện thoại gốc trong 15 giây (Có ghi nhật ký bảo mật)",
+      "copiedPhoneToast": "Đã sao chép số điện thoại khách hàng vào bộ nhớ tạm",
+      "copiedToast": "Đã sao chép số điện thoại khách hàng vào bộ nhớ tạm",
+      "auditRecordedNote": "Đã ghi vào Chuỗi Băm Kiểm Toán HMAC-SHA256",
+      "quotaRemainingLabel": "Còn {remaining}/{limit} lượt mở/giờ"
+    },
+    "addressSelector": {
+      "title": "Địa Chỉ Giao Hàng Chuẩn 3 Cấp (Tỉnh/Thành • Quận/Huyện • Phường/Xã)",
+      "autoMatchedBadge": "Tự động khớp từ tin nhắn",
+      "selectProvince": "Chọn Tỉnh / Thành phố",
+      "searchProvincePlaceholder": "Tìm Tỉnh / Thành phố...",
+      "selectDistrict": "Chọn Quận / Huyện",
+      "searchDistrictPlaceholder": "Tìm Quận / Huyện...",
+      "selectWard": "Chọn Phường / Xã",
+      "searchWardPlaceholder": "Tìm Phường / Xã...",
+      "noUnitFound": "Không tìm thấy đơn vị hành chính phù hợp",
+      "provinceLabel": "Tỉnh / Thành phố",
+      "provincePlaceholder": "Chọn Tỉnh / Thành phố...",
+      "districtLabel": "Quận / Huyện / Thành phố",
+      "districtPlaceholder": "Chọn Quận / Huyện...",
+      "wardLabel": "Phường / Xã / Thị trấn",
+      "wardPlaceholder": "Chọn Phường / Xã...",
+      "streetAddressLabel": "Số nhà, tên đường, tòa nhà / thôn xóm",
+      "streetAddressPlaceholder": "VD: Số 18 Ngõ 120 Trường Chinh..."
+    },
+    "adAttribution": {
+      "leadSyncedBadge": "Đã gửi CAPI LeadSubmitted",
+      "purchaseSyncedBadge": "Đã gửi CAPI Purchase",
+      "sendLeadCapiBtn": "Gửi CAPI Lead",
+      "sendPurchaseCapiBtn": "Gửi CAPI Purchase",
+      "openSourcePost": "Mở bài viết gốc",
+      "capiQualifiedSent": "Đã gửi CAPI QualifiedLead",
+      "capiPurchaseSent": "Đã gửi CAPI Purchase",
+      "openPostLink": "Xem bài quảng cáo"
+    },
+    "mergeModal": {
+      "title": "Hợp Nhất Hồ Sơ Khách Hàng Trùng Lặp Đa Kênh",
+      "description": "Hợp nhất lịch sử đơn hàng, hội thoại, điểm tích lũy và định danh các kênh về hồ sơ chính của \"{name}\".",
+      "selectDuplicateLabel": "Chọn hồ sơ phụ cần gộp vào hồ sơ chính",
+      "selectDuplicatePlaceholder": "Chọn một hồ sơ khách hàng trùng lặp...",
+      "reasonLabel": "Ghi chú lý do gộp hồ sơ",
+      "reasonPlaceholder": "VD: Khách nhắn tin từ cả Fanpage phụ và Zalo OA cùng một số điện thoại...",
+      "cancelBtn": "Hủy bỏ",
+      "confirmMergeBtn": "Xác nhận gộp hồ sơ"
+    },
+    "walletModal": {
+      "title": "Điều Chỉnh Ví Điểm Thưởng & Ví Tiền Thừa Khách Hàng",
+      "description": "Cộng/trừ điểm thưởng hoặc số dư ví tiền thừa cho khách hàng \"{name}\". Mọi giao dịch đều lưu sổ cái đối soát bất biến.",
+      "loyaltyPointsTab": "Điểm thưởng (Loyalty Points)",
+      "walletCreditTab": "Ví tiền thừa (Wallet Credit)",
+      "transactionTypeLabel": "Loại giao dịch sổ cái",
+      "txTypes": {
+        "MANUAL_ADJUST": "Điều chỉnh thủ công (Tri ân / CSKH)",
+        "EARN_FROM_ORDER": "Tích điểm từ đơn hàng thành công",
+        "REDEEM_ON_ORDER": "Trừ điểm / Cấn trừ vào đơn hàng",
+        "OVERPAYMENT_CREDIT": "Hoàn tiền chuyển khoản dư vào ví",
+        "RMA_REFUND_CREDIT": "Hoàn tiền đơn đổi trả (RMA) vào ví"
+      },
+      "deltaAmountLabel": "Giá trị biến động (Số dương để cộng, số âm để trừ)",
+      "noteLabel": "Lý do điều chỉnh (Bắt buộc)",
+      "notePlaceholder": "VD: Tặng điểm tri ân khách hàng VIP nhân dịp sinh nhật...",
+      "cancelBtn": "Hủy bỏ",
+      "confirmAdjustBtn": "Lưu biến động sổ cái"
+    },
+    "panel": {
+      "openDrawerBtn": "Hồ sơ CRM 360°",
+      "drawerTitle": "Hồ Sơ Khách Hàng Đa Kênh CRM 360° & Bảo Mật SĐT",
+      "drawerSubtitle": "Tự động bóc tách SĐT/địa chỉ từ tin nhắn, chấm điểm uy tín nhận hàng COD, két sắt SĐT AES-256-GCM và đồng bộ chuyển đổi Meta CAPI / TikTok.",
+      "loadingProfile": "Đang tải hồ sơ khách hàng 360°...",
+      "emptyTitle": "Chưa có hồ sơ khách hàng gắn với hội thoại này",
+      "emptyDesc": "Khi khách để lại số điện thoại hoặc địa chỉ trong tin nhắn, hệ thống sẽ tự động nhận diện hoặc bạn có thể bấm nút bên dưới để khởi tạo ngay.",
+      "createFromChatBtn": "Khởi tạo hồ sơ 360° từ hội thoại này",
+      "requireVietQrDepositBadge": "Bắt buộc cọc VietQR",
+      "ltvLabel": "Tổng chi tiêu (LTV)",
+      "loyaltyPointsLabel": "Điểm thưởng",
+      "walletCreditLabel": "Ví tiền thừa",
+      "tabs": {
+        "profile": "Hồ sơ & Địa chỉ",
+        "orders": "Đơn hàng",
+        "wallet": "Sổ cái Ví",
+        "channels": "Kênh đã gộp"
+      },
+      "fullNameLabel": "Họ và tên khách hàng",
+      "updateRawPhoneLabel": "Cập nhật SĐT mới (Mã hóa PII)",
+      "threeTierAddressLabel": "Địa chỉ giao hàng 3 cấp (Tỉnh/Thành • Quận/Huyện • Phường/Xã)",
+      "streetAddressPlaceholder": "Số nhà, tên đường, tòa nhà / thôn xóm...",
+      "heightCmLabel": "Cao (cm)",
+      "weightKgLabel": "Nặng (kg)",
+      "preferredSizeLabel": "Size thường mặc",
+      "notesLabel": "Ghi chú CSKH & Thói quen nhận hàng",
+      "notesPlaceholder": "VD: Khách hay mặc size M, thường nhận hàng giờ hành chính...",
+      "mergeDuplicateBtn": "Gộp hồ sơ trùng",
+      "blacklistBtn": "Cảnh báo bom hàng",
+      "unblacklistBtn": "Gỡ cảnh báo bom",
+      "saveProfileBtn": "Lưu hồ sơ 360°",
+      "emptyOrders": "Khách hàng chưa có đơn hàng nào được ghi nhận.",
+      "walletHistoryTitle": "Lịch sử biến động Điểm thưởng & Ví tiền thừa",
+      "adjustWalletBtn": "Cộng / Trừ điểm & Ví",
+      "emptyWalletLedgers": "Chưa có giao dịch sổ cái nào."
+    },
+    "directoryPage": {
+      "title": "Danh Bạ Hồ Sơ Khách Hàng Đa Kênh CRM 360°",
+      "subtitle": "Quản lý tập trung {total} hồ sơ khách hàng hợp nhất từ Facebook, Instagram, Zalo OA, TikTok Shop, Shopee kèm bảo mật SĐT AES-256-GCM.",
+      "rfmMatrixBtn": "Ma trận Phân nhóm RFM",
+      "securityAuditBtn": "Nhật ký Bảo mật & CAPI",
+      "searchPlaceholder": "Tìm theo tên khách, mã khách (CUS-...) hoặc nhập đúng 10 số SĐT (Tra cứu chỉ mục mù < 2ms)...",
+      "filterByTier": "Lọc theo hạng thẻ",
+      "allTiers": "Tất cả hạng thành viên",
+      "filterByRfm": "Lọc theo nhóm RFM",
+      "allRfmSegments": "Tất cả phân nhóm RFM",
+      "highRiskBtn": "Rủi ro bom hàng cao",
+      "emptyTitle": "Không tìm thấy hồ sơ khách hàng phù hợp",
+      "emptyDesc": "Hãy thử thay đổi bộ lọc hoặc nhập chính xác 10 chữ số điện thoại để tra cứu qua chỉ mục mù HMAC-SHA256.",
+      "viewDetailBtn": "Hồ sơ 360°",
+      "noAddressYet": "Chưa cập nhật địa chỉ giao hàng 3 cấp"
+    },
+    "detailPage": {
+      "defaultTitle": "Chi Tiết Hồ Sơ Khách Hàng 360°",
+      "subtitle": "Xem toàn diện định danh đa kênh, mở khóa SĐT 15 giây có kiểm soát hạn ngạch, địa chỉ 3 cấp và sổ cái tích điểm."
+    },
+    "rfmPage": {
+      "title": "Phân Tích Ma Trận RFM & Phân Nhóm Khách Hàng Tự Động",
+      "subtitle": "Đã đánh giá và phân nhóm tự động {total} khách hàng theo Recency (Mới mua), Frequency (Tần suất) và Monetary (Giá trị chi tiêu).",
+      "recalculateNowBtn": "Chấm điểm RFM toàn cửa hàng",
+      "descriptions": {
+        "CHAMPIONS": "Mua gần đây, mua thường xuyên và chi tiêu cao nhất — Cần ưu tiên CSKH VIP & giới thiệu mẫu mới đầu tiên.",
+        "LOYAL": "Mua sắm đều đặn với tỷ lệ nhận hàng rất tốt — Phù hợp chương trình tích điểm đổi quà và giới thiệu bạn bè.",
+        "POTENTIAL_LOYALIST": "Khách mới mua gần đây với giá trị đơn tốt — Cần chăm sóc sau bán để biến thành khách quen.",
+        "NEW_CUSTOMERS": "Vừa phát sinh đơn hàng đầu tiên — Cần gửi tin nhắn hỏi thăm trải nghiệm sản phẩm.",
+        "PROMISING": "Khách mới có tương tác tích cực — Cần gửi voucher mua lần 2 để kích cầu.",
+        "NEED_ATTENTION": "Khách có giá trị đơn khá nhưng bắt đầu giãn chu kỳ mua — Cần nhắc lịch ưu đãi.",
+        "AT_RISK": "Từng mua nhiều nhưng đã lâu chưa quay lại — Cần gửi ưu đãi kích cầu cá nhân hóa ngay.",
+        "HIBERNATING": "Đã ngừng tương tác thời gian dài hoặc tỷ lệ hoàn đơn cao — Chỉ gửi chiến dịch xả kho chọn lọc."
+      }
+    },
+    "securityAuditPage": {
+      "title": "Nhật Ký Bảo Mật Chuỗi Băm HMAC-SHA256 & Trình Gỡ Lỗi Meta CAPI",
+      "subtitle": "Giám sát bất biến mọi thao tác mở khóa SĐT gốc (CRM_PHONE_UNMASK), gộp hồ sơ, chỉnh điểm uy tín và đối soát sự kiện chuyển đổi Meta CAPI / TikTok.",
+      "verifyHashChainBtn": "Kiểm định toàn vẹn chuỗi băm",
+      "chainValidTitle": "Chuỗi nhật ký bảo mật toàn vẹn 100% ({count} bản ghi liên tiếp hợp lệ)",
+      "chainBrokenTitle": "CẢNH BÁO: Phát hiện dấu hiệu can thiệp trái phép trên chuỗi băm kiểm toán!",
+      "chainValidDesc": "Trạng thái: {status} • Kiểm định lúc: {verifiedAt}",
+      "auditChainTab": "Chuỗi Băm Bảo Mật (HMAC-SHA256)",
+      "capiDebuggerTab": "Trình Gỡ Lỗi Chuyển Đổi (Meta CAPI / TikTok)",
+      "testLeadEventBtn": "Bắn thử LeadSubmitted",
+      "testPurchaseEventBtn": "Bắn thử Purchase (850.000đ)"
+    },
+    "toasts": {
+      "profileSaved": "Đã lưu cập nhật hồ sơ khách hàng 360°",
+      "actionFailed": "Không thể thực hiện thao tác, vui lòng thử lại",
+      "blacklistedSuccess": "Đã đưa khách hàng vào danh sách cảnh báo bom hàng",
+      "unblacklistedSuccess": "Đã gỡ khách hàng khỏi danh sách cảnh báo bom hàng",
+      "trustScoreUpdated": "Đã cập nhật điểm uy tín nhận hàng của khách",
+      "mergedSuccess": "Đã hợp nhất hồ sơ khách hàng trùng lặp thành công",
+      "unmaskQuotaExceeded": "Bạn đã vượt hạn mức mở xem SĐT gốc trong giờ qua (Quyền xem SĐT đã tự động tạm khóa)",
+      "walletAdjusted": "Đã cập nhật số dư điểm thưởng / ví khách hàng",
+      "rfmRecalculated": "Đã tính toán lại ma trận phân nhóm RFM toàn cửa hàng",
+      "capiDispatched": "Đã đồng bộ sự kiện {eventName} về Meta CAPI / TikTok Events API",
+      "capiRetried": "Đã chạy lại đồng bộ sự kiện chuyển đổi quảng cáo",
+      "auditChainValid": "Chuỗi nhật ký bảo mật HMAC-SHA256 toàn vẹn 100%",
+      "auditChainTampered": "Cảnh báo: Phát hiện sai lệch chữ ký chuỗi băm kiểm toán!",
+      "securityUnmaskAlertTitle": "🚨 Cảnh báo bảo mật: Nhân sự vượt hạn mức mở SĐT",
+      "securityUnmaskAlertDesc": "Nhân sự {actorName} đã mở xem SĐT vượt ngưỡng ({usedCount}/{hourlyLimit} lượt/giờ). Hệ thống đã tự động tạm khóa quyền CRM_PHONE_UNMASK."
+    }
   },
   "TaggingSystem": {
     "categories": {

@@ -19,6 +19,7 @@ import {
   Megaphone,
   MessageSquare,
   ExternalLink,
+  UserCheck,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
@@ -30,6 +31,8 @@ import { CustomTagManagerModal } from "@/components/chat/custom-tag-manager-moda
 import { TaggedMessagesSheet } from "@/components/chat/tagged-messages-sheet";
 import { ConversationSnoozeAndTimelineSheet } from "@/components/chat/conversation-snooze-popover";
 import { MaskedVoipCallModal } from "@/components/chat/masked-voip-call-modal";
+import { AdAttributionHeaderCard } from "@/components/crm/ad-attribution-header-card";
+import { Customer360Panel } from "@/components/crm/customer-360-panel";
 import {
   LiquidGlassInput,
   GlassSurfaceCard,
@@ -37,6 +40,7 @@ import {
   PatternButton,
   GlassIconButton,
   GlassConfirmDialog,
+  GlassSheet,
 } from "@/components/toolkit";
 
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
@@ -81,6 +85,7 @@ export default function ChatConversationPage({
   const t = useTranslations("Chat.Detail.conversation");
   const tHeader = useTranslations("Chat.Detail.header");
   const tInbox = useTranslations("OmnichannelInbox");
+  const tCrm = useTranslations("Crm360.panel");
 
   const currentUser = useHydratedStore(useAuthStore, (s) => s.currentAccount);
   const activeShopId = usePermissionStore((s) => s.activeShopId);
@@ -141,6 +146,7 @@ export default function ChatConversationPage({
   } = useTagStore();
 
   const [isInfoDrawerOpen, setIsInfoDrawerOpen] = useState(false);
+  const [isCrm360DrawerOpen, setIsCrm360DrawerOpen] = useState(false);
   const [isSearchBarOpen, setIsSearchBarOpen] = useState(false);
   const [inChatSearchQuery, setInChatSearchQuery] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
@@ -411,6 +417,7 @@ export default function ChatConversationPage({
     return () => clearInterval(timer);
   }, [rawMessages, currentConversation?.disappearingTtl, purgeExpiredMessages]);
 
+  // Ánh xạ vị trí đọc tin nhắn mới nhất của từng người đọc trên cả 2 chiều (OUTBOUND & INBOUND)
   const readReceiptsMap = useMemo(() => {
     const map: Record<
       string,
@@ -418,17 +425,19 @@ export default function ChatConversationPage({
     > = {};
     if (!currentUser?.user?.id) return map;
 
-    const processedUserIds = new Set<string>();
+    const processedReaderByDirection = new Set<string>();
     const reversedMessages = [...rawMessages].reverse();
 
     reversedMessages.forEach((msg) => {
-      if (msg.senderId !== currentUser.user.id) return;
+      const isOutbound = msg.senderId === currentUser.user.id;
+      const directionKey = isOutbound ? "OUTBOUND" : "INBOUND";
 
       if (msg.readByUsers && msg.readByUsers.length > 0) {
         msg.readByUsers.forEach((reader) => {
-          if (!reader?.id) return;
+          if (!reader?.id || reader.id === msg.senderId) return;
 
-          if (!processedUserIds.has(reader.id)) {
+          const compositeKey = `${directionKey}:${reader.id}`;
+          if (!processedReaderByDirection.has(compositeKey)) {
             if (!map[msg.id]) map[msg.id] = [];
 
             map[msg.id].push({
@@ -437,7 +446,7 @@ export default function ChatConversationPage({
               avatar: reader.avatar || null,
             });
 
-            processedUserIds.add(reader.id);
+            processedReaderByDirection.add(compositeKey);
           }
         });
       }
@@ -600,6 +609,13 @@ export default function ChatConversationPage({
   const bookmarkedCount = (bookmarkedMessagesByConv[conversationId] || [])
     .length;
 
+  const resolvedSourceAdId =
+    currentConversation?.sourceAdId || currentDetails?.sourceAdId;
+  const resolvedSourcePostId =
+    currentConversation?.sourcePostId || currentDetails?.sourcePostId;
+  const resolvedCustomerId =
+    currentConversation?.customerId || currentDetails?.customerId;
+
   return (
     <div className="flex flex-col h-full bg-background w-full overflow-hidden relative">
       {/* Header */}
@@ -619,12 +635,8 @@ export default function ChatConversationPage({
           isAdmin={currentConversation?.isAdmin}
           partnerId={currentConversation?.partnerId}
           shopId={effectiveShopId}
-          sourceAdId={
-            currentConversation?.sourceAdId || currentDetails?.sourceAdId
-          }
-          sourcePostId={
-            currentConversation?.sourcePostId || currentDetails?.sourcePostId
-          }
+          sourceAdId={resolvedSourceAdId}
+          sourcePostId={resolvedSourcePostId}
           isGhostedByAgent={Boolean(
             currentConversation?.isGhostedByAgent ||
               currentDetails?.isGhostedByAgent,
@@ -645,7 +657,7 @@ export default function ChatConversationPage({
           onMaskedVoipCall={() =>
             initiateMaskedVoipCall({
               conversationId,
-              customerId: currentConversation?.customerId || undefined,
+              customerId: resolvedCustomerId || undefined,
               customerPhoneMasked: "098***678",
             })
           }
@@ -664,73 +676,79 @@ export default function ChatConversationPage({
           onDeleteConversation={() => setIsDeleteConvConfirmOpen(true)}
         />
 
-        {/* Thanh phím tắt Tag màu oklch (Alt+1..9 — F02.1 & F02.2) */}
-        {effectiveShopId && tags.length > 0 && (
-          <QuickTagShortcutBar
-            tags={tags}
-            activeTagIds={activeTagIds}
-            bookmarkedCount={bookmarkedCount}
-            onToggleTag={(tagId) =>
-              toggleConversationTag({
-                shopId: effectiveShopId,
-                conversationId,
-                tagId,
-              })
-            }
-            onOpenTagManager={() => setIsTagManagerOpen(true)}
-            onOpenBookmarksSheet={() => setIsBookmarksSheetOpen(true)}
-          />
+        {/* Thanh phím tắt Tag màu oklch + Nút mở nhanh Hồ sơ CRM 360° */}
+        <div className="flex items-center justify-between gap-2 px-2 sm:px-3 border-t border-border/30 bg-background/60">
+          <div className="flex-1 min-w-0">
+            {effectiveShopId && tags.length > 0 && (
+              <QuickTagShortcutBar
+                tags={tags}
+                activeTagIds={activeTagIds}
+                bookmarkedCount={bookmarkedCount}
+                onToggleTag={(tagId) =>
+                  toggleConversationTag({
+                    shopId: effectiveShopId,
+                    conversationId,
+                    tagId,
+                  })
+                }
+                onOpenTagManager={() => setIsTagManagerOpen(true)}
+                onOpenBookmarksSheet={() => setIsBookmarksSheetOpen(true)}
+              />
+            )}
+          </div>
+          {effectiveShopId && !isGroupChat && (
+            <div className="py-1 shrink-0">
+              <PatternButton
+                type="button"
+                size="sm"
+                rounded="full"
+                variant="glass"
+                color="primary"
+                className="h-7 px-2.5 text-xs"
+                onClick={() => setIsCrm360DrawerOpen(true)}
+                icon={<UserCheck className="w-3.5 h-3.5" />}
+              >
+                {tCrm("openDrawerBtn")}
+              </PatternButton>
+            </div>
+          )}
+        </div>
+
+        {/* Thẻ Nguồn Quảng Cáo Click-to-Messenger / TikTok & Đồng bộ CAPI (F11.1, F11.2) */}
+        {(resolvedSourceAdId || resolvedSourcePostId) && (
+          <div className="px-3 sm:px-4 py-1.5 border-t border-border/40">
+            <AdAttributionHeaderCard
+              shopId={effectiveShopId}
+              conversationId={conversationId}
+              customerId={resolvedCustomerId}
+              channelIntegrationId={
+                currentConversation?.channelIntegrationId ||
+                currentDetails?.channelIntegrationId
+              }
+              interactionType={interactionType}
+              sourceAdId={resolvedSourceAdId}
+              sourcePostId={resolvedSourcePostId}
+              sourceCampaignId={
+                currentConversation?.sourceCampaignId ||
+                currentDetails?.sourceCampaignId
+              }
+              ctwaClickId={
+                currentConversation?.ctwaClickId || currentDetails?.ctwaClickId
+              }
+            />
+          </div>
         )}
 
-        {/* Thẻ Ngữ cảnh Bài viết gốc / Quảng cáo CTWA (SourcePostContextCard bọc bởi GlassSurfaceCard — F03.3 & F03.4) */}
-        {(isCommentThread ||
-          currentConversation?.sourcePostId ||
-          currentDetails?.sourcePostId ||
-          currentConversation?.sourceAdId ||
-          currentDetails?.sourceAdId) && (
+        {/* Thẻ Ngữ cảnh Bình luận Bài viết / Livestream (F03.3 & F03.4) */}
+        {isCommentThread && !resolvedSourceAdId && !resolvedSourcePostId && (
           <div className="px-3 sm:px-4 py-1.5 border-t border-border/40">
             <GlassSurfaceCard className="p-2.5 flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 min-w-0">
-                <GlassBadge
-                  variant={isCommentThread ? "primary" : "info"}
-                  size="sm"
-                >
-                  {isCommentThread ? (
-                    <MessageSquare className="w-3 h-3 mr-1 inline" />
-                  ) : (
-                    <Megaphone className="w-3 h-3 mr-1 inline" />
-                  )}
+                <GlassBadge variant="primary" size="sm">
+                  <MessageSquare className="w-3 h-3 mr-1 inline" />
                   {interactionType || "COMMENT"}
                 </GlassBadge>
-                {(currentConversation?.sourcePostId ||
-                  currentDetails?.sourcePostId) && (
-                  <span className="text-xs font-medium text-foreground truncate">
-                    Post #
-                    {currentConversation?.sourcePostId ||
-                      currentDetails?.sourcePostId}
-                  </span>
-                )}
-                {(currentConversation?.sourceAdId ||
-                  currentDetails?.sourceAdId) && (
-                  <GlassBadge variant="warning" size="sm">
-                    Ad #
-                    {currentConversation?.sourceAdId ||
-                      currentDetails?.sourceAdId}
-                  </GlassBadge>
-                )}
               </div>
-              {(currentConversation?.sourcePostId ||
-                currentDetails?.sourcePostId) && (
-                <a
-                  href={`https://facebook.com/${currentConversation?.sourcePostId || currentDetails?.sourcePostId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline shrink-0"
-                >
-                  <span>Mở bài viết gốc</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
             </GlassSurfaceCard>
           </div>
         )}
@@ -984,6 +1002,7 @@ export default function ChatConversationPage({
                               config.routes.private.detailChat(inboxConvId),
                             )
                           }
+                          onOpenCrm360Panel={() => setIsCrm360DrawerOpen(true)}
                           onVotePoll={(messageId, optionIds) =>
                             votePoll({
                               conversationId,
@@ -1115,6 +1134,36 @@ export default function ChatConversationPage({
         onDeletedConversation={() => router.push(config.routes.private.chat)}
         onLeaveGroup={handleLeaveGroup}
       />
+
+      {/* Ngăn kéo Hồ sơ Khách hàng CRM 360° ngay trong khung chat (F04.2 - F04.5) */}
+      {effectiveShopId && (
+        <GlassSheet
+          open={isCrm360DrawerOpen}
+          onOpenChange={setIsCrm360DrawerOpen}
+          title={tCrm("drawerTitle")}
+          description={tCrm("drawerSubtitle")}
+          side="right"
+        >
+          <div className="py-2">
+            <Customer360Panel
+              shopId={effectiveShopId}
+              customerId={resolvedCustomerId}
+              conversationId={conversationId}
+              fallbackDisplayName={resolvedHeaderName}
+              fallbackAvatarUrl={
+                currentConversation?.avatar || currentDetails?.avatar
+              }
+              onMaskedVoipCall={(maskedPhone) =>
+                initiateMaskedVoipCall({
+                  conversationId,
+                  customerId: resolvedCustomerId || undefined,
+                  customerPhoneMasked: maskedPhone || "098***678",
+                })
+              }
+            />
+          </div>
+        </GlassSheet>
+      )}
 
       {effectiveShopId && (
         <>
