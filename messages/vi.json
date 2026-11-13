@@ -386,7 +386,10 @@
           "searchInChat": "Tìm kiếm trong tin nhắn",
           "openVaultAndSettings": "Kho lưu trữ & Cài đặt",
           "deleteConversation": "Xóa đoạn chat"
-        }
+        },
+        "activePagePrefix": "Đang trực Trang",
+        "commentModeBadge": "Bình luận bài viết",
+        "messagingViaPageLabel": "Đang nhắn tin qua Trang: {pageName}"
       },
       "conversation": {
         "pinnedMessage": "Tin nhắn đã ghim:",
@@ -492,7 +495,16 @@
             "anonymousNoticeTitle": "Bình chọn ẩn danh",
             "anonymousNoticeDesc": "Danh tính của những người tham gia cuộc bình chọn này được bảo mật."
           },
-          "nerExtractedBadge": "✨ Đã nhận diện SĐT / Địa chỉ — Bấm mở Hồ sơ CRM 360°"
+          "nerExtractedBadge": "✨ Đã bóc tách SĐT / Địa chỉ & Tra cứu Uy tín khách hàng",
+          "openCrm360QuickBtn": "Hồ sơ CRM 360°",
+          "trustScoreShort": "Uy tín: {score}/100",
+          "deliveredShort": "Nhận",
+          "returnedShort": "Hoàn",
+          "reportedShort": "Bị báo cáo",
+          "ordersUnit": "đơn",
+          "timesUnit": "lần",
+          "sentFromPagePrefix": "Gửi từ Trang",
+          "receivedViaPagePrefix": "Nhận qua Trang"
         },
         "input": {
           "placeholder": "Nhập tin nhắn của bạn...",
@@ -2220,7 +2232,75 @@
       "emptyOrders": "Khách hàng chưa có đơn hàng nào được ghi nhận.",
       "walletHistoryTitle": "Lịch sử biến động Điểm thưởng & Ví tiền thừa",
       "adjustWalletBtn": "Cộng / Trừ điểm & Ví",
-      "emptyWalletLedgers": "Chưa có giao dịch sổ cái nào."
+      "emptyWalletLedgers": "Chưa có giao dịch sổ cái nào.",
+      "crmConfigBtnTooltip": "Cài đặt Nguồn dữ liệu Tra cứu Uy tín SĐT (Nhận/Hoàn/Báo cáo) & Ngành hàng",
+      "crmConfigBtnShort": "Nguồn & Ngành hàng",
+      "reputationTitle": "Chỉ số Uy tín Giao nhận",
+      "refreshTrustLookupBtn": "Tra cứu 3PL/Cộng đồng",
+      "reportAbuseBtn": "Báo xấu SĐT",
+      "deliveredCountLabel": "✓ Đã nhận",
+      "returnedCountLabel": "↩ Đã hoàn",
+      "reportedCountLabel": "🚨 Bị báo cáo",
+      "ordersUnit": "đơn",
+      "reportsUnit": "lần",
+      "reportedWarningSub": "Có cảnh báo từ Shop/3PL",
+      "cleanReportSub": "Chưa có báo cáo xấu",
+      "lookupSourcePrefix": "Nguồn đối soát",
+      "defaultLookupSourceLabel": "POS Nội bộ + Cộng đồng Pancake + 3PL (GHN/GHTK)",
+      "recentAbuseReportsHeading": "Lịch sử cảnh báo SĐT gần đây",
+      "updateRawPhonePlaceholder": "Nhập SĐT mới (tự động mã hóa PII)...",
+      "industryCategoryLabel": "Ngành hàng kinh doanh áp dụng cho hồ sơ",
+      "showApparelMeasurementsBtn": "Hiện số đo Quần áo (Cao/Nặng/Size)",
+      "hideApparelMeasurementsBtn": "Ẩn số đo Quần áo",
+      "industries": {
+        "GENERAL_MULTI_CATEGORY": "Đa ngành hàng tổng hợp (Mặc định — Ẩn Cao/Nặng/Size)",
+        "FASHION_APPAREL": "Thời trang, Quần áo & Giày dép (Hiện Cao/Nặng/Size)",
+        "COSMETICS_BEAUTY": "Mỹ phẩm, Chăm sóc da & Làm đẹp",
+        "ELECTRONICS_TECH": "Điện tử, Công nghệ & Phụ kiện số",
+        "FOOD_BEVERAGE": "Thực phẩm, Đồ uống & Đặc sản (F&B)",
+        "MOTHER_AND_BABY": "Mẹ & Bé, Đồ sơ sinh & Đồ chơi"
+      },
+      "customAttributesHeading": "Thuộc tính hồ sơ tùy biến theo sản phẩm",
+      "addCustomAttrBtn": "Thêm thuộc tính",
+      "customAttrDefaultLabel": "Thuộc tính sản phẩm",
+      "customAttrLabelPlaceholder": "Tên thuộc tính (VD: Loại da / Dòng máy)...",
+      "customAttrValuePlaceholder": "Giá trị chi tiết...",
+      "removeCustomAttrTooltip": "Xóa thuộc tính này",
+      "mergedIdentityBadge": "Đã hợp nhất",
+      "reportAbuseModal": {
+        "title": "Báo Xấu Số Điện Thoại / Cảnh Báo Khách Bom Hàng",
+        "description": "Ghi nhận cảnh báo rủi ro giao hàng cho khách hàng \"{name}\" vào hệ thống POS và Mạng lưới Cộng đồng Nhà bán hàng.",
+        "reasonCodeLabel": "Nhóm nguyên nhân báo cáo",
+        "reasons": {
+          "BOM_HANG": "Khách đặt đơn nhưng từ chối nhận hàng / Bom hàng không lý do",
+          "TU_CHOI_NHAN_NHIEU_LAN": "Bưu tá gọi nhiều ca không nghe máy, hẹn giao lại rồi hủy",
+          "BOOM_AO_SPAM": "Đặt hàng loạt đơn ảo / Trêu đùa / Spam bình luận SĐT giả",
+          "SAI_SO_DIEN_THOAI": "Số điện thoại thuê bao không liên lạc được hoặc của người khác",
+          "OTHER": "Lý do cảnh báo vận hành khác"
+        },
+        "carrierLabel": "Hãng vận chuyển ghi nhận",
+        "orderCodeLabel": "Mã đơn hàng / Mã vận đơn (Nếu có)",
+        "noteLabel": "Chi tiết sự việc (Bắt buộc)",
+        "notePlaceholder": "VD: Đơn GHN #G8921 giao tới nơi khách tắt máy không nhận...",
+        "markBlacklistCheckbox": "Đồng thời đưa khách hàng này vào danh sách Blacklist (Bắt buộc đặt cọc VietQR ở đơn sau)",
+        "cancelBtn": "Hủy bỏ",
+        "submitBtn": "Gửi báo cáo & Cập nhật chỉ số"
+      },
+      "crmConfigModal": {
+        "title": "Cài Đặt Nguồn Dữ Liệu Uy Tín SĐT & Hồ Sơ Đa Ngành Hàng",
+        "description": "Tùy chỉnh các nguồn tra cứu chỉ số Nhận / Hoàn / Bị báo cáo khi người mua nhắn SĐT và cấu hình trường thông tin hồ sơ phù hợp với sản phẩm cửa hàng kinh doanh.",
+        "defaultIndustryLabel": "Ngành hàng mặc định của cửa hàng",
+        "lookupSourcesHeading": "Nguồn tra cứu dữ liệu Nhận / Hoàn / Bị báo cáo & Bảo mật SĐT:",
+        "enableCommunitySource": "Kết nối dữ liệu Cộng đồng Nhà bán hàng Pancake / POS (Chia sẻ cảnh báo bom hàng)",
+        "enableCarrier3plSource": "Đối soát lịch sử giao nhận từ cổng 3PL (GHN, GHTK, ViettelPost, J&T Express)",
+        "alwaysShowApparelToggle": "Luôn hiển thị ô Chiều cao, Cân nặng, Size quần áo trên mọi hồ sơ khách hàng",
+        "autoMaskPhoneInChatToggle": "Tự động che số điện thoại (098***456) ngay trong nội dung tin nhắn trên màn hình chat",
+        "autoExtractNerToggle": "Tự động bóc tách SĐT và Địa chỉ giao hàng 3 cấp ngay khi nhận tin nhắn từ người mua",
+        "customWebhookUrlLabel": "Đường dẫn API / Webhook tra cứu lịch sử SĐT tùy chỉnh (Tùy chọn)",
+        "customApiKeyLabel": "Khóa xác thực API Key cho nguồn tra cứu tùy chỉnh (Mã hóa AES-256-GCM)",
+        "cancelBtn": "Đóng",
+        "saveBtn": "Lưu cấu hình CRM 360°"
+      }
     },
     "directoryPage": {
       "title": "Danh Bạ Hồ Sơ Khách Hàng Đa Kênh CRM 360°",
@@ -2284,7 +2364,10 @@
       "auditChainValid": "Chuỗi nhật ký bảo mật HMAC-SHA256 toàn vẹn 100%",
       "auditChainTampered": "Cảnh báo: Phát hiện sai lệch chữ ký chuỗi băm kiểm toán!",
       "securityUnmaskAlertTitle": "🚨 Cảnh báo bảo mật: Nhân sự vượt hạn mức mở SĐT",
-      "securityUnmaskAlertDesc": "Nhân sự {actorName} đã mở xem SĐT vượt ngưỡng ({usedCount}/{hourlyLimit} lượt/giờ). Hệ thống đã tự động tạm khóa quyền CRM_PHONE_UNMASK."
+      "securityUnmaskAlertDesc": "Nhân sự {actorName} đã mở xem SĐT vượt ngưỡng ({usedCount}/{hourlyLimit} lượt/giờ). Hệ thống đã tự động tạm khóa quyền CRM_PHONE_UNMASK.",
+      "crmConfigSaved": "Đã lưu cài đặt nguồn dữ liệu tra cứu SĐT và ngành hàng hồ sơ CRM 360°",
+      "trustLookupRefreshed": "Đã đồng bộ chỉ số Nhận / Hoàn / Bị báo cáo mới nhất từ các nguồn dữ liệu",
+      "abuseReportedSuccess": "Đã ghi nhận báo cáo cảnh báo SĐT và cập nhật điểm uy tín khách hàng"
     }
   },
   "TaggingSystem": {

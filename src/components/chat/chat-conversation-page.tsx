@@ -16,10 +16,12 @@ import {
   Search,
   ChevronUp,
   ChevronDown,
-  Megaphone,
   MessageSquare,
-  ExternalLink,
   UserCheck,
+  Store,
+  ShieldCheck,
+  ShieldAlert,
+  AlertTriangle,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
@@ -35,18 +37,22 @@ import { AdAttributionHeaderCard } from "@/components/crm/ad-attribution-header-
 import { Customer360Panel } from "@/components/crm/customer-360-panel";
 import {
   LiquidGlassInput,
+  GlassAvatar,
   GlassSurfaceCard,
   GlassBadge,
   PatternButton,
   GlassIconButton,
   GlassConfirmDialog,
   GlassSheet,
+  TruncatedText,
 } from "@/components/toolkit";
 
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 import { useTagStore } from "@/lib/stores/tags/use-tag-store";
+import { useCrmStore } from "@/lib/stores/crm/use-crm-store";
+import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 import { useHydratedStore } from "@/utils/hooks/use-hydrated-store";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
 import { useChatScroll } from "@/utils/hooks/use-chat-scroll";
@@ -89,6 +95,7 @@ export default function ChatConversationPage({
 
   const currentUser = useHydratedStore(useAuthStore, (s) => s.currentAccount);
   const activeShopId = usePermissionStore((s) => s.activeShopId);
+  const channels = useChannelWorkspaceStore((s) => s.channels);
 
   const {
     conversations,
@@ -145,6 +152,12 @@ export default function ChatConversationPage({
     fetchBookmarkedMessages,
   } = useTagStore();
 
+  const {
+    customer360ByConv,
+    unmaskedPhonesByCustomer,
+    fetchCustomer360ByConversation,
+  } = useCrmStore();
+
   const [isInfoDrawerOpen, setIsInfoDrawerOpen] = useState(false);
   const [isCrm360DrawerOpen, setIsCrm360DrawerOpen] = useState(false);
   const [isSearchBarOpen, setIsSearchBarOpen] = useState(false);
@@ -188,17 +201,78 @@ export default function ChatConversationPage({
   const effectiveShopId =
     currentConversation?.shopId || currentDetails?.shopId || activeShopId;
 
+  const resolvedChannelIntegrationId =
+    currentConversation?.channelIntegrationId ||
+    currentDetails?.channelIntegrationId ||
+    null;
+
+  const matchedChannelEntity = useMemo(
+    () =>
+      resolvedChannelIntegrationId
+        ? channels.find((ch) => ch.id === resolvedChannelIntegrationId) || null
+        : null,
+    [channels, resolvedChannelIntegrationId],
+  );
+
+  const resolvedPageName =
+    currentConversation?.pageName ||
+    currentDetails?.pageName ||
+    matchedChannelEntity?.pageName ||
+    null;
+  const resolvedPageShortCode =
+    currentConversation?.pageShortCode ||
+    currentDetails?.pageShortCode ||
+    matchedChannelEntity?.pageShortCode ||
+    null;
+  const resolvedChannelAvatarUrl =
+    currentConversation?.channelAvatarUrl ||
+    currentDetails?.channelAvatarUrl ||
+    matchedChannelEntity?.avatarUrl ||
+    null;
+  const resolvedExternalPageId =
+    currentConversation?.externalPageId ||
+    currentDetails?.externalPageId ||
+    matchedChannelEntity?.externalPageId ||
+    null;
+  const resolvedChannelType =
+    currentConversation?.channelType ||
+    currentDetails?.channelType ||
+    matchedChannelEntity?.channelType ||
+    null;
+
   const interactionType =
     currentConversation?.interactionType || currentDetails?.interactionType;
   const isCommentThread =
     interactionType === "COMMENT" || interactionType === "LIVESTREAM";
 
+  const activeCustomerProfile =
+    (conversationId && customer360ByConv[conversationId]?.customer) || null;
+
+  const resolvedCustomerId =
+    activeCustomerProfile?.id ||
+    currentConversation?.customerId ||
+    currentDetails?.customerId ||
+    null;
+
+  const activeUnmaskedSession = resolvedCustomerId
+    ? unmaskedPhonesByCustomer[resolvedCustomerId] || null
+    : null;
+
   useEffect(() => {
     if (effectiveShopId && conversationId) {
       fetchShopTags(effectiveShopId);
       fetchBookmarkedMessages(effectiveShopId, conversationId);
+      if (!conversationId.startsWith("detail_")) {
+        fetchCustomer360ByConversation(effectiveShopId, conversationId);
+      }
     }
-  }, [effectiveShopId, conversationId, fetchShopTags, fetchBookmarkedMessages]);
+  }, [
+    effectiveShopId,
+    conversationId,
+    fetchShopTags,
+    fetchBookmarkedMessages,
+    fetchCustomer360ByConversation,
+  ]);
 
   // F03.7 & T03: Heartbeat khóa chống đụng độ nhân viên (Collision Lock 25s)
   useEffect(() => {
@@ -613,8 +687,8 @@ export default function ChatConversationPage({
     currentConversation?.sourceAdId || currentDetails?.sourceAdId;
   const resolvedSourcePostId =
     currentConversation?.sourcePostId || currentDetails?.sourcePostId;
-  const resolvedCustomerId =
-    currentConversation?.customerId || currentDetails?.customerId;
+
+  const customerTrustEval = activeCustomerProfile?.trustEvaluation;
 
   return (
     <div className="flex flex-col h-full bg-background w-full overflow-hidden relative">
@@ -625,7 +699,7 @@ export default function ChatConversationPage({
           avatarUrl={
             currentConversation?.avatar ||
             currentDetails?.avatar ||
-            currentConversation?.channelAvatarUrl ||
+            resolvedChannelAvatarUrl ||
             undefined
           }
           isOnline={currentConversation?.isOnline}
@@ -635,6 +709,12 @@ export default function ChatConversationPage({
           isAdmin={currentConversation?.isAdmin}
           partnerId={currentConversation?.partnerId}
           shopId={effectiveShopId}
+          channelType={resolvedChannelType}
+          pageName={resolvedPageName}
+          pageShortCode={resolvedPageShortCode}
+          channelAvatarUrl={resolvedChannelAvatarUrl}
+          externalPageId={resolvedExternalPageId}
+          interactionType={interactionType}
           sourceAdId={resolvedSourceAdId}
           sourcePostId={resolvedSourcePostId}
           isGhostedByAgent={Boolean(
@@ -658,7 +738,8 @@ export default function ChatConversationPage({
             initiateMaskedVoipCall({
               conversationId,
               customerId: resolvedCustomerId || undefined,
-              customerPhoneMasked: "098***678",
+              customerPhoneMasked:
+                activeCustomerProfile?.phoneMasked || "098***678",
             })
           }
           onOpenSnoozeAndTimeline={() => setIsSnoozeSheetOpen(true)}
@@ -676,26 +757,29 @@ export default function ChatConversationPage({
           onDeleteConversation={() => setIsDeleteConvConfirmOpen(true)}
         />
 
-        {/* Thanh phím tắt Tag màu oklch + Nút mở nhanh Hồ sơ CRM 360° */}
-        <div className="flex items-center justify-between gap-2 px-2 sm:px-3 border-t border-border/30 bg-background/60">
-          <div className="flex-1 min-w-0">
-            {effectiveShopId && tags.length > 0 && (
-              <QuickTagShortcutBar
-                tags={tags}
-                activeTagIds={activeTagIds}
-                bookmarkedCount={bookmarkedCount}
-                onToggleTag={(tagId) =>
-                  toggleConversationTag({
-                    shopId: effectiveShopId,
-                    conversationId,
-                    tagId,
-                  })
-                }
-                onOpenTagManager={() => setIsTagManagerOpen(true)}
-                onOpenBookmarksSheet={() => setIsBookmarksSheetOpen(true)}
-              />
-            )}
+        {/* Thanh định danh Trang kết nối (Avatar Page + Tên Page) & Chỉ số Uy tín Nhận/Hoàn/Bị báo cáo + Phím tắt Tag */}
+        <div className="flex items-center justify-between gap-2 px-2 sm:px-3 border-t border-border/30 bg-background/60 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap py-1">
+            <div className="flex-1 min-w-0">
+              {effectiveShopId && tags.length > 0 && (
+                <QuickTagShortcutBar
+                  tags={tags}
+                  activeTagIds={activeTagIds}
+                  bookmarkedCount={bookmarkedCount}
+                  onToggleTag={(tagId) =>
+                    toggleConversationTag({
+                      shopId: effectiveShopId,
+                      conversationId,
+                      tagId,
+                    })
+                  }
+                  onOpenTagManager={() => setIsTagManagerOpen(true)}
+                  onOpenBookmarksSheet={() => setIsBookmarksSheetOpen(true)}
+                />
+              )}
+            </div>
           </div>
+
           {effectiveShopId && !isGroupChat && (
             <div className="py-1 shrink-0">
               <PatternButton
@@ -721,10 +805,7 @@ export default function ChatConversationPage({
               shopId={effectiveShopId}
               conversationId={conversationId}
               customerId={resolvedCustomerId}
-              channelIntegrationId={
-                currentConversation?.channelIntegrationId ||
-                currentDetails?.channelIntegrationId
-              }
+              channelIntegrationId={resolvedChannelIntegrationId}
               interactionType={interactionType}
               sourceAdId={resolvedSourceAdId}
               sourcePostId={resolvedSourcePostId}
@@ -910,7 +991,7 @@ export default function ChatConversationPage({
                                 msg.metadata?.externalCustomerAvatar ||
                                 currentConversation?.avatar ||
                                 currentDetails?.avatar ||
-                                currentConversation?.channelAvatarUrl ||
+                                resolvedChannelAvatarUrl ||
                                 undefined
                           }
                           displayName={
@@ -920,6 +1001,11 @@ export default function ChatConversationPage({
                                 msg.metadata?.externalCustomerName ||
                                 resolvedHeaderName
                           }
+                          pageName={resolvedPageName}
+                          pageShortCode={resolvedPageShortCode}
+                          channelAvatarUrl={resolvedChannelAvatarUrl}
+                          customerProfile={activeCustomerProfile}
+                          unmaskedSession={activeUnmaskedSession}
                           displayReaders={readReceiptsMap[msg.id]}
                           bookmarkTags={bookmarkTags}
                           allTagsMap={allTagsMap}
@@ -1090,6 +1176,69 @@ export default function ChatConversationPage({
       </div>
 
       <div className="flex-none bg-background p-2.5 sm:p-3 md:p-4 border-t">
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-start gap-1.5 sm:gap-2 mb-2 max-w-full empty:hidden">
+          {(resolvedPageName || resolvedPageShortCode) && (
+            <div className="flex flex-row items-center gap-2">
+              {resolvedChannelAvatarUrl ? (
+                <GlassAvatar
+                  src={resolvedChannelAvatarUrl}
+                  name={resolvedPageName || resolvedPageShortCode || "Page"}
+                  size="xs"
+                  className="shrink-0"
+                />
+              ) : (
+                <Store className="w-3.5 h-3.5 text-primary shrink-0" />
+              )}
+              <GlassBadge>
+                <TruncatedText className="max-w-[140px] sm:max-w-[220px]">
+                  {resolvedPageName || resolvedPageShortCode}
+                </TruncatedText>
+              </GlassBadge>
+            </div>
+          )}
+
+          {/* Tóm tắt nhanh Chỉ số Nhận / Hoàn / Bị báo cáo của khách ngay trên thanh công cụ chat */}
+          {activeCustomerProfile && customerTrustEval && (
+            <button
+              type="button"
+              onClick={() => setIsCrm360DrawerOpen(true)}
+              className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-muted/70 hover:bg-muted border border-border/60 text-[10px] sm:text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap max-w-full overflow-x-auto no-scrollbar shrink-0"
+            >
+              {customerTrustEval.band === "HIGH_RISK_RED" ? (
+                <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />
+              ) : customerTrustEval.band === "TRUSTED_GREEN" ? (
+                <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+              )}
+              {activeCustomerProfile.phoneMasked && (
+                <span className="font-mono shrink-0">
+                  {activeUnmaskedSession?.unmaskedPhone ||
+                    activeCustomerProfile.phoneMasked}
+                </span>
+              )}
+              <span className="text-emerald-600 dark:text-emerald-400 shrink-0">
+                ✓ Nhận: {customerTrustEval.totalDeliveredCount}
+              </span>
+              <span className="text-muted-foreground/60 shrink-0">•</span>
+              <span className="text-amber-600 dark:text-amber-400 shrink-0">
+                ↩ Hoàn: {customerTrustEval.totalReturnedCount} (
+                {customerTrustEval.returnRatePercent}%)
+              </span>
+              <span className="text-muted-foreground/60 shrink-0">•</span>
+              <span
+                className={
+                  customerTrustEval.reportedCount > 0
+                    ? "text-red-600 dark:text-red-400 font-bold shrink-0"
+                    : "text-muted-foreground shrink-0"
+                }
+              >
+                🚨 Báo xấu: {customerTrustEval.reportedCount}
+              </span>
+            </button>
+          )}
+        </div>
+
         <ChatInput
           onSendMessage={handleSendMessage}
           onSendInternalNote={handleSendInternalNote}

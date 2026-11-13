@@ -6,6 +6,7 @@ import { ScrollArea } from "../ui/scroll-area";
 import { ChatSidebarEmpty } from "./chat-sidebar-empty";
 import ChatItem, { ChatItemSkeleton } from "./chat-item";
 import { OmnichannelFilterBar } from "./omnichannel-filter-bar";
+import { maskPhonesInMessageContentClient } from "./message-bubble";
 import { MAP_ARRAY, UNKNOWN } from "@/constant";
 import { useShallow } from "zustand/react/shallow";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
@@ -23,6 +24,7 @@ import {
   Check,
   AlertTriangle,
   AlarmClock,
+  Store,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -30,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   DropdownMenuContentCus,
+  GlassAvatar,
   GlassBadge,
   ItemMenu,
   PatternButton,
@@ -82,11 +85,18 @@ export default function ChatList() {
   const channelMap = useMemo(() => {
     const map = new Map<
       string,
-      { pageShortCode: string; channelType: string }
+      {
+        pageShortCode: string;
+        pageName: string;
+        avatarUrl: string | null;
+        channelType: string;
+      }
     >();
     for (const ch of channels) {
       map.set(ch.id, {
         pageShortCode: ch.pageShortCode,
+        pageName: ch.pageName,
+        avatarUrl: ch.avatarUrl || null,
         channelType: ch.channelType,
       });
     }
@@ -235,7 +245,11 @@ export default function ChatList() {
                 (parseSafeDate(chat.lastMessageExpiresAt)?.getTime() ?? 0) <=
                   Date.now(),
             );
-            const safeLastMessage = isLastMsgExpired ? null : chat.lastMessage;
+            const safeLastMessage = isLastMsgExpired
+              ? null
+              : chat.lastMessage
+                ? maskPhonesInMessageContentClient(chat.lastMessage, null)
+                : null;
             const isMyLastMsg = Boolean(
               safeLastMessage &&
                 currentUserId &&
@@ -245,6 +259,15 @@ export default function ChatList() {
             const channelInfo = chat.channelIntegrationId
               ? channelMap.get(chat.channelIntegrationId)
               : null;
+
+            const effectivePageName =
+              channelInfo?.pageName ||
+              chat.pageName ||
+              channelInfo?.pageShortCode ||
+              chat.pageShortCode ||
+              null;
+            const effectivePageAvatar =
+              channelInfo?.avatarUrl || chat.channelAvatarUrl || null;
 
             const activeTagObjects = (chat.activeTagIdsJson || [])
               .map((tid) => tagMap.get(tid))

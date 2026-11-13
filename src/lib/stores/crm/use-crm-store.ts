@@ -1,12 +1,16 @@
 import { createPersistedStore } from "../create-persisted-store";
 import {
   getAdministrativeUnitsApi,
+  getShopCrmConfigApi,
+  updateShopCrmConfigApi,
   extractVietnameseNerApi,
   listCustomersApi,
   getCustomer360ByConversationApi,
   getCustomer360DetailApi,
   createCustomerProfileApi,
   updateCustomerProfileApi,
+  lookupCustomerTrustFromSourcesApi,
+  reportCustomerPhoneAbuseApi,
   toggleCustomerBlacklistApi,
   overrideCustomerTrustScoreApi,
   mergeCustomerProfilesApi,
@@ -27,6 +31,8 @@ import type {
   CustomerWalletLedgerType,
   CustomerWalletTransactionType,
   IAdsConversionEventLog,
+  ICrmTrustAndIndustryConfig,
+  ICustomerCustomAttributeItem,
   ICustomerProfile,
   ICustomerWalletLedger,
   IExtractedCommerceEntities,
@@ -35,8 +41,10 @@ import type {
   ISecurityChainVerificationResult,
   IUnmaskedPhoneSession,
   IVnProvinceUnit,
+  PhoneTrustLookupSourceType,
   RfmSegmentCodeType,
   SecurityAuditActionCodeType,
+  ShopBusinessCategoryType,
 } from "@/types/crm";
 import type { IConversation } from "@/types/chat";
 import { toast } from "sonner";
@@ -46,6 +54,8 @@ const unmaskExpiryTimers = new Map<string, NodeJS.Timeout>();
 
 interface CrmState {
   administrativeTree: IVnProvinceUnit[];
+  shopCrmConfig: ICrmTrustAndIndustryConfig | null;
+  isLoadingShopCrmConfig: boolean;
   customers: ICustomerProfile[];
   customersTotal: number;
   customersPage: number;
@@ -85,6 +95,24 @@ interface CrmState {
   isVerifyingChain: boolean;
 
   fetchAdministrativeTree: (shopId: string) => Promise<void>;
+  fetchShopCrmConfig: (
+    shopId: string,
+  ) => Promise<ICrmTrustAndIndustryConfig | null>;
+  updateShopCrmConfig: (payload: {
+    shopId: string;
+    businessCategory?: ShopBusinessCategoryType;
+    showApparelMeasurementsInProfile?: boolean;
+    enableCustomAttributesInProfile?: boolean;
+    defaultCustomAttributeKeys?: string[];
+    enableCommunityTrustLookup?: boolean;
+    enableCarrier3plTrustLookup?: boolean;
+    enabledLookupSources?: PhoneTrustLookupSourceType[];
+    customLookupWebhookUrl?: string;
+    customLookupApiKey?: string;
+    autoMaskPhoneInChatMessages?: boolean;
+    autoExtractPhoneAndAddressInChat?: boolean;
+    autoRequireDepositBelowTrustScore?: number;
+  }) => Promise<ICrmTrustAndIndustryConfig | null>;
   extractCommerceNer: (payload: {
     shopId: string;
     text: string;
@@ -120,10 +148,34 @@ interface CrmState {
     defaultWardCode?: string;
     defaultAddressLine?: string;
     tier?: CustomerTierType;
+    industryCategory?: ShopBusinessCategoryType;
     heightCm?: number;
     weightKg?: number;
     preferredSize?: string;
+    customAttributesJson?: ICustomerCustomAttributeItem[];
     notes?: string;
+    conversationId?: string;
+  }) => Promise<ICustomerProfile | null>;
+  lookupCustomerTrustFromSources: (payload: {
+    shopId: string;
+    customerId: string;
+    sources?: PhoneTrustLookupSourceType[];
+    customWebhookUrl?: string;
+    conversationId?: string;
+  }) => Promise<ICustomerProfile | null>;
+  reportCustomerPhoneAbuse: (payload: {
+    shopId: string;
+    customerId: string;
+    reasonCode:
+      | "BOM_HANG"
+      | "BOOM_AO_SPAM"
+      | "TU_CHOI_NHAN_NHIEU_LAN"
+      | "SAI_SO_DIEN_THOAI"
+      | "OTHER";
+    reasonNote: string;
+    carrierCode?: string;
+    orderCode?: string;
+    markBlacklisted?: boolean;
     conversationId?: string;
   }) => Promise<ICustomerProfile | null>;
   toggleCustomerBlacklist: (payload: {
@@ -139,6 +191,9 @@ interface CrmState {
     deliveryTrustScore: number;
     successfulDeliveriesCount?: number;
     returnedOrdersCount?: number;
+    networkDeliveredCount?: number;
+    networkReturnedCount?: number;
+    reportedCount?: number;
     reason: string;
     conversationId?: string;
   }) => Promise<boolean>;
@@ -222,6 +277,8 @@ interface CrmState {
 export const useCrmStore = createPersistedStore<CrmState>(
   (set, get) => ({
     administrativeTree: [],
+    shopCrmConfig: null,
+    isLoadingShopCrmConfig: false,
     customers: [],
     customersTotal: 0,
     customersPage: 1,
@@ -249,6 +306,42 @@ export const useCrmStore = createPersistedStore<CrmState>(
         }
       } catch {
         // Ignore
+      }
+    },
+
+    fetchShopCrmConfig: async (shopId) => {
+      if (!shopId) return null;
+      set({ isLoadingShopCrmConfig: true });
+      try {
+        const res: any = await getShopCrmConfigApi(shopId);
+        const cfg: ICrmTrustAndIndustryConfig = res?.data?.data ?? res?.data;
+        if (cfg) {
+          set({ shopCrmConfig: cfg, isLoadingShopCrmConfig: false });
+          return cfg;
+        }
+        set({ isLoadingShopCrmConfig: false });
+        return null;
+      } catch {
+        set({ isLoadingShopCrmConfig: false });
+        return null;
+      }
+    },
+
+    updateShopCrmConfig: async (payload) => {
+      try {
+        const res: any = await updateShopCrmConfigApi(payload);
+        const cfg: ICrmTrustAndIndustryConfig = res?.data?.data ?? res?.data;
+        if (cfg) {
+          set({ shopCrmConfig: cfg });
+          toast.success(tStore("Crm360.toasts.crmConfigSaved"));
+          return cfg;
+        }
+        return null;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || tStore("Crm360.toasts.actionFailed"),
+        );
+        return null;
       }
     },
 
@@ -364,6 +457,94 @@ export const useCrmStore = createPersistedStore<CrmState>(
       }
     },
 
+    lookupCustomerTrustFromSources: async ({
+      shopId,
+      customerId,
+      sources,
+      customWebhookUrl,
+      conversationId,
+    }) => {
+      try {
+        const res: any = await lookupCustomerTrustFromSourcesApi({
+          shopId,
+          customerId,
+          sources,
+          customWebhookUrl,
+        });
+        const updated: ICustomerProfile = res?.data?.data ?? res?.data;
+        if (updated?.id) {
+          set((state) => {
+            const idx = state.customers.findIndex((c) => c.id === updated.id);
+            if (idx !== -1) state.customers[idx] = updated;
+            if (
+              conversationId &&
+              state.customer360ByConv[conversationId]?.customer
+            ) {
+              state.customer360ByConv[conversationId].customer = updated;
+            }
+            if (state.activeCustomerDetail?.customer?.id === updated.id) {
+              state.activeCustomerDetail.customer = updated;
+            }
+          });
+          toast.success(tStore("Crm360.toasts.trustLookupRefreshed"));
+          return updated;
+        }
+        return null;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || tStore("Crm360.toasts.actionFailed"),
+        );
+        return null;
+      }
+    },
+
+    reportCustomerPhoneAbuse: async ({
+      shopId,
+      customerId,
+      reasonCode,
+      reasonNote,
+      carrierCode,
+      orderCode,
+      markBlacklisted,
+      conversationId,
+    }) => {
+      try {
+        const res: any = await reportCustomerPhoneAbuseApi({
+          shopId,
+          customerId,
+          reasonCode,
+          reasonNote,
+          carrierCode,
+          orderCode,
+          markBlacklisted,
+        });
+        const updated: ICustomerProfile = res?.data?.data ?? res?.data;
+        if (updated?.id) {
+          set((state) => {
+            const idx = state.customers.findIndex((c) => c.id === updated.id);
+            if (idx !== -1) state.customers[idx] = updated;
+            if (
+              conversationId &&
+              state.customer360ByConv[conversationId]?.customer
+            ) {
+              state.customer360ByConv[conversationId].customer = updated;
+            }
+            if (state.activeCustomerDetail?.customer?.id === updated.id) {
+              state.activeCustomerDetail.customer = updated;
+            }
+          });
+          toast.success(tStore("Crm360.toasts.abuseReportedSuccess"));
+          return updated;
+        }
+        return null;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || tStore("Crm360.toasts.actionFailed"),
+        );
+        return null;
+      }
+    },
+
     toggleCustomerBlacklist: async ({
       shopId,
       customerId,
@@ -413,6 +594,9 @@ export const useCrmStore = createPersistedStore<CrmState>(
       deliveryTrustScore,
       successfulDeliveriesCount,
       returnedOrdersCount,
+      networkDeliveredCount,
+      networkReturnedCount,
+      reportedCount,
       reason,
       conversationId,
     }) => {
@@ -423,6 +607,9 @@ export const useCrmStore = createPersistedStore<CrmState>(
           deliveryTrustScore,
           successfulDeliveriesCount,
           returnedOrdersCount,
+          networkDeliveredCount,
+          networkReturnedCount,
+          reportedCount,
           reason,
         });
         const updated: ICustomerProfile = res?.data?.data ?? res?.data;
@@ -730,6 +917,9 @@ export const useCrmStore = createPersistedStore<CrmState>(
             linkedConversations: prev?.linkedConversations || [],
           };
         }
+        if (state.activeCustomerDetail?.customer?.id === customer.id) {
+          state.activeCustomerDetail.customer = customer;
+        }
       });
     },
 
@@ -765,6 +955,7 @@ export const useCrmStore = createPersistedStore<CrmState>(
     partialize: (state) =>
       ({
         administrativeTree: state.administrativeTree,
+        shopCrmConfig: state.shopCrmConfig,
       }) as any,
   },
 );

@@ -544,6 +544,8 @@ interface ChatState {
   handleNerEntitiesDetected: (payload: {
     conversationId: string;
     messageId: string;
+    customerId?: string | null;
+    maskedContent?: string;
     extractedEntities: IMessage["extractedEntitiesJson"];
   }) => void;
 }
@@ -888,6 +890,21 @@ export const useChatStore = createPersistedStore<ChatState>(
           if (msgMeta.pageShortCode && !updatedConv.pageShortCode) {
             updatedConv.pageShortCode = msgMeta.pageShortCode;
           }
+          if (msgMeta.pageName && !updatedConv.pageName) {
+            updatedConv.pageName = msgMeta.pageName;
+          }
+          if (msgMeta.channelAvatarUrl && !updatedConv.channelAvatarUrl) {
+            updatedConv.channelAvatarUrl = msgMeta.channelAvatarUrl;
+          }
+          if (msgMeta.externalPageId && !updatedConv.externalPageId) {
+            updatedConv.externalPageId = msgMeta.externalPageId;
+          }
+          if (
+            msgMeta.channelIntegrationId &&
+            !updatedConv.channelIntegrationId
+          ) {
+            updatedConv.channelIntegrationId = msgMeta.channelIntegrationId;
+          }
 
           const currentUnread = Number(updatedConv.unreadCount || 0);
 
@@ -919,8 +936,11 @@ export const useChatStore = createPersistedStore<ChatState>(
             sourcePostId:
               msgMeta.sourcePostId || msgMeta.externalPostId || null,
             sourceAdId: msgMeta.sourceAdId || null,
+            channelIntegrationId: msgMeta.channelIntegrationId || null,
             pageShortCode: msgMeta.pageShortCode || undefined,
             pageName: msgMeta.pageName || undefined,
+            channelAvatarUrl: msgMeta.channelAvatarUrl || null,
+            externalPageId: msgMeta.externalPageId || null,
             supportStatus: isMe
               ? "WAITING_CUSTOMER_REPLY"
               : "WAITING_AGENT_REPLY",
@@ -3246,6 +3266,8 @@ export const useChatStore = createPersistedStore<ChatState>(
     handleNerEntitiesDetected: ({
       conversationId,
       messageId,
+      customerId,
+      maskedContent,
       extractedEntities,
     }) => {
       set((state) => {
@@ -3254,13 +3276,33 @@ export const useChatStore = createPersistedStore<ChatState>(
           const target = msgs.find((m) => m.id === messageId);
           if (target) {
             target.extractedEntitiesJson = extractedEntities;
+            if (maskedContent) {
+              target.content = maskedContent;
+            }
           }
         }
-        if (extractedEntities?.phones && extractedEntities.phones.length > 0) {
-          const conv = state.conversations.find((c) => c.id === conversationId);
-          if (conv) {
+        const conv = state.conversations.find((c) => c.id === conversationId);
+        if (conv) {
+          if (
+            (extractedEntities?.maskedPhones &&
+              extractedEntities.maskedPhones.length > 0) ||
+            (extractedEntities?.phones && extractedEntities.phones.length > 0)
+          ) {
             conv.hasPhoneCollected = true;
           }
+          if (customerId && !conv.customerId) {
+            conv.customerId = customerId;
+          }
+          if (
+            maskedContent &&
+            msgs &&
+            msgs[msgs.length - 1]?.id === messageId
+          ) {
+            conv.lastMessage = maskedContent;
+          }
+        }
+        if (customerId && state.conversationDetails[conversationId]) {
+          state.conversationDetails[conversationId].customerId = customerId;
         }
       });
     },

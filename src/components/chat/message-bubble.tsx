@@ -48,6 +48,10 @@ import {
   Sparkles,
   Phone,
   MapPin,
+  ShieldCheck,
+  ShieldAlert,
+  AlertTriangle,
+  Store,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 import type {
@@ -55,6 +59,7 @@ import type {
   ICustomTag,
   IMessage,
 } from "@/types/chat";
+import type { ICustomerProfile, IUnmaskedPhoneSession } from "@/types/crm";
 import { PollVotersModal } from "./poll-voters-modal";
 import { AudioWaveformPlayer } from "./audio-waveform-player";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
@@ -74,6 +79,46 @@ import { Progress } from "../ui/progress";
 
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "😡"];
 
+/**
+ * Lớp bảo vệ thứ 2 trên Client: Tự động che mọi chuỗi số điện thoại Việt Nam (cả số viết liền và số lách luật có dấu chấm/gạch/cách)
+ * thành `098***456` ngay trong nội dung tin nhắn hiển thị trên màn hình chat của người bán.
+ * Nếu nhân sự vừa bấm mở khóa SĐT 15 giây hợp lệ (`unmaskedPhone`), tự động hiển thị số gốc trong thời gian hiệu lực 15 giây.
+ */
+export function maskPhonesInMessageContentClient(
+  rawText: string,
+  activeUnmaskedPhone?: string | null,
+): string {
+  if (!rawText) return "";
+  if (activeUnmaskedPhone) {
+    return rawText.replace(
+      /\b(0[35789]\d)\*{3,4}(\d{3})\b/g,
+      (_match, prefix: string, suffix: string) => {
+        if (
+          activeUnmaskedPhone.startsWith(prefix) &&
+          activeUnmaskedPhone.endsWith(suffix)
+        ) {
+          return activeUnmaskedPhone;
+        }
+        return _match;
+      },
+    );
+  }
+
+  return rawText.replace(
+    /(?:\+?84|0)[\s.\-_]*[35789](?:[\s.\-_]*\d){8}\b/g,
+    (matchedSubstr) => {
+      const digitsOnly = matchedSubstr.replace(/\D/g, "");
+      const local = digitsOnly.startsWith("84")
+        ? `0${digitsOnly.slice(2)}`
+        : digitsOnly;
+      if (local.length === 10) {
+        return `${local.slice(0, 3)}***${local.slice(-3)}`;
+      }
+      return matchedSubstr;
+    },
+  );
+}
+
 interface MessageBubbleProps {
   message: IMessage;
   currentUserId?: string;
@@ -85,6 +130,11 @@ interface MessageBubbleProps {
   isHighlighted?: boolean;
   avatarUrl?: string;
   displayName?: string;
+  pageName?: string | null;
+  pageShortCode?: string | null;
+  channelAvatarUrl?: string | null;
+  customerProfile?: ICustomerProfile | null;
+  unmaskedSession?: IUnmaskedPhoneSession | null;
   displayReaders?: { id: string; name: string; avatar: string | null }[];
   members?: IConversationMemberDetail[];
   bookmarkTags?: ICustomTag[];
@@ -114,8 +164,10 @@ interface MessageBubbleProps {
   onClosePoll?: (messageId: string) => void;
 }
 
-function renderTextWithMentions(text: string, isMe: boolean) {
-  const parts = text.split(/(@All|@[A-Za-zÀ-ỹ0-9_.-]+)/g);
+function renderTextWithMentionsAndMaskedPhones(text: string, isMe: boolean) {
+  const parts = text.split(
+    /(@All|@[A-Za-zÀ-ỹ0-9_.-]+|\b0[35789]\d\*{3,4}\d{3}\b)/g,
+  );
   return parts.map((part, idx) => {
     if (part.startsWith("@") && part.length > 1) {
       return (
@@ -129,6 +181,23 @@ function renderTextWithMentions(text: string, isMe: boolean) {
           )}
         >
           {part}
+        </span>
+      );
+    }
+    if (/^0[35789]\d\*{3,4}\d{3}$/.test(part)) {
+      return (
+        <span
+          key={idx}
+          className={cn(
+            "inline-flex items-center gap-0.5 font-mono font-bold px-1.5 py-0.2 rounded-md",
+            isMe
+              ? "bg-black/25 text-amber-200 border border-white/25"
+              : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/35",
+          )}
+          title="Số điện thoại đã tự động che bảo mật PII Vault (Bấm Mở xem 15s trong Hồ sơ CRM 360°)"
+        >
+          <Lock className="w-2.5 h-2.5 inline shrink-0" />
+          <span>{part}</span>
         </span>
       );
     }
@@ -148,6 +217,11 @@ export const MessageBubble = memo(
     isHighlighted = false,
     avatarUrl,
     displayName,
+    pageName,
+    pageShortCode,
+    channelAvatarUrl,
+    customerProfile,
+    unmaskedSession,
     displayReaders,
     members = [],
     bookmarkTags = [],
@@ -207,13 +281,119 @@ export const MessageBubble = memo(
     const messageTagIds = message.messageTagIdsJson || [];
     const extractedEntities = message.extractedEntitiesJson;
 
-    const hasExtractedNerEntities = Boolean(
-      extractedEntities &&
-        ((extractedEntities.phones && extractedEntities.phones.length > 0) ||
-          extractedEntities.provinceCode ||
-          (extractedEntities.skuCodes &&
-            extractedEntities.skuCodes.length > 0)),
+    const effectivePageName =
+      message.metadata?.pageName ||
+      pageName ||
+      message.metadata?.pageShortCode ||
+      pageShortCode ||
+      null;
+    const effectivePageShortCode =
+      message.metadata?.pageShortCode || pageShortCode || null;
+    const effectivePageAvatar =
+      message.metadata?.channelAvatarUrl || channelAvatarUrl || null;
+
+    // Nội dung tin nhắn đã tự động che SĐT (hoặc mở 15s nếu nhân viên có phiên unmask hợp lệ)
+    const safeDisplayContent = useMemo(
+      () =>
+        maskPhonesInMessageContentClient(
+          message.content || "",
+          unmaskedSession?.unmaskedPhone || null,
+        ),
+      [message.content, unmaskedSession?.unmaskedPhone],
     );
+
+    const hasPhoneExtracted = Boolean(
+      extractedEntities &&
+        ((extractedEntities.maskedPhones &&
+          extractedEntities.maskedPhones.length > 0) ||
+          (extractedEntities.phones && extractedEntities.phones.length > 0)),
+    );
+
+    const hasAddressExtracted = Boolean(
+      extractedEntities &&
+        (extractedEntities.hasAddressDetected ||
+          extractedEntities.provinceCode ||
+          extractedEntities.districtCode ||
+          extractedEntities.wardCode ||
+          extractedEntities.addressLine ||
+          extractedEntities.fullFormattedAddress),
+    );
+
+    const hasExtractedNerEntities = Boolean(
+      hasPhoneExtracted ||
+        hasAddressExtracted ||
+        (extractedEntities?.skuCodes && extractedEntities.skuCodes.length > 0),
+    );
+
+    // Tổng hợp chỉ số Uy tín Nhận / Hoàn / Bị báo cáo từ `extractedEntities.phoneTrustSummary` hoặc `customerProfile.trustEvaluation`
+    const resolvedPhoneTrust = useMemo(() => {
+      if (extractedEntities?.phoneTrustSummary) {
+        return extractedEntities.phoneTrustSummary;
+      }
+      const trustEval = customerProfile?.trustEvaluation;
+      if (customerProfile && trustEval) {
+        return {
+          customerId: customerProfile.id,
+          phoneMasked:
+            customerProfile.phoneMasked ||
+            extractedEntities?.maskedPhones?.[0] ||
+            extractedEntities?.phones?.[0] ||
+            "098***678",
+          carrierName:
+            extractedEntities?.normalizedPhones?.[0]?.carrierName || "Viettel",
+          score: trustEval.score,
+          band: trustEval.band,
+          badgeVariant: trustEval.badgeVariant,
+          headline: trustEval.headline,
+          totalDeliveredCount: trustEval.totalDeliveredCount,
+          shopDeliveredCount: trustEval.shopDeliveredCount,
+          networkDeliveredCount: trustEval.networkDeliveredCount,
+          totalReturnedCount: trustEval.totalReturnedCount,
+          shopReturnedCount: trustEval.shopReturnedCount,
+          networkReturnedCount: trustEval.networkReturnedCount,
+          reportedCount: trustEval.reportedCount,
+          returnRatePercent: trustEval.returnRatePercent,
+          requireDepositVietQr: trustEval.requireDepositVietQr,
+          lookupSource: trustEval.lookupSource,
+          lookupSourceLabel: trustEval.lookupSourceLabel,
+          lastLookupAt: trustEval.lastLookupAt || customerProfile.updatedAt,
+        };
+      }
+      return null;
+    }, [extractedEntities, customerProfile]);
+
+    const displayedExtractedPhone = useMemo(() => {
+      if (unmaskedSession?.unmaskedPhone) {
+        return unmaskedSession.unmaskedPhone;
+      }
+      const candidate =
+        extractedEntities?.maskedPhones?.[0] ||
+        extractedEntities?.phones?.[0] ||
+        resolvedPhoneTrust?.phoneMasked ||
+        null;
+      if (!candidate) return null;
+      return maskPhonesInMessageContentClient(candidate, null);
+    }, [
+      unmaskedSession?.unmaskedPhone,
+      extractedEntities,
+      resolvedPhoneTrust?.phoneMasked,
+    ]);
+
+    const displayedExtractedAddress = useMemo(() => {
+      if (!extractedEntities) return null;
+      return (
+        extractedEntities.fullFormattedAddress ||
+        [
+          extractedEntities.addressLine,
+          extractedEntities.wardName,
+          extractedEntities.districtName,
+          extractedEntities.provinceName,
+        ]
+          .filter(Boolean)
+          .join(", ") ||
+        null
+      );
+    }, [extractedEntities]);
 
     const isHiddenOnPlatform = Boolean(message.metadata?.isHiddenOnPlatform);
     const isLikedByPage = Boolean(message.metadata?.isLikedByPage);
@@ -238,8 +418,8 @@ export const MessageBubble = memo(
     }, [message.type, message.content, attachments, t]);
 
     const handleCopyText = async () => {
-      if (!message.content) return;
-      await navigator.clipboard.writeText(message.content);
+      if (!safeDisplayContent) return;
+      await navigator.clipboard.writeText(safeDisplayContent);
       toast.success(t("copiedToast"));
     };
 
@@ -381,7 +561,10 @@ export const MessageBubble = memo(
         return replyPreview.content
           ? `📎 ${replyPreview.content}`
           : t("mediaPreview.file");
-      return replyPreview.content;
+      return maskPhonesInMessageContentClient(
+        replyPreview.content,
+        unmaskedSession?.unmaskedPhone || null,
+      );
     };
 
     const isMaskedVoipCall =
@@ -402,22 +585,30 @@ export const MessageBubble = memo(
           setShowBookmarkPicker(false);
         }}
       >
-        {!isMe &&
-          (isGroupChat || isCommentThread) &&
-          !isContinuous &&
-          (displayName ||
-            message.sender?.name ||
-            message.metadata?.externalCustomerName) && (
-            <span className="text-[11px] font-medium text-muted-foreground ml-10 mb-1 select-none">
-              {displayName ||
+        {/* Dòng hiển thị Tên Khách Hàng  */}
+        {!isContinuous && (
+          <div
+            className={cn(
+              "flex items-center gap-1.5 mb-1 select-none flex-wrap",
+              isMe ? "mr-2 justify-end" : "ml-10 justify-start",
+            )}
+          >
+            {!isMe &&
+              (displayName ||
                 message.sender?.name ||
-                message.metadata?.externalCustomerName}
-            </span>
-          )}
+                message.metadata?.externalCustomerName) && (
+                <span className="text-[11px] font-semibold text-foreground/85">
+                  {displayName ||
+                    message.sender?.name ||
+                    message.metadata?.externalCustomerName}
+                </span>
+              )}
+          </div>
+        )}
 
         <div
           className={cn(
-            "relative flex max-w-[90%] sm:max-w-[78%] md:max-w-[72%] items-end gap-1.5 sm:gap-2",
+            "relative flex max-w-[92%] sm:max-w-[80%] md:max-w-[74%] items-end gap-1.5 sm:gap-2",
             isMe ? "flex-row-reverse" : "flex-row",
           )}
         >
@@ -749,7 +940,7 @@ export const MessageBubble = memo(
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold">
-                          {message.content}
+                          {safeDisplayContent}
                         </p>
                         {!isMaskedVoipCall && (
                           <button
@@ -952,52 +1143,135 @@ export const MessageBubble = memo(
                   </div>
                 )}
 
-                {/* 6. Nội dung văn bản có Highlight @Mention */}
+                {/* 6. Nội dung văn bản có Highlight @Mention và Tự động Che Số Điện Thoại (`098***456`) */}
                 {(message.type === MessageTypeEnum.TEXT ||
-                  (message.content &&
+                  (safeDisplayContent &&
                     message.type !== MessageTypeEnum.CALL &&
                     message.type !== MessageTypeEnum.POLL &&
                     message.type !== MessageTypeEnum.IMAGE)) && (
                   <p className="whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere] max-w-full">
-                    {renderTextWithMentions(
-                      message.content,
+                    {renderTextWithMentionsAndMaskedPhones(
+                      safeDisplayContent,
                       isMe && !isInternalNote,
                     )}
                   </p>
                 )}
 
-                {/* Huy hiệu Trích xuất Thực thể Thương mại Tiếng Việt (F04.1 & T05) */}
+                {/* Thẻ Trích xuất Thực thể Thương mại Tiếng Việt (SĐT đã che + Chỉ số Nhận/Hoàn/Bị báo cáo + Địa chỉ giao hàng 3 cấp) */}
                 {!isRecalled && hasExtractedNerEntities && (
-                  <div className="mt-2 pt-1.5 border-t border-border/40 flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => onOpenCrm360Panel?.()}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all cursor-pointer",
-                        isMe && !isInternalNote
-                          ? "bg-white/20 text-white hover:bg-white/30"
-                          : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/35 hover:bg-emerald-500/25",
-                      )}
-                    >
-                      <Sparkles className="w-3 h-3 shrink-0" />
-                      <span>{t("nerExtractedBadge")}</span>
-                      {extractedEntities?.phones &&
-                        extractedEntities.phones.length > 0 && (
-                          <span className="inline-flex items-center gap-0.5 font-mono text-[10px] opacity-90">
-                            <Phone className="w-2.5 h-2.5" />
-                            {extractedEntities.phones[0].slice(0, 3)}••••
-                            {extractedEntities.phones[0].slice(-3)}
+                  <div
+                    className={cn(
+                      "mt-2 pt-2 border-t flex flex-col gap-1.5 rounded-xl p-2 text-[11px]",
+                      isMe && !isInternalNote
+                        ? "border-white/25 bg-black/20 text-white"
+                        : "border-emerald-500/35 bg-emerald-500/10 text-foreground",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
+                        <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                        <span>{t("nerExtractedBadge")}</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => onOpenCrm360Panel?.()}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
+                      >
+                        <span>{t("openCrm360QuickBtn")}</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+
+                    {/* Hàng 1: Số điện thoại đã che + Nhà mạng + Chỉ số ĐÃ NHẬN / ĐÃ HOÀN / BỊ BÁO CÁO */}
+                    {displayedExtractedPhone && (
+                      <div className="flex flex-col gap-1 pt-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold bg-background/90 text-foreground border border-border/60">
+                            <Phone className="w-3 h-3 text-emerald-500 shrink-0" />
+                            <span>{displayedExtractedPhone}</span>
                           </span>
+
+                          {extractedEntities?.normalizedPhones?.[0]
+                            ?.carrierName && (
+                            <GlassBadge variant="info" size="sm">
+                              {
+                                extractedEntities.normalizedPhones[0]
+                                  .carrierName
+                              }
+                            </GlassBadge>
+                          )}
+
+                          {resolvedPhoneTrust && (
+                            <GlassBadge
+                              variant={resolvedPhoneTrust.badgeVariant}
+                              size="sm"
+                            >
+                              {resolvedPhoneTrust.band === "HIGH_RISK_RED" ? (
+                                <ShieldAlert className="w-2.5 h-2.5 mr-0.5 inline" />
+                              ) : resolvedPhoneTrust.band ===
+                                "TRUSTED_GREEN" ? (
+                                <ShieldCheck className="w-2.5 h-2.5 mr-0.5 inline" />
+                              ) : (
+                                <AlertTriangle className="w-2.5 h-2.5 mr-0.5 inline" />
+                              )}
+                              {t("trustScoreShort", {
+                                score: resolvedPhoneTrust.score,
+                              })}
+                            </GlassBadge>
+                          )}
+                        </div>
+
+                        {/* Hiển thị trực tiếp chỉ số Nhận / Hoàn / Bị báo cáo ngay khi khách nhắn SĐT */}
+                        {resolvedPhoneTrust && (
+                          <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-semibold pt-0.5">
+                            <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                              ✓ {t("deliveredShort")}:{" "}
+                              {resolvedPhoneTrust.totalDeliveredCount}{" "}
+                              {t("ordersUnit")}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                              ↩ {t("returnedShort")}:{" "}
+                              {resolvedPhoneTrust.totalReturnedCount} (
+                              {resolvedPhoneTrust.returnRatePercent}%)
+                            </span>
+                            <span
+                              className={cn(
+                                "px-1.5 py-0.5 rounded-md border",
+                                resolvedPhoneTrust.reportedCount > 0
+                                  ? "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/40 font-bold"
+                                  : "bg-muted/80 text-muted-foreground border-border/50",
+                              )}
+                            >
+                              🚨 {t("reportedShort")}:{" "}
+                              {resolvedPhoneTrust.reportedCount}{" "}
+                              {t("timesUnit")}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground">
+                              ({resolvedPhoneTrust.lookupSourceLabel})
+                            </span>
+                          </div>
                         )}
-                      {extractedEntities?.provinceName && (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] opacity-90">
-                          <MapPin className="w-2.5 h-2.5" />
-                          {extractedEntities.districtName
-                            ? `${extractedEntities.districtName}, ${extractedEntities.provinceName}`
-                            : extractedEntities.provinceName}
-                        </span>
-                      )}
-                    </button>
+                      </div>
+                    )}
+
+                    {/* Hàng 2: Địa chỉ giao hàng bóc tách tự động (Số nhà/Đường + Phường/Xã + Quận/Huyện + Tỉnh/Thành + Mã GHN/GHTK) */}
+                    {displayedExtractedAddress && (
+                      <div className="flex items-start gap-1.5 pt-0.5 text-[11px]">
+                        <MapPin className="w-3.5 h-3.5 text-sky-500 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <span className="font-semibold break-words">
+                            {displayedExtractedAddress}
+                          </span>
+                          {extractedEntities?.carrierCodes?.ghnDistrictId && (
+                            <span className="ml-1.5 font-mono text-[9px] opacity-75">
+                              [GHN #
+                              {extractedEntities.carrierCodes.ghnDistrictId}]
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -34,6 +34,7 @@ import {
   Bookmark,
   AlertTriangle,
   Megaphone,
+  Store,
 } from "lucide-react";
 import { EMPTY_STRING } from "@/constant";
 import { useTranslations } from "next-intl";
@@ -52,6 +53,12 @@ interface IChatHeaderProps {
   isBlocked?: boolean;
   statusText?: string;
   shopId?: string | null;
+  channelType?: string | null;
+  pageName?: string | null;
+  pageShortCode?: string | null;
+  channelAvatarUrl?: string | null;
+  externalPageId?: string | null;
+  interactionType?: "INBOX" | "COMMENT" | "LIVESTREAM" | "MARKETPLACE" | null;
   sourceAdId?: string | null;
   sourcePostId?: string | null;
   isGhostedByAgent?: boolean;
@@ -83,6 +90,12 @@ export const ChatHeader = memo(
     isBlocked = false,
     statusText,
     shopId,
+    channelType,
+    pageName,
+    pageShortCode,
+    channelAvatarUrl,
+    externalPageId,
+    interactionType,
     sourceAdId,
     sourcePostId,
     isGhostedByAgent = false,
@@ -110,8 +123,12 @@ export const ChatHeader = memo(
       }
     };
 
+    const hasPageIdentity = Boolean(
+      pageName || pageShortCode || channelAvatarUrl,
+    );
+
     return (
-      <div className="h-14 sm:h-16 flex items-center justify-between px-3 sm:px-4 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky top-0 z-10">
+      <div className="min-h-14 sm:min-h-16 py-1.5 flex items-center justify-between px-3 sm:px-4 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 sticky top-0 z-10 gap-2">
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
           <div className="md:hidden shrink-0">
             <ButtonBack />
@@ -122,16 +139,18 @@ export const ChatHeader = memo(
             onClick={handleViewProfile}
             className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1 overflow-hidden text-left group/header cursor-pointer"
           >
-            <GlassAvatar
-              src={avatarUrl}
-              name={displayName}
-              size="md"
-              isOnline={Boolean(!isGroupChat && !isBlocked && isOnline)}
-              showStatus={Boolean(!isGroupChat && !isBlocked && isOnline)}
-              className="transition-transform group-hover/header:scale-105"
-            />
+            <div className="relative shrink-0">
+              <GlassAvatar
+                src={avatarUrl}
+                name={displayName}
+                size="md"
+                isOnline={Boolean(!isGroupChat && !isBlocked && isOnline)}
+                showStatus={Boolean(!isGroupChat && !isBlocked && isOnline)}
+                className="transition-transform group-hover/header:scale-105"
+              />
+            </div>
 
-            <div className="flex flex-col leading-tight min-w-0 flex-1 overflow-hidden">
+            <div className="flex flex-col leading-tight min-w-0 flex-1 overflow-hidden gap-0.5">
               <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                 <h2
                   title={displayName}
@@ -144,6 +163,20 @@ export const ChatHeader = memo(
                 ) : (
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 )}
+
+                {interactionType &&
+                  (interactionType === "COMMENT" ||
+                    interactionType === "LIVESTREAM") && (
+                    <GlassBadge
+                      variant="accent"
+                      size="sm"
+                      className="text-[10px] py-0 px-1.5"
+                    >
+                      {interactionType === "LIVESTREAM"
+                        ? "Livestream"
+                        : t("commentModeBadge")}
+                    </GlassBadge>
+                  )}
 
                 {sourceAdId && (
                   <GlassBadge
@@ -192,21 +225,28 @@ export const ChatHeader = memo(
                 )}
               </div>
 
-              <span className="text-[11px] sm:text-xs text-muted-foreground truncate block">
+              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground truncate">
                 {isTyping ? (
                   <span className="text-primary font-medium animate-pulse">
                     {t("status.typing")}
                   </span>
+                ) : hasPageIdentity ? (
+                  <span className="truncate">
+                    {t("messagingViaPageLabel", {
+                      pageName:
+                        pageName || pageShortCode || channelType || "Fanpage",
+                    })}
+                  </span>
                 ) : isGroupChat ? (
-                  t("status.groupChat")
+                  <span>{t("status.groupChat")}</span>
                 ) : isOnline ? (
-                  t("status.active")
+                  <span>{t("status.active")}</span>
                 ) : statusText !== EMPTY_STRING ? (
-                  t("status.noActive")
+                  <span>{t("status.noActive")}</span>
                 ) : (
-                  EMPTY_STRING
+                  <span>{EMPTY_STRING}</span>
                 )}
-              </span>
+              </div>
             </div>
           </button>
         </div>

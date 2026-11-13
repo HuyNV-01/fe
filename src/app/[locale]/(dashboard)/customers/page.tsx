@@ -170,6 +170,17 @@ export default function CustomersCrmPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {customers.map((cust) => {
             const trust = cust.trustEvaluation;
+            const totalDelivered =
+              trust?.totalDeliveredCount ??
+              Number(cust.successfulDeliveriesCount || 0) +
+                Number(cust.networkDeliveredCount || 0);
+            const totalReturned =
+              trust?.totalReturnedCount ??
+              Number(cust.returnedOrdersCount || 0) +
+                Number(cust.networkReturnedCount || 0);
+            const totalReported =
+              trust?.reportedCount ?? Number(cust.reportedCount || 0);
+
             return (
               <GlassSurfaceCard
                 key={cust.id}
@@ -242,11 +253,17 @@ export default function CustomersCrmPage() {
 
                 <div className="pt-2.5 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
                   {trust && (
-                    <GlassBadge variant={trust.badgeVariant} size="sm">
-                      Uy tín: {trust.score}/100 (
-                      {cust.successfulDeliveriesCount} nhận /{" "}
-                      {cust.returnedOrdersCount} hoàn)
-                    </GlassBadge>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <GlassBadge variant={trust.badgeVariant} size="sm">
+                        Uy tín: {trust.score}/100 ({totalDelivered} nhận /{" "}
+                        {totalReturned} hoàn)
+                      </GlassBadge>
+                      {totalReported > 0 && (
+                        <GlassBadge variant="danger" size="sm">
+                          🚨 Báo xấu: {totalReported}
+                        </GlassBadge>
+                      )}
+                    </div>
                   )}
 
                   <span className="text-xs font-bold tabular-nums text-foreground">

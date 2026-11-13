@@ -6,6 +6,20 @@ export type DeliveryTrustBandType =
   | "CAUTION_AMBER"
   | "HIGH_RISK_RED";
 
+export type ShopBusinessCategoryType =
+  | "GENERAL_MULTI_CATEGORY"
+  | "FASHION_APPAREL"
+  | "COSMETICS_BEAUTY"
+  | "ELECTRONICS_TECH"
+  | "FOOD_BEVERAGE"
+  | "MOTHER_AND_BABY";
+
+export type PhoneTrustLookupSourceType =
+  | "INTERNAL_POS"
+  | "PANCAKE_COMMUNITY"
+  | "CARRIER_3PL"
+  | "CUSTOM_WEBHOOK";
+
 export type RfmSegmentCodeType =
   | "CHAMPIONS"
   | "LOYAL"
@@ -39,11 +53,93 @@ export type SecurityAuditActionCodeType =
   | "MERGE_CUSTOMER"
   | "BLACKLIST_TOGGLE"
   | "TRUST_SCORE_OVERRIDE"
+  | "PHONE_ABUSE_REPORT"
+  | "CRM_SETTINGS_UPDATE"
   | "WALLET_MANUAL_ADJUST"
   | "CAPI_CONFIG_UPDATE"
   | "MODIFY_CONFIRMED_ORDER"
   | "ADJUST_STOCK"
   | "UPDATE_IAM_PERMISSIONS";
+
+export interface ICrmTrustAndIndustryConfig {
+  businessCategory: ShopBusinessCategoryType;
+  showApparelMeasurementsInProfile: boolean;
+  enableCustomAttributesInProfile?: boolean;
+  defaultCustomAttributeKeys?: string[];
+  customAttributeTemplates?: Array<{
+    key: string;
+    label: string;
+    placeholder?: string;
+  }>;
+  enableAutoTrustLookupOnPhone?: boolean;
+  useInternalPosHistory?: boolean;
+  enableCommunityTrustLookup?: boolean;
+  usePancakeCommunityNetwork?: boolean;
+  enableCarrier3plTrustLookup?: boolean;
+  useCarrier3plLookup?: boolean;
+  enabledLookupSources?: PhoneTrustLookupSourceType[];
+  enabledCarriers?: Array<"GHN" | "GHTK" | "VTP" | "JT">;
+  customLookupWebhookUrl: string | null;
+  hasCustomLookupApiKey?: boolean;
+  autoMaskPhoneInChatMessages?: boolean;
+  autoMaskBuyerPhoneInChat?: boolean;
+  autoExtractPhoneAndAddressInChat?: boolean;
+  autoExtractAddressFromChat?: boolean;
+  autoRequireDepositBelowTrustScore?: number;
+  highRiskReturnRateThresholdPercent?: number;
+  highRiskReportedCountThreshold?: number;
+  requireDepositOnHighRisk?: boolean;
+  updatedAt?: string;
+}
+
+export interface ICustomerAbuseReportItem {
+  reportId: string;
+  reason?: string;
+  reasonCode?:
+    | "BOM_HANG"
+    | "BOOM_AO_SPAM"
+    | "TU_CHOI_NHAN_NHIEU_LAN"
+    | "SAI_SO_DIEN_THOAI"
+    | "OTHER"
+    | string;
+  reasonNote?: string;
+  source?: string;
+  carrierCode?: string | null;
+  orderCode?: string | null;
+  reportedByName?: string;
+  reportedByUserId?: string;
+  reportedByShopId?: string;
+  reportedAt?: string;
+  createdAt?: string;
+}
+
+export interface ICustomerCustomAttributeItem {
+  key: string;
+  label: string;
+  value: string;
+}
+
+export interface IExtractedPhoneTrustSummary {
+  customerId?: string | null;
+  phoneMasked: string;
+  carrierName: string;
+  score: number;
+  band: DeliveryTrustBandType;
+  badgeVariant: "success" | "info" | "warning" | "danger";
+  headline: string;
+  totalDeliveredCount: number;
+  shopDeliveredCount: number;
+  networkDeliveredCount: number;
+  totalReturnedCount: number;
+  shopReturnedCount: number;
+  networkReturnedCount: number;
+  reportedCount: number;
+  returnRatePercent: number;
+  requireDepositVietQr: boolean;
+  lookupSource: PhoneTrustLookupSourceType;
+  lookupSourceLabel: string;
+  lastLookupAt: string;
+}
 
 export interface IVnWardUnit {
   code: string;
@@ -75,12 +171,15 @@ export interface IVnProvinceUnit {
 
 export interface IExtractedCommerceEntities {
   phones?: string[];
+  maskedPhones?: string[];
   normalizedPhones?: Array<{
     rawMatch: string;
-    localPhone: string;
-    e164Phone: string;
+    localPhone?: string;
+    e164Phone?: string;
+    maskedPhone?: string;
     carrierName: string;
   }>;
+  phoneTrustSummary?: IExtractedPhoneTrustSummary | null;
   provinceCode?: string | null;
   provinceName?: string | null;
   districtCode?: string | null;
@@ -89,6 +188,7 @@ export interface IExtractedCommerceEntities {
   wardName?: string | null;
   addressLine?: string | null;
   fullFormattedAddress?: string | null;
+  hasAddressDetected?: boolean;
   carrierCodes?: {
     ghnProvinceId?: number;
     ghnDistrictId?: number;
@@ -106,6 +206,7 @@ export interface IExtractedCommerceEntities {
   weightKg?: number | null;
   quantities?: number[];
   processingTimeMs?: number;
+  maskedText?: string;
 }
 
 export interface IDeliveryTrustEvaluation {
@@ -116,6 +217,17 @@ export interface IDeliveryTrustEvaluation {
   recommendation: string;
   requireDepositVietQr: boolean;
   successRatePercent: number;
+  returnRatePercent: number;
+  totalDeliveredCount: number;
+  shopDeliveredCount: number;
+  networkDeliveredCount: number;
+  totalReturnedCount: number;
+  shopReturnedCount: number;
+  networkReturnedCount: number;
+  reportedCount: number;
+  lookupSource: PhoneTrustLookupSourceType;
+  lookupSourceLabel: string;
+  lastLookupAt?: string | null;
 }
 
 export interface ILinkedExternalIdentity {
@@ -170,15 +282,23 @@ export interface ICustomerProfile {
   totalOrdersCount: number;
   successfulDeliveriesCount: number;
   returnedOrdersCount: number;
+  networkDeliveredCount?: number;
+  networkReturnedCount?: number;
+  reportedCount?: number;
+  reportedReasonsJson?: ICustomerAbuseReportItem[] | null;
+  trustLookupSource?: PhoneTrustLookupSourceType;
+  lastTrustLookupAt?: string | null;
   deliveryTrustScore: number;
   isBlacklisted: boolean;
   blacklistReason?: string | null;
   lifetimeValueAmount: number;
   loyaltyPointsBalance: number;
   walletCreditBalance: number;
+  industryCategory?: ShopBusinessCategoryType;
   heightCm?: number | null;
   weightKg?: number | null;
   preferredSize?: string | null;
+  customAttributesJson?: ICustomerCustomAttributeItem[] | null;
   notes?: string | null;
   linkedExternalIdentitiesJson?: ILinkedExternalIdentity[] | null;
   activeTagIdsJson?: string[] | null;

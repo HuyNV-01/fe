@@ -5,12 +5,37 @@ import type {
   CustomerTierType,
   CustomerWalletLedgerType,
   CustomerWalletTransactionType,
+  ICustomerCustomAttributeItem,
+  PhoneTrustLookupSourceType,
   RfmSegmentCodeType,
   SecurityAuditActionCodeType,
+  ShopBusinessCategoryType,
 } from "@/types/crm";
 
 export const getAdministrativeUnitsApi = (shopId: string) =>
   apiClient.get(`/crm/${shopId}/administrative-units`);
+
+export const getShopCrmConfigApi = (shopId: string) =>
+  apiClient.get(`/crm/${shopId}/settings/crm-config`);
+
+export const updateShopCrmConfigApi = (payload: {
+  shopId: string;
+  businessCategory?: ShopBusinessCategoryType;
+  showApparelMeasurementsInProfile?: boolean;
+  enableCustomAttributesInProfile?: boolean;
+  defaultCustomAttributeKeys?: string[];
+  enableCommunityTrustLookup?: boolean;
+  enableCarrier3plTrustLookup?: boolean;
+  enabledLookupSources?: PhoneTrustLookupSourceType[];
+  customLookupWebhookUrl?: string;
+  customLookupApiKey?: string;
+  autoMaskPhoneInChatMessages?: boolean;
+  autoExtractPhoneAndAddressInChat?: boolean;
+  autoRequireDepositBelowTrustScore?: number;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.patch(`/crm/${shopId}/settings/crm-config`, body);
+};
 
 export const extractVietnameseNerApi = (payload: {
   shopId: string;
@@ -55,9 +80,11 @@ export const createCustomerProfileApi = (payload: {
   defaultWardCode?: string;
   defaultAddressLine?: string;
   tier?: CustomerTierType;
+  industryCategory?: ShopBusinessCategoryType;
   heightCm?: number;
   weightKg?: number;
   preferredSize?: string;
+  customAttributesJson?: ICustomerCustomAttributeItem[];
   notes?: string;
   conversationId?: string;
 }) => {
@@ -76,14 +103,50 @@ export const updateCustomerProfileApi = (payload: {
   defaultWardCode?: string;
   defaultAddressLine?: string;
   tier?: CustomerTierType;
+  industryCategory?: ShopBusinessCategoryType;
   heightCm?: number;
   weightKg?: number;
   preferredSize?: string;
+  customAttributesJson?: ICustomerCustomAttributeItem[];
   notes?: string;
   conversationId?: string;
 }) => {
   const { shopId, customerId, ...body } = payload;
   return apiClient.patch(`/crm/${shopId}/customers/${customerId}`, body);
+};
+
+export const lookupCustomerTrustFromSourcesApi = (payload: {
+  shopId: string;
+  customerId: string;
+  sources?: PhoneTrustLookupSourceType[];
+  customWebhookUrl?: string;
+}) => {
+  const { shopId, customerId, ...body } = payload;
+  return apiClient.post(
+    `/crm/${shopId}/customers/${customerId}/lookup-trust`,
+    body,
+  );
+};
+
+export const reportCustomerPhoneAbuseApi = (payload: {
+  shopId: string;
+  customerId: string;
+  reasonCode:
+    | "BOM_HANG"
+    | "BOOM_AO_SPAM"
+    | "TU_CHOI_NHAN_NHIEU_LAN"
+    | "SAI_SO_DIEN_THOAI"
+    | "OTHER";
+  reasonNote: string;
+  carrierCode?: string;
+  orderCode?: string;
+  markBlacklisted?: boolean;
+}) => {
+  const { shopId, customerId, ...body } = payload;
+  return apiClient.post(
+    `/crm/${shopId}/customers/${customerId}/report-abuse`,
+    body,
+  );
 };
 
 export const toggleCustomerBlacklistApi = (payload: {
@@ -105,6 +168,9 @@ export const overrideCustomerTrustScoreApi = (payload: {
   deliveryTrustScore: number;
   successfulDeliveriesCount?: number;
   returnedOrdersCount?: number;
+  networkDeliveredCount?: number;
+  networkReturnedCount?: number;
+  reportedCount?: number;
   reason: string;
 }) => {
   const { shopId, customerId, ...body } = payload;
