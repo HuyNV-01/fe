@@ -205,6 +205,8 @@ export interface IExtractedCommerceEntities {
   heightCm?: number | null;
   weightKg?: number | null;
   quantities?: number[];
+  paymentIntent?: "BANK_TRANSFER" | "COD" | null;
+  deliveryTimeNote?: string | null;
   processingTimeMs?: number;
   maskedText?: string;
 }

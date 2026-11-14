@@ -5,6 +5,7 @@ import {
   updateShopCrmConfigApi,
   extractVietnameseNerApi,
   listCustomersApi,
+  exportCustomersAuditApi,
   getCustomer360ByConversationApi,
   getCustomer360DetailApi,
   createCustomerProfileApi,
@@ -16,6 +17,7 @@ import {
   mergeCustomerProfilesApi,
   unmaskCustomerPhoneApi,
   adjustCustomerWalletOrPointsApi,
+  recordOrderDeliveredLoyaltyApi,
   getRfmSegmentsApi,
   recalculateRfmSegmentsApi,
   listAdsConversionsApi,
@@ -129,6 +131,11 @@ interface CrmState {
     highRiskOnly?: boolean;
     blacklistedOnly?: boolean;
   }) => Promise<void>;
+  exportCustomersWithAudit: (payload: {
+    shopId: string;
+    exportedCount: number;
+    filterSummary?: string;
+  }) => Promise<boolean>;
   fetchCustomer360ByConversation: (
     shopId: string,
     conversationId: string,
@@ -218,6 +225,16 @@ interface CrmState {
     deltaAmount: number;
     referenceOrderId?: string;
     note: string;
+    conversationId?: string;
+  }) => Promise<boolean>;
+  recordOrderDeliveredAndAwardPoints: (payload: {
+    shopId: string;
+    customerId: string;
+    orderCode: string;
+    orderTotalAmount: number;
+    carrierCode?: string;
+    trackingNumber?: string;
+    overpaymentOrRmaCreditAmount?: number;
     conversationId?: string;
   }) => Promise<boolean>;
   fetchRfmSegments: (shopId: string) => Promise<void>;
@@ -370,6 +387,19 @@ export const useCrmStore = createPersistedStore<CrmState>(
         });
       } catch {
         set({ isLoadingCustomers: false });
+      }
+    },
+
+    exportCustomersWithAudit: async (payload) => {
+      try {
+        await exportCustomersAuditApi(payload);
+        toast.success(tStore("Crm360.toasts.exportedWithAudit"));
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || tStore("Crm360.toasts.actionFailed"),
+        );
+        return false;
       }
     },
 
@@ -762,6 +792,65 @@ export const useCrmStore = createPersistedStore<CrmState>(
             }
           });
           toast.success(tStore("Crm360.toasts.walletAdjusted"));
+          return true;
+        }
+        return false;
+      } catch {
+        toast.error(tStore("Crm360.toasts.actionFailed"));
+        return false;
+      }
+    },
+
+    recordOrderDeliveredAndAwardPoints: async ({
+      shopId,
+      customerId,
+      orderCode,
+      orderTotalAmount,
+      carrierCode,
+      trackingNumber,
+      overpaymentOrRmaCreditAmount,
+      conversationId,
+    }) => {
+      try {
+        const res: any = await recordOrderDeliveredLoyaltyApi({
+          shopId,
+          customerId,
+          orderCode,
+          orderTotalAmount,
+          carrierCode,
+          trackingNumber,
+          overpaymentOrRmaCreditAmount,
+          conversationId,
+        });
+        const data = res?.data?.data ?? res?.data;
+        if (data?.customer) {
+          set((state) => {
+            const idx = state.customers.findIndex((c) => c.id === customerId);
+            if (idx !== -1) state.customers[idx] = data.customer;
+            if (conversationId && state.customer360ByConv[conversationId]) {
+              state.customer360ByConv[conversationId].customer = data.customer;
+              if (Array.isArray(data.ledgerEntries)) {
+                state.customer360ByConv[conversationId].walletLedgers = [
+                  ...data.ledgerEntries,
+                  ...state.customer360ByConv[conversationId].walletLedgers,
+                ];
+              }
+            }
+            if (state.activeCustomerDetail?.customer?.id === customerId) {
+              state.activeCustomerDetail.customer = data.customer;
+              if (Array.isArray(data.ledgerEntries)) {
+                state.activeCustomerDetail.walletLedgers = [
+                  ...data.ledgerEntries,
+                  ...state.activeCustomerDetail.walletLedgers,
+                ];
+              }
+            }
+          });
+          toast.success(
+            tStore("Crm360.toasts.orderDeliveredLoyaltyAwarded", {
+              points: data.awardedPoints || 0,
+            }),
+          );
           return true;
         }
         return false;

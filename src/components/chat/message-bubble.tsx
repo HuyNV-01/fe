@@ -51,7 +51,6 @@ import {
   ShieldCheck,
   ShieldAlert,
   AlertTriangle,
-  Store,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 import type {
@@ -59,7 +58,11 @@ import type {
   ICustomTag,
   IMessage,
 } from "@/types/chat";
-import type { ICustomerProfile, IUnmaskedPhoneSession } from "@/types/crm";
+import type {
+  ICustomerProfile,
+  IExtractedCommerceEntities,
+  IUnmaskedPhoneSession,
+} from "@/types/crm";
 import { PollVotersModal } from "./poll-voters-modal";
 import { AudioWaveformPlayer } from "./audio-waveform-player";
 import { useDateFormat } from "@/utils/hooks/use-date-format";
@@ -158,6 +161,7 @@ interface MessageBubbleProps {
   onSendPrivateReplyFromComment?: (message: IMessage) => void;
   onOpenLinkedInboxConversation?: (inboxConversationId: string) => void;
   onOpenCrm360Panel?: () => void;
+  onApplyNerToProfile?: (entities: IExtractedCommerceEntities) => void;
   onCallbackCall?: (callType: CallTypeEnum) => void;
   onScrollToMessage?: (messageId: string) => void;
   onVotePoll?: (messageId: string, optionIds: string[]) => void;
@@ -210,16 +214,12 @@ export const MessageBubble = memo(
     message,
     currentUserId,
     isMe,
-    isGroupChat = false,
     isCommentThread = false,
     isContinuous = false,
     isLastInGroup = false,
     isHighlighted = false,
     avatarUrl,
     displayName,
-    pageName,
-    pageShortCode,
-    channelAvatarUrl,
     customerProfile,
     unmaskedSession,
     displayReaders,
@@ -241,6 +241,7 @@ export const MessageBubble = memo(
     onSendPrivateReplyFromComment,
     onOpenLinkedInboxConversation,
     onOpenCrm360Panel,
+    onApplyNerToProfile,
     onCallbackCall,
     onScrollToMessage,
     onVotePoll,
@@ -280,17 +281,6 @@ export const MessageBubble = memo(
     const translation = message.metadata?.translation;
     const messageTagIds = message.messageTagIdsJson || [];
     const extractedEntities = message.extractedEntitiesJson;
-
-    const effectivePageName =
-      message.metadata?.pageName ||
-      pageName ||
-      message.metadata?.pageShortCode ||
-      pageShortCode ||
-      null;
-    const effectivePageShortCode =
-      message.metadata?.pageShortCode || pageShortCode || null;
-    const effectivePageAvatar =
-      message.metadata?.channelAvatarUrl || channelAvatarUrl || null;
 
     // Nội dung tin nhắn đã tự động che SĐT (hoặc mở 15s nếu nhân viên có phiên unmask hợp lệ)
     const safeDisplayContent = useMemo(
@@ -585,7 +575,7 @@ export const MessageBubble = memo(
           setShowBookmarkPicker(false);
         }}
       >
-        {/* Dòng hiển thị Tên Khách Hàng  */}
+        {/* Dòng hiển thị Tên Khách Hàng */}
         {!isContinuous && (
           <div
             className={cn(
@@ -1157,7 +1147,7 @@ export const MessageBubble = memo(
                   </p>
                 )}
 
-                {/* Thẻ Trích xuất Thực thể Thương mại Tiếng Việt (SĐT đã che + Chỉ số Nhận/Hoàn/Bị báo cáo + Địa chỉ giao hàng 3 cấp) */}
+                {/* Thẻ Trích xuất Thực thể Thương mại Tiếng Việt (SĐT đã che + Chỉ số Nhận/Hoàn/Bị báo cáo + Địa chỉ giao hàng 3 cấp + Gợi ý 1 chạm F04.1) */}
                 {!isRecalled && hasExtractedNerEntities && (
                   <div
                     className={cn(
@@ -1168,19 +1158,34 @@ export const MessageBubble = memo(
                     )}
                   >
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
-                        <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                      <GlassBadge variant="success" size="sm">
+                        <Sparkles className="w-3 h-3 mr-1 inline shrink-0" />
                         <span>{t("nerExtractedBadge")}</span>
-                      </span>
+                      </GlassBadge>
 
-                      <button
-                        type="button"
-                        onClick={() => onOpenCrm360Panel?.()}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
-                      >
-                        <span>{t("openCrm360QuickBtn")}</span>
-                        <ExternalLink className="w-2.5 h-2.5" />
-                      </button>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {extractedEntities && onApplyNerToProfile && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onApplyNerToProfile(extractedEntities)
+                            }
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer transition-colors"
+                          >
+                            <Sparkles className="w-2.5 h-2.5" />
+                            <span>{t("applyNerToOrderBtn")}</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => onOpenCrm360Panel?.()}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
+                        >
+                          <span>{t("openCrm360QuickBtn")}</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Hàng 1: Số điện thoại đã che + Nhà mạng + Chỉ số ĐÃ NHẬN / ĐÃ HOÀN / BỊ BÁO CÁO */}
@@ -1270,6 +1275,76 @@ export const MessageBubble = memo(
                             </span>
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Hàng 3: Thông tin Sản phẩm SKU, Kích cỡ, Màu sắc, Số lượng, Chiều cao/Cân nặng & Khung giờ giao */}
+                    {Boolean(
+                      (extractedEntities?.skuCodes &&
+                        extractedEntities.skuCodes.length > 0) ||
+                        (extractedEntities?.sizes &&
+                          extractedEntities.sizes.length > 0) ||
+                        (extractedEntities?.colors &&
+                          extractedEntities.colors.length > 0) ||
+                        (extractedEntities?.quantities &&
+                          extractedEntities.quantities.length > 0) ||
+                        extractedEntities?.heightCm ||
+                        extractedEntities?.weightKg ||
+                        extractedEntities?.deliveryTimeNote,
+                    ) && (
+                      <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                        {extractedEntities?.skuCodes?.map((sku) => (
+                          <GlassBadge key={sku} variant="primary" size="sm">
+                            SKU: {sku}
+                          </GlassBadge>
+                        ))}
+                        {extractedEntities?.quantities?.map((qty) => (
+                          <GlassBadge
+                            key={`qty-${qty}`}
+                            variant="info"
+                            size="sm"
+                          >
+                            SL: x{qty}
+                          </GlassBadge>
+                        ))}
+                        {extractedEntities?.sizes?.map((sz) => (
+                          <GlassBadge
+                            key={`sz-${sz}`}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            Size: {sz}
+                          </GlassBadge>
+                        ))}
+                        {extractedEntities?.colors?.map((col) => (
+                          <GlassBadge
+                            key={`col-${col}`}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            Màu: {col}
+                          </GlassBadge>
+                        ))}
+                        {(extractedEntities?.heightCm ||
+                          extractedEntities?.weightKg) && (
+                          <GlassBadge variant="secondary" size="sm">
+                            {[
+                              extractedEntities?.heightCm
+                                ? `${extractedEntities.heightCm}cm`
+                                : null,
+                              extractedEntities?.weightKg
+                                ? `${extractedEntities.weightKg}kg`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" • ")}
+                          </GlassBadge>
+                        )}
+                        {extractedEntities?.deliveryTimeNote && (
+                          <GlassBadge variant="warning" size="sm">
+                            {extractedEntities.deliveryTimeNote}
+                          </GlassBadge>
+                        )}
                       </div>
                     )}
                   </div>

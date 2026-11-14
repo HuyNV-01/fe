@@ -15,6 +15,7 @@ import {
   PatternButton,
   ScrollArea,
   TriggerSelect,
+  TruncatedText,
 } from "@/components/toolkit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,7 @@ import {
   Database,
   ExternalLink,
   Flag,
+  Gauge,
   GitMerge,
   Layers,
   Link2,
@@ -173,6 +175,8 @@ export function Customer360Panel({
     lookupCustomerTrustFromSources,
     reportCustomerPhoneAbuse,
     toggleCustomerBlacklist,
+    overrideTrustScore,
+    recordOrderDeliveredAndAwardPoints,
   } = useCrmStore();
 
   const convBundle = conversationId
@@ -216,6 +220,8 @@ export function Customer360Panel({
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isReportAbuseOpen, setIsReportAbuseOpen] = useState(false);
   const [isCrmConfigOpen, setIsCrmConfigOpen] = useState(false);
+  const [isOverrideTrustOpen, setIsOverrideTrustOpen] = useState(false);
+  const [isRecordOrderOpen, setIsRecordOrderOpen] = useState(false);
 
   // State cho Modal Báo xấu SĐT / Bom hàng
   const [reportReasonCode, setReportReasonCode] = useState<
@@ -230,6 +236,19 @@ export function Customer360Panel({
   const [reportOrderCode, setReportOrderCode] = useState("");
   const [reportMarkBlacklisted, setReportMarkBlacklisted] = useState(true);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  // State cho Modal Ghi đè Điểm uy tín nhận hàng (CRM_TRUST_SCORE_OVERRIDE)
+  const [overrideScoreValue, setOverrideScoreValue] = useState("85");
+  const [overrideReason, setOverrideReason] = useState("");
+  const [isSubmittingOverride, setIsSubmittingOverride] = useState(false);
+
+  // State cho Modal Ghi nhận Đơn giao thành công & Tích điểm tự động (F11.4)
+  const [deliveredOrderCode, setDeliveredOrderCode] = useState("");
+  const [deliveredOrderAmount, setDeliveredOrderAmount] = useState("650000");
+  const [deliveredCarrierCode, setDeliveredCarrierCode] = useState("GHN");
+  const [deliveredExtraCredit, setDeliveredExtraCredit] = useState("0");
+  const [isSubmittingDeliveredOrder, setIsSubmittingDeliveredOrder] =
+    useState(false);
 
   // State cho Modal Cấu hình Nguồn dữ liệu Tra cứu Uy tín SĐT & Ngành hàng Shop
   const [cfgBusinessCategory, setCfgBusinessCategory] =
@@ -335,6 +354,11 @@ export function Customer360Panel({
           : [],
       );
       setNotes(customer.notes || "");
+      setOverrideScoreValue(
+        String(
+          customer.trustEvaluation?.score ?? customer.deliveryTrustScore ?? 80,
+        ),
+      );
     } else if (fallbackDisplayName) {
       setFullName(fallbackDisplayName);
     }
@@ -441,6 +465,11 @@ export function Customer360Panel({
       ? Math.round((totalReturned * 100) / (totalDelivered + totalReturned))
       : 0);
 
+  const isHighRiskRed =
+    trust?.band === "HIGH_RISK_RED" ||
+    customer.isBlacklisted ||
+    totalReported > 0;
+
   const handleSaveProfile = async () => {
     setIsSaving(true);
     const cleanedCustomAttrs = customAttributes
@@ -513,6 +542,57 @@ export function Customer360Panel({
     }
   };
 
+  const handleSubmitOverrideTrust = async () => {
+    const numScore = Number(overrideScoreValue);
+    if (
+      !Number.isFinite(numScore) ||
+      numScore < 0 ||
+      numScore > 100 ||
+      !overrideReason.trim()
+    ) {
+      return;
+    }
+    setIsSubmittingOverride(true);
+    const ok = await overrideTrustScore({
+      shopId,
+      customerId: customer.id,
+      deliveryTrustScore: Math.round(numScore),
+      reason: overrideReason.trim(),
+      conversationId,
+    });
+    setIsSubmittingOverride(false);
+    if (ok) {
+      setOverrideReason("");
+      setIsOverrideTrustOpen(false);
+    }
+  };
+
+  const handleSubmitDeliveredOrder = async () => {
+    const amt = Number(deliveredOrderAmount);
+    if (!deliveredOrderCode.trim() || !Number.isFinite(amt) || amt <= 0) {
+      return;
+    }
+    setIsSubmittingDeliveredOrder(true);
+    const ok = await recordOrderDeliveredAndAwardPoints({
+      shopId,
+      customerId: customer.id,
+      orderCode: deliveredOrderCode.trim(),
+      orderTotalAmount: amt,
+      carrierCode: deliveredCarrierCode.trim() || "GHN",
+      overpaymentOrRmaCreditAmount:
+        Number(deliveredExtraCredit) > 0
+          ? Number(deliveredExtraCredit)
+          : undefined,
+      conversationId,
+    });
+    setIsSubmittingDeliveredOrder(false);
+    if (ok) {
+      setDeliveredOrderCode("");
+      setDeliveredExtraCredit("0");
+      setIsRecordOrderOpen(false);
+    }
+  };
+
   const handleSaveShopCrmConfig = async () => {
     setIsSavingCfg(true);
     const enabledSources: PhoneTrustLookupSourceType[] = ["INTERNAL_POS"];
@@ -547,8 +627,18 @@ export function Customer360Panel({
 
   return (
     <div className="flex flex-col h-full space-y-3">
+      {/* Hộp cảnh báo đỏ HIGH_RISK_RED theo đúng đặc tả F04.3 */}
+      {isHighRiskRed && (
+        <GlassAlert
+          variant="danger"
+          title={trust?.headline || t("highRiskAlertTitle")}
+          description={trust?.recommendation || t("highRiskAlertDesc")}
+          icon={<ShieldAlert className="w-4 h-4 text-red-500" />}
+        />
+      )}
+
       {/* Thẻ Định danh 360° & Hạng thành viên / RFM */}
-      <GlassSurfaceCard className="p-3.5 space-y-3">
+      <GlassSurfaceCard className="p-3 space-y-3">
         <div className="flex items-start justify-between gap-2.5">
           <div className="flex items-center gap-2.5 min-w-0">
             <GlassAvatar
@@ -639,7 +729,7 @@ export function Customer360Panel({
               </span>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-wrap">
               <PatternButton
                 type="button"
                 size="sm"
@@ -653,6 +743,20 @@ export function Customer360Panel({
               >
                 {t("refreshTrustLookupBtn")}
               </PatternButton>
+
+              <PermissionGate can="CRM_TRUST_SCORE_OVERRIDE" mode="hide">
+                <PatternButton
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  rounded="full"
+                  className="h-6 px-2 text-[10px]"
+                  icon={<Gauge className="w-3 h-3" />}
+                  onClick={() => setIsOverrideTrustOpen(true)}
+                >
+                  {t("overrideTrustScoreBtn")}
+                </PatternButton>
+              </PermissionGate>
 
               <PatternButton
                 type="button"
@@ -833,13 +937,13 @@ export function Customer360Panel({
 
       <ScrollArea className="flex-1 min-h-0 pr-1">
         {activeTab === "PROFILE" && (
-          <GlassSurfaceCard className="p-3.5 space-y-3">
+          <GlassSurfaceCard className="p-3 space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div className="space-y-1">
                 <Label className="text-[11px] font-semibold">
                   {t("fullNameLabel")}
                 </Label>
-                <LiquidGlassInput className="h-8 p-0 overflow-hidden">
+                <LiquidGlassInput className="p-0 overflow-hidden">
                   <Input
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -852,7 +956,7 @@ export function Customer360Panel({
                 <Label className="text-[11px] font-semibold">
                   {t("updateRawPhoneLabel")}
                 </Label>
-                <LiquidGlassInput className="h-8 p-0 overflow-hidden">
+                <LiquidGlassInput className="p-0 overflow-hidden">
                   <Input
                     value={rawPhoneInput}
                     onChange={(e) => setRawPhoneInput(e.target.value)}
@@ -863,7 +967,7 @@ export function Customer360Panel({
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 mt-1.5">
               <Label className="text-[11px] font-semibold">
                 {t("threeTierAddressLabel")}
               </Label>
@@ -878,7 +982,7 @@ export function Customer360Panel({
                   setWardCode(val.wardCode);
                 }}
               />
-              <LiquidGlassInput className="h-8 p-0 overflow-hidden mt-1.5">
+              <LiquidGlassInput className="p-0 overflow-hidden mt-2.5">
                 <Input
                   value={addressLine}
                   onChange={(e) => setAddressLine(e.target.value)}
@@ -889,7 +993,7 @@ export function Customer360Panel({
             </div>
 
             {/* Bộ chọn Ngành hàng sản phẩm & Nút bật/tắt thông số Chiều cao / Cân nặng / Size quần áo */}
-            <div className="rounded-xl border border-border/60 bg-muted/25 p-2.5 space-y-2.5">
+            <div className="rounded-xl border border-border/60 bg-muted/25 p-2.5 space-y-2.5 mt-1.5">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <Label className="text-[11px] font-semibold inline-flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-primary" />
@@ -919,7 +1023,9 @@ export function Customer360Panel({
                 }}
               >
                 <TriggerSelect className="w-full h-8 text-xs justify-between">
-                  <SelectValue placeholder={t("industryCategoryLabel")} />
+                  <TruncatedText className="max-w-64">
+                    <SelectValue placeholder={t("industryCategoryLabel")} />
+                  </TruncatedText>
                 </TriggerSelect>
                 <ContentSelect>
                   <ItemSelect value="GENERAL_MULTI_CATEGORY">
@@ -951,7 +1057,7 @@ export function Customer360Panel({
                       <Ruler className="w-3 h-3" />
                       <span>{t("heightCmLabel")}</span>
                     </Label>
-                    <LiquidGlassInput className="h-8 p-0 overflow-hidden">
+                    <LiquidGlassInput className="p-0 overflow-hidden">
                       <Input
                         type="number"
                         value={heightCm}
@@ -966,7 +1072,7 @@ export function Customer360Panel({
                     <Label className="text-[11px] font-semibold">
                       {t("weightKgLabel")}
                     </Label>
-                    <LiquidGlassInput className="h-8 p-0 overflow-hidden">
+                    <LiquidGlassInput className="p-0 overflow-hidden">
                       <Input
                         type="number"
                         value={weightKg}
@@ -981,7 +1087,7 @@ export function Customer360Panel({
                     <Label className="text-[11px] font-semibold">
                       {t("preferredSizeLabel")}
                     </Label>
-                    <LiquidGlassInput className="h-8 p-0 overflow-hidden">
+                    <LiquidGlassInput className="p-0 overflow-hidden">
                       <Input
                         value={preferredSize}
                         onChange={(e) => setPreferredSize(e.target.value)}
@@ -1029,7 +1135,7 @@ export function Customer360Panel({
                         className="grid grid-cols-12 gap-1.5 items-center"
                       >
                         <div className="col-span-5">
-                          <LiquidGlassInput className="h-7 p-0 overflow-hidden">
+                          <LiquidGlassInput className="p-0 overflow-hidden">
                             <Input
                               value={attr.label}
                               onChange={(e) =>
@@ -1043,7 +1149,7 @@ export function Customer360Panel({
                           </LiquidGlassInput>
                         </div>
                         <div className="col-span-6">
-                          <LiquidGlassInput className="h-7 p-0 overflow-hidden">
+                          <LiquidGlassInput className="p-0 overflow-hidden">
                             <Input
                               value={attr.value}
                               onChange={(e) =>
@@ -1073,11 +1179,11 @@ export function Customer360Panel({
               </div>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 mt-1.5">
               <Label className="text-[11px] font-semibold">
                 {t("notesLabel")}
               </Label>
-              <LiquidGlassInput className="h-8 p-0 overflow-hidden">
+              <LiquidGlassInput className="p-0 overflow-hidden">
                 <Input
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -1155,6 +1261,31 @@ export function Customer360Panel({
 
         {activeTab === "ORDERS" && (
           <GlassSurfaceCard className="p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs font-bold">
+                {t("ordersHistoryTitle")}
+              </span>
+              <PermissionGate can="CRM_LOYALTY_WALLET_ADJUST" mode="hide">
+                <PatternButton
+                  type="button"
+                  size="sm"
+                  variant="glass"
+                  color="success"
+                  rounded="full"
+                  className="h-7 px-2.5 text-xs"
+                  icon={<Plus className="w-3.5 h-3.5" />}
+                  onClick={() => {
+                    setDeliveredOrderCode(
+                      `DH-${new Date().toISOString().slice(5, 10).replace("-", "")}-${Math.floor(100 + Math.random() * 900)}`,
+                    );
+                    setIsRecordOrderOpen(true);
+                  }}
+                >
+                  {t("recordDeliveredOrderBtn")}
+                </PatternButton>
+              </PermissionGate>
+            </div>
+
             {(customer.recentOrdersSnapshotJson || []).length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">
                 {t("emptyOrders")}
@@ -1286,6 +1417,173 @@ export function Customer360Panel({
         )}
       </ScrollArea>
 
+      {/* Modal Ghi đè Điểm uy tín nhận hàng (CRM_TRUST_SCORE_OVERRIDE — F04.3) */}
+      <GlassModal
+        open={isOverrideTrustOpen}
+        onOpenChange={setIsOverrideTrustOpen}
+        title={t("overrideTrustModal.title")}
+        description={t("overrideTrustModal.description", {
+          name: customer.fullName,
+        })}
+        size="md"
+        footer={
+          <>
+            <PatternButton
+              type="button"
+              size="sm"
+              variant="ghost"
+              rounded="full"
+              onClick={() => setIsOverrideTrustOpen(false)}
+            >
+              {t("overrideTrustModal.cancelBtn")}
+            </PatternButton>
+            <PatternButton
+              type="button"
+              size="sm"
+              variant="solid"
+              color="primary"
+              rounded="full"
+              isLoading={isSubmittingOverride}
+              disabled={!overrideReason.trim()}
+              icon={<Gauge className="w-3.5 h-3.5" />}
+              onClick={handleSubmitOverrideTrust}
+            >
+              {t("overrideTrustModal.confirmBtn")}
+            </PatternButton>
+          </>
+        }
+      >
+        <div className="space-y-3 py-1">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">
+              {t("overrideTrustModal.scoreLabel")}
+            </Label>
+            <LiquidGlassInput className="p-0 overflow-hidden">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={overrideScoreValue}
+                onChange={(e) => setOverrideScoreValue(e.target.value)}
+                className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-3"
+              />
+            </LiquidGlassInput>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">
+              {t("overrideTrustModal.reasonLabel")}
+            </Label>
+            <LiquidGlassInput className="p-0 overflow-hidden">
+              <Input
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder={t("overrideTrustModal.reasonPlaceholder")}
+                className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-3"
+              />
+            </LiquidGlassInput>
+          </div>
+        </div>
+      </GlassModal>
+
+      {/* Modal Ghi nhận Đơn giao thành công & Tích điểm tự động (F11.4) */}
+      <GlassModal
+        open={isRecordOrderOpen}
+        onOpenChange={setIsRecordOrderOpen}
+        title={t("recordOrderModal.title")}
+        description={t("recordOrderModal.description", {
+          name: customer.fullName,
+        })}
+        size="md"
+        footer={
+          <>
+            <PatternButton
+              type="button"
+              size="sm"
+              variant="ghost"
+              rounded="full"
+              onClick={() => setIsRecordOrderOpen(false)}
+            >
+              {t("recordOrderModal.cancelBtn")}
+            </PatternButton>
+            <PatternButton
+              type="button"
+              size="sm"
+              variant="solid"
+              color="success"
+              rounded="full"
+              isLoading={isSubmittingDeliveredOrder}
+              disabled={
+                !deliveredOrderCode.trim() || !Number(deliveredOrderAmount)
+              }
+              icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+              onClick={handleSubmitDeliveredOrder}
+            >
+              {t("recordOrderModal.confirmBtn")}
+            </PatternButton>
+          </>
+        }
+      >
+        <div className="space-y-3 py-1">
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">
+                {t("recordOrderModal.orderCodeLabel")}
+              </Label>
+              <LiquidGlassInput className="p-0 overflow-hidden">
+                <Input
+                  value={deliveredOrderCode}
+                  onChange={(e) => setDeliveredOrderCode(e.target.value)}
+                  placeholder="VD: DH-2611-889"
+                  className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-2.5 font-mono"
+                />
+              </LiquidGlassInput>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold">
+                {t("recordOrderModal.carrierLabel")}
+              </Label>
+              <LiquidGlassInput className="p-0 overflow-hidden">
+                <Input
+                  value={deliveredCarrierCode}
+                  onChange={(e) => setDeliveredCarrierCode(e.target.value)}
+                  placeholder="GHN / GHTK / VTP"
+                  className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-2.5"
+                />
+              </LiquidGlassInput>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">
+              {t("recordOrderModal.amountLabel")}
+            </Label>
+            <LiquidGlassInput className="p-0 overflow-hidden">
+              <Input
+                type="number"
+                value={deliveredOrderAmount}
+                onChange={(e) => setDeliveredOrderAmount(e.target.value)}
+                className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-2.5"
+              />
+            </LiquidGlassInput>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold">
+              {t("recordOrderModal.extraCreditLabel")}
+            </Label>
+            <LiquidGlassInput className="p-0 overflow-hidden">
+              <Input
+                type="number"
+                value={deliveredExtraCredit}
+                onChange={(e) => setDeliveredExtraCredit(e.target.value)}
+                placeholder="0"
+                className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-2.5"
+              />
+            </LiquidGlassInput>
+          </div>
+        </div>
+      </GlassModal>
+
       {/* Modal Báo xấu SĐT / Bom hàng (Ghi nhận vào Cộng đồng Pancake & Blacklist) */}
       <GlassModal
         open={isReportAbuseOpen}
@@ -1359,7 +1657,7 @@ export function Customer360Panel({
               <Label className="text-xs font-semibold">
                 {t("reportAbuseModal.carrierLabel")}
               </Label>
-              <LiquidGlassInput className="h-8 p-0 overflow-hidden">
+              <LiquidGlassInput className="p-0 overflow-hidden">
                 <Input
                   value={reportCarrierCode}
                   onChange={(e) => setReportCarrierCode(e.target.value)}
@@ -1373,7 +1671,7 @@ export function Customer360Panel({
               <Label className="text-xs font-semibold">
                 {t("reportAbuseModal.orderCodeLabel")}
               </Label>
-              <LiquidGlassInput className="h-8 p-0 overflow-hidden">
+              <LiquidGlassInput className="p-0 overflow-hidden">
                 <Input
                   value={reportOrderCode}
                   onChange={(e) => setReportOrderCode(e.target.value)}
@@ -1388,7 +1686,7 @@ export function Customer360Panel({
             <Label className="text-xs font-semibold">
               {t("reportAbuseModal.noteLabel")}
             </Label>
-            <LiquidGlassInput className="h-9 p-0 overflow-hidden">
+            <LiquidGlassInput className="p-0 overflow-hidden">
               <Input
                 value={reportReasonNote}
                 onChange={(e) => setReportReasonNote(e.target.value)}

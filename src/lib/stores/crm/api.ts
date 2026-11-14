@@ -61,6 +61,15 @@ export const listCustomersApi = (params: {
   return apiClient.get(`/crm/${shopId}/customers`, { params: query });
 };
 
+export const exportCustomersAuditApi = (payload: {
+  shopId: string;
+  exportedCount: number;
+  filterSummary?: string;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.post(`/crm/${shopId}/customers/export-audit`, body);
+};
+
 export const getCustomer360ByConversationApi = (
   shopId: string,
   conversationId: string,
@@ -215,6 +224,23 @@ export const adjustCustomerWalletOrPointsApi = (payload: {
   const { shopId, customerId, ...body } = payload;
   return apiClient.post(
     `/crm/${shopId}/customers/${customerId}/wallet-adjust`,
+    body,
+  );
+};
+
+export const recordOrderDeliveredLoyaltyApi = (payload: {
+  shopId: string;
+  customerId: string;
+  orderCode: string;
+  orderTotalAmount: number;
+  carrierCode?: string;
+  trackingNumber?: string;
+  overpaymentOrRmaCreditAmount?: number;
+  conversationId?: string;
+}) => {
+  const { shopId, customerId, ...body } = payload;
+  return apiClient.post(
+    `/crm/${shopId}/customers/${customerId}/record-order-delivered`,
     body,
   );
 };

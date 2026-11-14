@@ -14,6 +14,7 @@ import {
   TriggerSelect,
 } from "@/components/toolkit";
 import { Select, SelectValue } from "@/components/ui/select";
+import { PermissionGate } from "@/components/iam/permission-gate";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 import { useCrmStore } from "@/lib/stores/crm/use-crm-store";
 import { PiiMaskedPhoneField } from "@/components/crm/pii-masked-phone-field";
@@ -21,6 +22,7 @@ import type { CustomerTierType, RfmSegmentCodeType } from "@/types/crm";
 import {
   Award,
   BarChart3,
+  Download,
   ExternalLink,
   ShieldAlert,
   ShieldCheck,
@@ -33,13 +35,19 @@ import config from "@/config";
 export default function CustomersCrmPage() {
   const t = useTranslations("Crm360.directoryPage");
   const activeShopId = usePermissionStore((s) => s.activeShopId);
-  const { customers, customersTotal, isLoadingCustomers, fetchCustomers } =
-    useCrmStore();
+  const {
+    customers,
+    customersTotal,
+    isLoadingCustomers,
+    fetchCustomers,
+    exportCustomersWithAudit,
+  } = useCrmStore();
 
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState<string>("ALL");
   const [rfmFilter, setRfmFilter] = useState<string>("ALL");
   const [highRiskOnly, setHighRiskOnly] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     if (!activeShopId) return;
@@ -64,6 +72,60 @@ export default function CustomersCrmPage() {
 
   if (!activeShopId) return null;
 
+  const handleExportSafeCsv = async () => {
+    setIsExporting(true);
+    const ok = await exportCustomersWithAudit({
+      shopId: activeShopId,
+      exportedCount: customers.length,
+      filterSummary: `tier=${tierFilter};rfm=${rfmFilter};highRisk=${highRiskOnly}`,
+    });
+    setIsExporting(false);
+    if (!ok) return;
+
+    const header = [
+      "Mã KH",
+      "Họ và tên",
+      "SĐT (Đã che PII)",
+      "Hạng thẻ",
+      "Phân khúc RFM",
+      "Điểm uy tín",
+      "Tổng chi tiêu (VND)",
+      "Điểm thưởng",
+      "Số dư Ví",
+      "Địa chỉ 3 cấp",
+    ];
+    const rows = customers.map((c) => [
+      c.code,
+      `"${(c.fullName || "").replace(/"/g, '""')}"`,
+      c.phoneMasked || "098***678",
+      c.tier,
+      c.rfmSegmentCode,
+      c.trustEvaluation?.score ?? c.deliveryTrustScore ?? 80,
+      c.lifetimeValueAmount || 0,
+      c.loyaltyPointsBalance || 0,
+      c.walletCreditBalance || 0,
+      `"${[
+        c.defaultAddressLine,
+        c.defaultWardName,
+        c.defaultDistrictName,
+        c.defaultProvinceName,
+      ]
+        .filter(Boolean)
+        .join(", ")
+        .replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent =
+      "\uFEFF" + [header.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `crm360-customers-masked-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-5">
       <GlassSectionHeader
@@ -71,7 +133,20 @@ export default function CustomersCrmPage() {
         title={t("title")}
         subtitle={t("subtitle", { total: customersTotal })}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <PermissionGate can="CRM_CUSTOMER_EXPORT_FILE" mode="hide">
+              <PatternButton
+                type="button"
+                variant="outline"
+                size="sm"
+                rounded="full"
+                isLoading={isExporting}
+                icon={<Download className="w-4 h-4" />}
+                onClick={handleExportSafeCsv}
+              >
+                {t("exportCsvBtn")}
+              </PatternButton>
+            </PermissionGate>
             <Link href={config.routes.private.customerRfmSegments}>
               <PatternButton
                 type="button"

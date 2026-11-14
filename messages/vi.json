@@ -504,7 +504,8 @@
           "ordersUnit": "đơn",
           "timesUnit": "lần",
           "sentFromPagePrefix": "Gửi từ Trang",
-          "receivedViaPagePrefix": "Nhận qua Trang"
+          "receivedViaPagePrefix": "Nhận qua Trang",
+          "applyNerToOrderBtn": "Điền vào Hồ sơ / Đơn hàng"
         },
         "input": {
           "placeholder": "Nhập tin nhắn của bạn...",
@@ -2167,7 +2168,9 @@
       "openSourcePost": "Mở bài viết gốc",
       "capiQualifiedSent": "Đã gửi CAPI QualifiedLead",
       "capiPurchaseSent": "Đã gửi CAPI Purchase",
-      "openPostLink": "Xem bài quảng cáo"
+      "openPostLink": "Xem bài quảng cáo",
+      "checkoutSyncedBadge": "Đã gửi CAPI InitiateCheckout",
+      "sendCheckoutCapiBtn": "Gửi Checkout"
     },
     "mergeModal": {
       "title": "Hợp Nhất Hồ Sơ Khách Hàng Trùng Lặp Đa Kênh",
@@ -2300,6 +2303,30 @@
         "customApiKeyLabel": "Khóa xác thực API Key cho nguồn tra cứu tùy chỉnh (Mã hóa AES-256-GCM)",
         "cancelBtn": "Đóng",
         "saveBtn": "Lưu cấu hình CRM 360°"
+      },
+      "highRiskAlertTitle": "🚨 CẢNH BÁO RỦI RO BOM HÀNG CAO (HIGH_RISK_RED)",
+      "highRiskAlertDesc": "Khách hàng có lịch sử hoàn đơn nhiều lần hoặc bị báo xấu từ Cộng đồng/3PL. Hệ thống tự động bật yêu cầu đặt cọc trước qua VietQR trước khi đẩy đơn vận chuyển.",
+      "overrideTrustScoreBtn": "Ghi đè điểm",
+      "ordersHistoryTitle": "Lịch sử 10 đơn hàng đa kênh gần nhất",
+      "recordDeliveredOrderBtn": "Ghi nhận đơn giao thành công (+Điểm)",
+      "overrideTrustModal": {
+        "title": "Ghi Đè Điểm Uy Tín Nhận Hàng (CRM_TRUST_SCORE_OVERRIDE)",
+        "description": "Điều chỉnh thủ công điểm uy tín nhận hàng (0 - 100) cho khách hàng \"{name}\". Thao tác này bắt buộc ghi lý do vào Chuỗi Băm Kiểm Toán.",
+        "scoreLabel": "Điểm uy tín mới (0 - 100)",
+        "reasonLabel": "Lý do ghi đè điểm uy tín (Bắt buộc)",
+        "reasonPlaceholder": "VD: Đã xác nhận khách VIP nhận hàng qua số điện thoại phụ...",
+        "cancelBtn": "Hủy bỏ",
+        "confirmBtn": "Lưu điểm uy tín & Ghi kiểm toán"
+      },
+      "recordOrderModal": {
+        "title": "Ghi Nhận Đơn Giao Thành Công & Tích Điểm Tự Động (DELIVERED_RECONCILED)",
+        "description": "Khi đơn hàng của \"{name}\" giao và đối soát COD thành công, hệ thống tự động cộng điểm thưởng (100.000đ = 10 điểm), nâng hạng thẻ (SILVER → GOLD → VIP) và cập nhật ma trận RFM.",
+        "orderCodeLabel": "Mã đơn hàng",
+        "carrierLabel": "Đơn vị vận chuyển",
+        "amountLabel": "Giá trị đơn hàng thực thu (VND)",
+        "extraCreditLabel": "Tiền chuyển khoản dư / Hoàn tiền RMA cộng vào Ví tiền thừa (VND)",
+        "cancelBtn": "Hủy bỏ",
+        "confirmBtn": "Xác nhận & Cộng điểm tự động"
       }
     },
     "directoryPage": {
@@ -2316,7 +2343,8 @@
       "emptyTitle": "Không tìm thấy hồ sơ khách hàng phù hợp",
       "emptyDesc": "Hãy thử thay đổi bộ lọc hoặc nhập chính xác 10 chữ số điện thoại để tra cứu qua chỉ mục mù HMAC-SHA256.",
       "viewDetailBtn": "Hồ sơ 360°",
-      "noAddressYet": "Chưa cập nhật địa chỉ giao hàng 3 cấp"
+      "noAddressYet": "Chưa cập nhật địa chỉ giao hàng 3 cấp",
+      "exportCsvBtn": "Xuất CSV (Che SĐT PII)"
     },
     "detailPage": {
       "defaultTitle": "Chi Tiết Hồ Sơ Khách Hàng 360°",
@@ -2347,7 +2375,11 @@
       "auditChainTab": "Chuỗi Băm Bảo Mật (HMAC-SHA256)",
       "capiDebuggerTab": "Trình Gỡ Lỗi Chuyển Đổi (Meta CAPI / TikTok)",
       "testLeadEventBtn": "Bắn thử LeadSubmitted",
-      "testPurchaseEventBtn": "Bắn thử Purchase (850.000đ)"
+      "testPurchaseEventBtn": "Bắn thử Purchase (850.000đ)",
+      "testCheckoutEventBtn": "Bắn thử InitiateCheckout (350.000đ)",
+      "inspectDetailBtn": "Chi tiết",
+      "auditDetailSheetTitle": "Chi Tiết Bản Ghi Chuỗi Băm Kiểm Toán HMAC-SHA256",
+      "capiDetailSheetTitle": "Chi Tiết Gói Tin Chuyển Đổi Meta CAPI / TikTok Events API"
     },
     "toasts": {
       "profileSaved": "Đã lưu cập nhật hồ sơ khách hàng 360°",
@@ -2367,7 +2399,9 @@
       "securityUnmaskAlertDesc": "Nhân sự {actorName} đã mở xem SĐT vượt ngưỡng ({usedCount}/{hourlyLimit} lượt/giờ). Hệ thống đã tự động tạm khóa quyền CRM_PHONE_UNMASK.",
       "crmConfigSaved": "Đã lưu cài đặt nguồn dữ liệu tra cứu SĐT và ngành hàng hồ sơ CRM 360°",
       "trustLookupRefreshed": "Đã đồng bộ chỉ số Nhận / Hoàn / Bị báo cáo mới nhất từ các nguồn dữ liệu",
-      "abuseReportedSuccess": "Đã ghi nhận báo cáo cảnh báo SĐT và cập nhật điểm uy tín khách hàng"
+      "abuseReportedSuccess": "Đã ghi nhận báo cáo cảnh báo SĐT và cập nhật điểm uy tín khách hàng",
+      "orderDeliveredLoyaltyAwarded": "Đã đối soát đơn giao thành công, tự động cộng +{points} điểm thưởng và cập nhật hạng thẻ/RFM",
+      "exportedWithAudit": "Đã xuất danh sách khách hàng (SĐT đã che bảo mật) và ghi vào Sổ cái Kiểm toán HMAC-SHA256"
     }
   },
   "TaggingSystem": {

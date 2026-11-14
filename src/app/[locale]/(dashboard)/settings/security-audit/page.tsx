@@ -5,6 +5,7 @@ import {
   GlassAlert,
   GlassBadge,
   GlassSectionHeader,
+  GlassSheet,
   GlassSurfaceCard,
   GlassTabs,
   LiquidGlassInput,
@@ -13,14 +14,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 import { useCrmStore } from "@/lib/stores/crm/use-crm-store";
+import type { IAdsConversionEventLog, ISecurityAuditLog } from "@/types/crm";
 import {
   CheckCircle2,
+  Eye,
   Lock,
   Megaphone,
   RefreshCw,
   Send,
   ShieldAlert,
   ShieldCheck,
+  ShoppingCart,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -44,6 +48,10 @@ export default function SecurityAuditAndCapiDebuggerPage() {
     "AUDIT_CHAIN",
   );
   const [testEventCode, setTestEventCode] = useState("TEST88291");
+  const [selectedAuditLog, setSelectedAuditLog] =
+    useState<ISecurityAuditLog | null>(null);
+  const [selectedCapiLog, setSelectedCapiLog] =
+    useState<IAdsConversionEventLog | null>(null);
 
   useEffect(() => {
     if (activeShopId) {
@@ -130,7 +138,7 @@ export default function SecurityAuditAndCapiDebuggerPage() {
               className="p-3 rounded-xl bg-muted/40 border border-border/50 space-y-1.5 text-xs"
             >
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <GlassBadge
                     variant={
                       log.actionCode === "UNMASK_PHONE" ? "warning" : "primary"
@@ -147,9 +155,22 @@ export default function SecurityAuditAndCapiDebuggerPage() {
                     {log.targetResourceId.slice(0, 8)}
                   </span>
                 </div>
-                <span className="text-[11px] text-muted-foreground tabular-nums">
-                  {new Date(log.createdAt).toLocaleString("vi-VN")}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {new Date(log.createdAt).toLocaleString("vi-VN")}
+                  </span>
+                  <PatternButton
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    rounded="full"
+                    className="h-6 px-2 text-[11px]"
+                    icon={<Eye className="w-3.5 h-3.5" />}
+                    onClick={() => setSelectedAuditLog(log)}
+                  >
+                    {t("inspectDetailBtn")}
+                  </PatternButton>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] font-mono text-muted-foreground pt-1">
@@ -164,8 +185,8 @@ export default function SecurityAuditAndCapiDebuggerPage() {
       ) : (
         <div className="space-y-4">
           <GlassSurfaceCard className="p-4 flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3 flex-wrap">
-              <LiquidGlassInput className="h-9 w-48 p-0 overflow-hidden">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <LiquidGlassInput className="h-9 w-44 p-0 overflow-hidden">
                 <Input
                   value={testEventCode}
                   onChange={(e) => setTestEventCode(e.target.value)}
@@ -196,6 +217,26 @@ export default function SecurityAuditAndCapiDebuggerPage() {
               <PatternButton
                 type="button"
                 size="sm"
+                variant="glass"
+                color="warning"
+                rounded="full"
+                icon={<ShoppingCart className="w-3.5 h-3.5" />}
+                onClick={() =>
+                  dispatchAdsConversion({
+                    shopId: activeShopId,
+                    platform: "META_CAPI",
+                    eventName: "InitiateCheckout",
+                    testEventCode: testEventCode.trim() || undefined,
+                    valueAmount: 350000,
+                    currency: "VND",
+                  })
+                }
+              >
+                {t("testCheckoutEventBtn")}
+              </PatternButton>
+              <PatternButton
+                type="button"
+                size="sm"
                 variant="solid"
                 color="success"
                 rounded="full"
@@ -216,9 +257,12 @@ export default function SecurityAuditAndCapiDebuggerPage() {
             </div>
 
             {adsConversionSummary && (
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-xs flex-wrap">
                 <GlassBadge variant="info" size="sm">
                   Lead: {adsConversionSummary.leadSubmittedCount}
+                </GlassBadge>
+                <GlassBadge variant="warning" size="sm">
+                  Checkout: {adsConversionSummary.initiateCheckoutCount}
                 </GlassBadge>
                 <GlassBadge variant="success" size="sm">
                   Purchase: {adsConversionSummary.purchaseCount} (
@@ -244,7 +288,11 @@ export default function SecurityAuditAndCapiDebuggerPage() {
                     </GlassBadge>
                     <GlassBadge
                       variant={
-                        capiLog.eventName === "Purchase" ? "success" : "info"
+                        capiLog.eventName === "Purchase"
+                          ? "success"
+                          : capiLog.eventName === "InitiateCheckout"
+                            ? "warning"
+                            : "info"
                       }
                       size="sm"
                     >
@@ -262,21 +310,140 @@ export default function SecurityAuditAndCapiDebuggerPage() {
                   </p>
                 </div>
 
-                <PatternButton
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  rounded="full"
-                  icon={<RefreshCw className="w-3.5 h-3.5" />}
-                  onClick={() => retryAdsConversion(activeShopId, capiLog.id)}
-                >
-                  Retry
-                </PatternButton>
+                <div className="flex items-center gap-1.5">
+                  <PatternButton
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    rounded="full"
+                    icon={<Eye className="w-3.5 h-3.5" />}
+                    onClick={() => setSelectedCapiLog(capiLog)}
+                  >
+                    {t("inspectDetailBtn")}
+                  </PatternButton>
+                  <PatternButton
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    rounded="full"
+                    icon={<RefreshCw className="w-3.5 h-3.5" />}
+                    onClick={() => retryAdsConversion(activeShopId, capiLog.id)}
+                  >
+                    Retry
+                  </PatternButton>
+                </div>
               </div>
             ))}
           </GlassSurfaceCard>
         </div>
       )}
+
+      {/* Ngăn kéo GlassSheet xem chi tiết bản ghi kiểm toán bảo mật (Chuẩn Mục 2 Đặc tả Sprint 3) */}
+      <GlassSheet
+        open={Boolean(selectedAuditLog)}
+        onOpenChange={(open) => !open && setSelectedAuditLog(null)}
+        title={t("auditDetailSheetTitle")}
+        description={selectedAuditLog?.id || ""}
+        side="right"
+      >
+        {selectedAuditLog && (
+          <div className="space-y-3 py-2 text-xs">
+            <GlassSurfaceCard className="p-3 space-y-1.5">
+              <p>
+                <strong>Action:</strong> {selectedAuditLog.actionCode}
+              </p>
+              <p>
+                <strong>Actor:</strong>{" "}
+                {selectedAuditLog.actorName || selectedAuditLog.actorUserId}
+              </p>
+              <p>
+                <strong>Resource:</strong> {selectedAuditLog.targetResourceType}{" "}
+                #{selectedAuditLog.targetResourceId}
+              </p>
+              <p>
+                <strong>IP / User-Agent:</strong>{" "}
+                {selectedAuditLog.ipAddress || "127.0.0.1"} •{" "}
+                {selectedAuditLog.userAgent || "Browser"}
+              </p>
+              <p className="font-mono text-[10px] break-all text-muted-foreground">
+                <strong>prevHash:</strong> {selectedAuditLog.prevHash}
+              </p>
+              <p className="font-mono text-[10px] break-all text-emerald-600 dark:text-emerald-400">
+                <strong>entryHmacHash:</strong> {selectedAuditLog.entryHmacHash}
+              </p>
+            </GlassSurfaceCard>
+
+            {selectedAuditLog.beforeSnapshotJson && (
+              <GlassSurfaceCard className="p-3 space-y-1">
+                <p className="font-bold">Before Snapshot:</p>
+                <pre className="text-[10px] font-mono whitespace-pre-wrap break-all bg-muted/50 p-2 rounded-lg">
+                  {JSON.stringify(selectedAuditLog.beforeSnapshotJson, null, 2)}
+                </pre>
+              </GlassSurfaceCard>
+            )}
+
+            {selectedAuditLog.afterSnapshotJson && (
+              <GlassSurfaceCard className="p-3 space-y-1">
+                <p className="font-bold">After Snapshot:</p>
+                <pre className="text-[10px] font-mono whitespace-pre-wrap break-all bg-muted/50 p-2 rounded-lg">
+                  {JSON.stringify(selectedAuditLog.afterSnapshotJson, null, 2)}
+                </pre>
+              </GlassSurfaceCard>
+            )}
+          </div>
+        )}
+      </GlassSheet>
+
+      {/* Ngăn kéo GlassSheet xem chi tiết Payload sự kiện Meta CAPI / TikTok Events API */}
+      <GlassSheet
+        open={Boolean(selectedCapiLog)}
+        onOpenChange={(open) => !open && setSelectedCapiLog(null)}
+        title={t("capiDetailSheetTitle")}
+        description={selectedCapiLog?.eventId || ""}
+        side="right"
+      >
+        {selectedCapiLog && (
+          <div className="space-y-3 py-2 text-xs">
+            <GlassSurfaceCard className="p-3 space-y-1.5">
+              <p>
+                <strong>Platform:</strong> {selectedCapiLog.platform}
+              </p>
+              <p>
+                <strong>Event Name:</strong> {selectedCapiLog.eventName}
+              </p>
+              <p>
+                <strong>Status:</strong> {selectedCapiLog.syncStatus} (HTTP{" "}
+                {selectedCapiLog.responseStatus})
+              </p>
+              <p>
+                <strong>Value:</strong>{" "}
+                {Number(selectedCapiLog.valueAmount || 0).toLocaleString(
+                  "vi-VN",
+                )}{" "}
+                {selectedCapiLog.currency}
+              </p>
+            </GlassSurfaceCard>
+
+            {selectedCapiLog.requestPayloadJson && (
+              <GlassSurfaceCard className="p-3 space-y-1">
+                <p className="font-bold">Request Payload:</p>
+                <pre className="text-[10px] font-mono whitespace-pre-wrap break-all bg-muted/50 p-2 rounded-lg">
+                  {JSON.stringify(selectedCapiLog.requestPayloadJson, null, 2)}
+                </pre>
+              </GlassSurfaceCard>
+            )}
+
+            {selectedCapiLog.responseBodyJson && (
+              <GlassSurfaceCard className="p-3 space-y-1">
+                <p className="font-bold">Response Body:</p>
+                <pre className="text-[10px] font-mono whitespace-pre-wrap break-all bg-muted/50 p-2 rounded-lg">
+                  {JSON.stringify(selectedCapiLog.responseBodyJson, null, 2)}
+                </pre>
+              </GlassSurfaceCard>
+            )}
+          </div>
+        )}
+      </GlassSheet>
     </div>
   );
 }

@@ -7,7 +7,10 @@ import type {
   MessageTypeEnum,
 } from "@/common/enum";
 import type { IUserRes } from "./common";
-import type { IExtractedPhoneTrustSummary } from "./crm";
+import type {
+  IExtractedCommerceEntities,
+  IExtractedPhoneTrustSummary,
+} from "./crm";
 
 export type TagCategoryType =
   | "CONSULTATION_STATUS"
@@ -510,44 +513,49 @@ export interface IMessage {
   direction?: "INBOUND" | "OUTBOUND" | "INTERNAL_NOTE" | "SYSTEM";
   isInternalNote?: boolean;
   messageTagIdsJson?: string[] | null;
-  extractedEntitiesJson?: {
-    phones?: string[];
-    maskedPhones?: string[];
-    normalizedPhones?: Array<{
-      rawMatch: string;
-      localPhone?: string;
-      e164Phone?: string;
-      maskedPhone?: string;
-      carrierName: string;
-    }>;
-    phoneTrustSummary?: IExtractedPhoneTrustSummary | null;
-    provinceCode?: string | null;
-    provinceName?: string | null;
-    districtCode?: string | null;
-    districtName?: string | null;
-    wardCode?: string | null;
-    wardName?: string | null;
-    addressLine?: string | null;
-    fullFormattedAddress?: string | null;
-    hasAddressDetected?: boolean;
-    carrierCodes?: {
-      ghnProvinceId?: number;
-      ghnDistrictId?: number;
-      ghnWardCode?: string;
-      ghtkProvince?: string;
-      ghtkDistrict?: string;
-      ghtkWard?: string;
-      vtpProvinceId?: number;
-      jtCityCode?: string;
-    } | null;
-    skuCodes?: string[];
-    colors?: string[];
-    sizes?: string[];
-    heightCm?: number | null;
-    weightKg?: number | null;
-    quantities?: number[];
-    processingTimeMs?: number;
-  } | null;
+  extractedEntitiesJson?:
+    | (IExtractedCommerceEntities & {
+        phones?: string[];
+        maskedPhones?: string[];
+        normalizedPhones?: Array<{
+          rawMatch: string;
+          localPhone?: string;
+          e164Phone?: string;
+          maskedPhone?: string;
+          carrierName: string;
+        }>;
+        phoneTrustSummary?: IExtractedPhoneTrustSummary | null;
+        provinceCode?: string | null;
+        provinceName?: string | null;
+        districtCode?: string | null;
+        districtName?: string | null;
+        wardCode?: string | null;
+        wardName?: string | null;
+        addressLine?: string | null;
+        fullFormattedAddress?: string | null;
+        hasAddressDetected?: boolean;
+        carrierCodes?: {
+          ghnProvinceId?: number;
+          ghnDistrictId?: number;
+          ghnWardCode?: string;
+          ghtkProvince?: string;
+          ghtkDistrict?: string;
+          ghtkWard?: string;
+          vtpProvinceId?: number;
+          jtCityCode?: string;
+        } | null;
+        skuCodes?: string[];
+        colors?: string[];
+        sizes?: string[];
+        heightCm?: number | null;
+        weightKg?: number | null;
+        quantities?: number[];
+        paymentIntent?: "BANK_TRANSFER" | "COD" | null;
+        deliveryTimeNote?: string | null;
+        processingTimeMs?: number;
+        maskedText?: string;
+      })
+    | null;
   aiDraftConfidence?: number | null;
   orderIdRef?: string | null;
 }

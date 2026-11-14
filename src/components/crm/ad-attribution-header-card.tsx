@@ -15,6 +15,7 @@ import {
   Megaphone,
   MessageSquare,
   Send,
+  ShoppingCart,
   Sparkles,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -54,6 +55,9 @@ export function AdAttributionHeaderCard({
   const hasLeadSubmitted = convLogs.some(
     (l) => l.eventName === "LeadSubmitted",
   );
+  const hasInitiateCheckout = convLogs.some(
+    (l) => l.eventName === "InitiateCheckout",
+  );
   const hasPurchaseSent = convLogs.some((l) => l.eventName === "Purchase");
 
   const handleTriggerCapi = async (eventName: AdsConversionEventNameType) => {
@@ -68,7 +72,12 @@ export function AdAttributionHeaderCard({
       channelIntegrationId: channelIntegrationId || undefined,
       ctwaClickId: ctwaClickId || undefined,
       sourceAdId: sourceAdId || undefined,
-      valueAmount: eventName === "Purchase" ? 650000 : 0,
+      valueAmount:
+        eventName === "Purchase"
+          ? 650000
+          : eventName === "InitiateCheckout"
+            ? 350000
+            : 0,
       currency: "VND",
     });
     setSendingEvent(null);
@@ -121,6 +130,13 @@ export function AdAttributionHeaderCard({
           </GlassBadge>
         )}
 
+        {hasInitiateCheckout && (
+          <GlassBadge variant="info" size="sm">
+            <CheckCircle2 className="w-2.5 h-2.5 mr-1 inline" />
+            {t("checkoutSyncedBadge")}
+          </GlassBadge>
+        )}
+
         {hasPurchaseSent && (
           <GlassBadge variant="success" size="sm">
             <CheckCircle2 className="w-2.5 h-2.5 mr-1 inline" />
@@ -144,6 +160,20 @@ export function AdAttributionHeaderCard({
               icon={<Send className="w-3 h-3" />}
             >
               {t("sendLeadCapiBtn")}
+            </PatternButton>
+
+            <PatternButton
+              type="button"
+              size="sm"
+              variant="glass"
+              color="warning"
+              rounded="full"
+              isLoading={sendingEvent === "InitiateCheckout"}
+              onClick={() => handleTriggerCapi("InitiateCheckout")}
+              className="h-7 px-2.5 text-[11px]"
+              icon={<ShoppingCart className="w-3 h-3" />}
+            >
+              {t("sendCheckoutCapiBtn")}
             </PatternButton>
 
             <PatternButton

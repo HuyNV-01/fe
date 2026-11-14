@@ -86,11 +86,14 @@ export function ProvinceDistrictWardCombobox({
               fullWidth
               contentAlign="between"
               className="text-xs font-normal h-9 px-2.5"
+              icon={
+                <ChevronsUpDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              }
+              iconPosition={"right"}
             >
               <span className="truncate">
                 {selectedProvince ? selectedProvince.name : t("selectProvince")}
               </span>
-              <ChevronsUpDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
             </PatternButton>
           </LiquidPopoverTrigger>
           <LiquidPopoverContent className="w-64 p-0">
@@ -143,11 +146,14 @@ export function ProvinceDistrictWardCombobox({
               contentAlign="between"
               disabled={!selectedProvince}
               className="text-xs font-normal h-9 px-2.5"
+              icon={
+                <ChevronsUpDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              }
+              iconPosition={"right"}
             >
               <span className="truncate">
                 {selectedDistrict ? selectedDistrict.name : t("selectDistrict")}
               </span>
-              <ChevronsUpDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
             </PatternButton>
           </LiquidPopoverTrigger>
           <LiquidPopoverContent className="w-64 p-0">
@@ -200,11 +206,14 @@ export function ProvinceDistrictWardCombobox({
               contentAlign="between"
               disabled={!selectedDistrict}
               className="text-xs font-normal h-9 px-2.5"
+              icon={
+                <ChevronsUpDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
+              }
+              iconPosition={"right"}
             >
               <span className="truncate">
                 {selectedWard ? selectedWard.name : t("selectWard")}
               </span>
-              <ChevronsUpDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
             </PatternButton>
           </LiquidPopoverTrigger>
           <LiquidPopoverContent className="w-64 p-0">

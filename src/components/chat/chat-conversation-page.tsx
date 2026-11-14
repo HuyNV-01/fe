@@ -156,6 +156,7 @@ export default function ChatConversationPage({
     customer360ByConv,
     unmaskedPhonesByCustomer,
     fetchCustomer360ByConversation,
+    saveCustomerProfile,
   } = useCrmStore();
 
   const [isInfoDrawerOpen, setIsInfoDrawerOpen] = useState(false);
@@ -1089,6 +1090,52 @@ export default function ChatConversationPage({
                             )
                           }
                           onOpenCrm360Panel={() => setIsCrm360DrawerOpen(true)}
+                          onApplyNerToProfile={async (ner) => {
+                            if (!effectiveShopId) return;
+                            await saveCustomerProfile({
+                              shopId: effectiveShopId,
+                              customerId: resolvedCustomerId,
+                              fullName:
+                                activeCustomerProfile?.fullName ||
+                                resolvedHeaderName ||
+                                "Khách hàng",
+                              defaultProvinceCode:
+                                ner.provinceCode ||
+                                activeCustomerProfile?.defaultProvinceCode ||
+                                undefined,
+                              defaultDistrictCode:
+                                ner.districtCode ||
+                                activeCustomerProfile?.defaultDistrictCode ||
+                                undefined,
+                              defaultWardCode:
+                                ner.wardCode ||
+                                activeCustomerProfile?.defaultWardCode ||
+                                undefined,
+                              defaultAddressLine:
+                                ner.addressLine ||
+                                ner.fullFormattedAddress ||
+                                activeCustomerProfile?.defaultAddressLine ||
+                                undefined,
+                              heightCm:
+                                ner.heightCm ||
+                                activeCustomerProfile?.heightCm ||
+                                undefined,
+                              weightKg:
+                                ner.weightKg ||
+                                activeCustomerProfile?.weightKg ||
+                                undefined,
+                              preferredSize:
+                                ner.sizes?.[0] ||
+                                activeCustomerProfile?.preferredSize ||
+                                undefined,
+                              notes:
+                                ner.deliveryTimeNote ||
+                                activeCustomerProfile?.notes ||
+                                undefined,
+                              conversationId,
+                            });
+                            setIsCrm360DrawerOpen(true);
+                          }}
                           onVotePoll={(messageId, optionIds) =>
                             votePoll({
                               conversationId,
