@@ -29,6 +29,7 @@ export interface UseGlassPositionProps {
   triggerRef: RefObject<HTMLElement | null>;
   contentRef?: RefObject<HTMLElement | null>;
   contentElement?: HTMLElement | null;
+  portalContainer?: HTMLElement | null;
   isOpen: boolean;
   placement?: GlassPlacement;
   offset?: number;
@@ -43,6 +44,7 @@ export interface PositionStyle {
   top: number;
   left: number;
   width?: number;
+  triggerWidth: number;
   maxWidth: number;
   maxHeight: number;
   transformOrigin: string;
@@ -54,6 +56,7 @@ export function useGlassPosition({
   triggerRef,
   contentRef,
   contentElement,
+  portalContainer,
   isOpen,
   placement = "bottom-start",
   offset = 8,
@@ -64,7 +67,7 @@ export function useGlassPosition({
 }: UseGlassPositionProps) {
   const [coords, setCoords] = useState<PositionStyle | null>(null);
 
-  const targetContent = contentElement || contentRef?.current;
+  const targetContent = contentElement || contentRef?.current || null;
 
   const calculatePosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -75,7 +78,7 @@ export function useGlassPosition({
     const triggerRect = trigger.getBoundingClientRect();
     const contentRect = content.getBoundingClientRect();
 
-    // Use visualViewport when available (handles iOS/Android virtual keyboard & pinch zoom accurately)
+    // Sử dụng visualViewport khi khả dụng để xử lý bàn phím ảo iOS/Android & zoom chính xác
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     const viewportW = vv ? vv.width : window.innerWidth;
     const viewportH = vv ? vv.height : window.innerHeight;
@@ -86,11 +89,13 @@ export function useGlassPosition({
     const safePadding = isMobileViewport
       ? Math.max(8, viewportPadding)
       : viewportPadding;
-    const availableMaxW = Math.max(160, viewportW - safePadding * 2);
+    const availableMaxW = Math.max(
+      160,
+      Math.round(viewportW - safePadding * 2),
+    );
 
     let currentPlacement = placement;
 
-    // On mobile screens, left/right placements frequently overflow horizontally; convert to bottom/top
     if (
       isMobileViewport &&
       mobileAdaptive &&
@@ -105,15 +110,28 @@ export function useGlassPosition({
     const spaceLeft = triggerRect.left - safePadding;
     const spaceRight = viewportW - triggerRect.right - safePadding;
 
-    const estimatedHeight = contentRect.height || 220;
+    const triggerWidth = Math.max(40, Math.round(triggerRect.width));
+    const measuredContentWidth = Math.max(
+      contentRect.width,
+      content.offsetWidth || 0,
+    );
+    const measuredContentHeight = Math.max(
+      contentRect.height,
+      content.offsetHeight || 0,
+    );
+
+    const estimatedHeight = measuredContentHeight || 240;
     const estimatedWidth = matchWidth
-      ? Math.min(triggerRect.width, availableMaxW)
-      : Math.min(contentRect.width || 240, availableMaxW);
+      ? Math.min(triggerWidth, availableMaxW)
+      : Math.min(
+          Math.max(measuredContentWidth || 256, triggerWidth),
+          availableMaxW,
+        );
 
     if (autoFlip) {
       if (
         currentPlacement.startsWith("bottom") &&
-        spaceBelow < estimatedHeight + offset &&
+        spaceBelow < Math.min(estimatedHeight, 220) + offset &&
         spaceAbove > spaceBelow
       ) {
         currentPlacement = currentPlacement.replace(
@@ -122,7 +140,7 @@ export function useGlassPosition({
         ) as GlassPlacement;
       } else if (
         currentPlacement.startsWith("top") &&
-        spaceAbove < estimatedHeight + offset &&
+        spaceAbove < Math.min(estimatedHeight, 220) + offset &&
         spaceBelow > spaceAbove
       ) {
         currentPlacement = currentPlacement.replace(
@@ -153,13 +171,13 @@ export function useGlassPosition({
     let top = 0;
     let left = 0;
     let transformOrigin = "top center";
-    let maxHeight = Math.max(120, viewportH - safePadding * 2);
+    let maxHeight = Math.max(140, viewportH - safePadding * 2);
 
     const [mainAxis, align] = currentPlacement.split("-");
 
     switch (mainAxis) {
       case "top":
-        maxHeight = Math.max(120, spaceAbove - offset);
+        maxHeight = Math.max(140, spaceAbove - offset);
         top = triggerRect.top - Math.min(estimatedHeight, maxHeight) - offset;
         transformOrigin =
           align === "start"
@@ -169,7 +187,7 @@ export function useGlassPosition({
               : "bottom center";
         break;
       case "bottom":
-        maxHeight = Math.max(120, spaceBelow - offset);
+        maxHeight = Math.max(140, spaceBelow - offset);
         top = triggerRect.bottom + offset;
         transformOrigin =
           align === "start"
@@ -200,13 +218,13 @@ export function useGlassPosition({
       }
     }
 
-    // Clamp horizontally within viewport bounds (including when matchWidth is true or on mobile)
+    // Kẹp tọa độ ngang trong phạm vi khung nhìn
     const minLeft = viewportOffsetLeft + safePadding;
     const maxLeft =
       viewportOffsetLeft + viewportW - estimatedWidth - safePadding;
     left = Math.max(minLeft, Math.min(left, Math.max(minLeft, maxLeft)));
 
-    // Clamp vertically within viewport bounds
+    // Kẹp tọa độ dọc trong phạm vi khung nhìn
     const minTop = viewportOffsetTop + safePadding;
     const maxTop =
       viewportOffsetTop +
@@ -215,21 +233,59 @@ export function useGlassPosition({
       safePadding;
     top = Math.max(minTop, Math.min(top, Math.max(minTop, maxTop)));
 
-    setCoords({
-      top: Math.round(top),
-      left: Math.round(left),
-      width: matchWidth
-        ? Math.min(Math.round(triggerRect.width), availableMaxW)
-        : undefined,
-      maxWidth: availableMaxW,
-      maxHeight: Math.round(maxHeight),
-      transformOrigin,
-      actualPlacement: currentPlacement,
-      isMobileViewport,
+    // Nếu portal vào bên trong DialogContent hoặc SheetContent (position: fixed), quy đổi sang hệ tọa độ nội bộ của container đó
+    if (
+      portalContainer &&
+      typeof document !== "undefined" &&
+      portalContainer !== document.body &&
+      portalContainer !== document.documentElement
+    ) {
+      const containerRect = portalContainer.getBoundingClientRect();
+      const clientLeft = portalContainer.clientLeft || 0;
+      const clientTop = portalContainer.clientTop || 0;
+      left = left - (containerRect.left + clientLeft);
+      top = top - (containerRect.top + clientTop);
+    }
+
+    const nextTop = Math.round(top);
+    const nextLeft = Math.round(left);
+    const nextWidth = matchWidth
+      ? Math.min(triggerWidth, availableMaxW)
+      : undefined;
+    const nextMaxHeight = Math.round(maxHeight);
+
+    // Ngăn chặn tạo object mới khi tọa độ không đổi để triệt tiêu vòng lặp ResizeObserver re-render
+    setCoords((prev) => {
+      if (
+        prev &&
+        prev.top === nextTop &&
+        prev.left === nextLeft &&
+        prev.width === nextWidth &&
+        prev.triggerWidth === triggerWidth &&
+        prev.maxWidth === availableMaxW &&
+        prev.maxHeight === nextMaxHeight &&
+        prev.transformOrigin === transformOrigin &&
+        prev.actualPlacement === currentPlacement &&
+        prev.isMobileViewport === isMobileViewport
+      ) {
+        return prev;
+      }
+      return {
+        top: nextTop,
+        left: nextLeft,
+        width: nextWidth,
+        triggerWidth,
+        maxWidth: availableMaxW,
+        maxHeight: nextMaxHeight,
+        transformOrigin,
+        actualPlacement: currentPlacement,
+        isMobileViewport,
+      };
     });
   }, [
     triggerRef,
     targetContent,
+    portalContainer,
     isOpen,
     placement,
     offset,
@@ -240,37 +296,50 @@ export function useGlassPosition({
   ]);
 
   useIsomorphicLayoutEffect(() => {
-    if (!isOpen || !targetContent) return;
+    if (!isOpen) {
+      setCoords(null);
+      return;
+    }
+    if (!targetContent) return;
 
     calculatePosition();
 
+    let rafId: number | null = null;
+    const scheduleCalculate = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        calculatePosition();
+      });
+    };
+
     const resizeObserver = new ResizeObserver(() => {
-      calculatePosition();
+      scheduleCalculate();
     });
     resizeObserver.observe(targetContent);
     if (triggerRef.current) {
       resizeObserver.observe(triggerRef.current);
     }
 
-    const handleUpdate = () => requestAnimationFrame(calculatePosition);
-    window.addEventListener("resize", handleUpdate, { passive: true });
-    window.addEventListener("scroll", handleUpdate, {
+    window.addEventListener("resize", scheduleCalculate, { passive: true });
+    window.addEventListener("scroll", scheduleCalculate, {
       capture: true,
       passive: true,
     });
-    window.visualViewport?.addEventListener("resize", handleUpdate, {
+    window.visualViewport?.addEventListener("resize", scheduleCalculate, {
       passive: true,
     });
-    window.visualViewport?.addEventListener("scroll", handleUpdate, {
+    window.visualViewport?.addEventListener("scroll", scheduleCalculate, {
       passive: true,
     });
 
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
-      window.removeEventListener("resize", handleUpdate);
-      window.removeEventListener("scroll", handleUpdate, true);
-      window.visualViewport?.removeEventListener("resize", handleUpdate);
-      window.visualViewport?.removeEventListener("scroll", handleUpdate);
+      window.removeEventListener("resize", scheduleCalculate);
+      window.removeEventListener("scroll", scheduleCalculate, true);
+      window.visualViewport?.removeEventListener("resize", scheduleCalculate);
+      window.visualViewport?.removeEventListener("scroll", scheduleCalculate);
     };
   }, [isOpen, calculatePosition, targetContent, triggerRef]);
 

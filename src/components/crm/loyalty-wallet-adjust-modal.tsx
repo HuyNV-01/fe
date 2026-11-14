@@ -102,7 +102,7 @@ export function LoyaltyWalletAdjustModal({
         </>
       }
     >
-      <div className="space-y-4 py-1">
+      <div className="space-y-4 p-2">
         <GlassTabs
           fullWidth
           size="sm"
