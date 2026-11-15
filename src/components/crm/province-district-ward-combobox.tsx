@@ -33,6 +33,7 @@ import type {
   IVnWardUnit,
 } from "@/types/crm";
 import {
+  ArrowLeftRight,
   Building2,
   Check,
   ChevronsUpDown,
@@ -141,6 +142,8 @@ export function ProvinceDistrictWardCombobox({
   const [liveWardHamlets, setLiveWardHamlets] = useState<
     IVnHamletUnit[] | null
   >(null);
+  const [showCarrierCrosswalkDetail, setShowCarrierCrosswalkDetail] =
+    useState(false);
 
   // Cây 63 Tỉnh/Thành đầy đủ (dùng cho Tab 4 Cấp Hành Chính: 63 Tỉnh -> 704 Quận/Huyện -> 9.752+ Phường/Xã -> >530.000 Thôn/Ấp)
   const full63Tree = useMemo<IVnProvinceUnit[]>(() => {
@@ -561,6 +564,65 @@ export function ProvinceDistrictWardCombobox({
 
   const isFourTierMode = tierMode === "4_TIER";
   const effectiveProvinceList = isFourTierMode ? full63Tree : current34Tree;
+
+  // Chuỗi địa chỉ đối chiếu song hành 3 Cấp Mới <-> 4 Cấp Cũ
+  const dualCrosswalkPreview = useMemo(() => {
+    if (!selectedProvince && !selectedWard) return null;
+
+    const mergedProvName =
+      resolvedWardRecord?.mergedProvince?.name ||
+      (rawLegacyProvince?.mergedIntoProvinceName ?? selectedProvince?.name) ||
+      "";
+    const postMergerWardName =
+      resolvedWardRecord?.postMergerWard?.name || selectedWard?.name || "";
+
+    const legProvName =
+      rawLegacyProvince?.name ||
+      resolvedWardRecord?.legacyProvince?.name ||
+      selectedWard?.legacyProvinceName ||
+      selectedProvince?.name ||
+      "";
+    const legDistName =
+      selectedDistrict?.name ||
+      resolvedWardRecord?.legacyDistrict?.name ||
+      selectedWard?.legacyDistrictName ||
+      "";
+    const legWardName =
+      resolvedWardRecord?.legacyWard?.name || selectedWard?.name || "";
+
+    const threeTierFormatted = [
+      selectedHamlet?.name,
+      postMergerWardName,
+      mergedProvName,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const fourTierFormatted = [
+      selectedHamlet?.name,
+      legWardName,
+      legDistName,
+      legProvName,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    return {
+      threeTierFormatted,
+      fourTierFormatted,
+      mergedFromList:
+        resolvedWardRecord?.postMergerWard?.mergedFromWardNames ||
+        selectedWard?.mergedFromWardNames ||
+        [],
+    };
+  }, [
+    selectedProvince,
+    selectedDistrict,
+    selectedWard,
+    selectedHamlet,
+    resolvedWardRecord,
+    rawLegacyProvince,
+  ]);
 
   // Khi người dùng bấm chuyển đổi giữa Tab 3 Cấp Hành Chính (34 Tỉnh/Thành - 3.321 Xã/Phường/Đặc khu mới)
   // và Tab 4 Cấp Hành Chính (63 Tỉnh/Thành - 704 Quận/Huyện - 9.752+ Xã/Phường/Thị trấn),
@@ -1349,85 +1411,126 @@ export function ProvinceDistrictWardCombobox({
 
       {/* Hiển thị mã vùng ánh xạ sẵn 4 hãng vận chuyển (GHN, GHTK Level-4, ViettelPost, J&T) & Đối chiếu sáp nhập NQ 202/2025/QH15 */}
       {(selectedProvince || selectedWard) && (
-        <div className="flex items-center justify-between gap-1.5 flex-wrap text-[10px]">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <GlassBadge variant="info" size="sm">
-              <Truck className="w-2.5 h-2.5 mr-1 inline" />
-              GHN: #
-              {selectedWard?.ghnProvinceId ||
-                selectedProvince?.ghnProvinceId ||
-                201}
-              {selectedDistrict
-                ? `/${selectedDistrict.ghnDistrictId}`
-                : selectedWard?.ghnDistrictId
-                  ? `/${selectedWard.ghnDistrictId}`
-                  : ""}
-              {selectedWard ? `/${selectedWard.ghnWardCode}` : ""}
-            </GlassBadge>
-            <GlassBadge variant="secondary" size="sm">
-              <MapPin className="w-2.5 h-2.5 mr-1 inline" />
-              GHTK:{" "}
-              {selectedWard?.ghtkProvinceName ||
-                selectedProvince?.ghtkProvinceName}
-              {!isFourTierMode
-                ? ` • Không cấp huyện (${selectedDistrict?.ghtkDistrictName || selectedWard?.legacyDistrictName || "Trực thuộc tỉnh"})`
-                : selectedDistrict
-                  ? ` • ${selectedDistrict.ghtkDistrictName}`
-                  : ""}
-              {selectedWard ? ` • ${selectedWard.name}` : ""}
-              {selectedHamlet ? ` • ${selectedHamlet.name}` : ""}
-            </GlassBadge>
-            <GlassBadge variant="secondary" size="sm">
-              VTP: #
-              {selectedWard?.vtpProvinceId ||
-                selectedProvince?.vtpProvinceId ||
-                1}{" "}
-              • J&T:{" "}
-              {selectedWard?.jtCityCode ||
-                selectedProvince?.jtCityCode ||
-                "HNI"}
-            </GlassBadge>
-            {rawLegacyProvince &&
-              rawLegacyProvince.mergedIntoProvinceCode &&
-              rawLegacyProvince.mergedIntoProvinceCode !==
-                rawLegacyProvince.code && (
-                <GlassBadge variant="accent" size="sm">
-                  <Building2 className="w-2.5 h-2.5 mr-0.5 inline" />
-                  {isFourTierMode
-                    ? `NQ 202/2025/QH15: → ${rawLegacyProvince.mergedIntoProvinceName}`
-                    : `Gộp từ: ${rawLegacyProvince.name}${selectedDistrict ? ` (${selectedDistrict.name} cũ)` : ""}`}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-1.5 flex-wrap text-[10px]">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <GlassBadge variant="info" size="sm">
+                <Truck className="w-2.5 h-2.5 mr-1 inline" />
+                GHN: #
+                {selectedWard?.ghnProvinceId ||
+                  selectedProvince?.ghnProvinceId ||
+                  201}
+                {selectedDistrict
+                  ? `/${selectedDistrict.ghnDistrictId}`
+                  : selectedWard?.ghnDistrictId
+                    ? `/${selectedWard.ghnDistrictId}`
+                    : ""}
+                {selectedWard ? `/${selectedWard.ghnWardCode}` : ""}
+              </GlassBadge>
+              <GlassBadge variant="secondary" size="sm">
+                <MapPin className="w-2.5 h-2.5 mr-1 inline" />
+                GHTK:{" "}
+                {selectedWard?.ghtkProvinceName ||
+                  selectedProvince?.ghtkProvinceName}
+                {!isFourTierMode
+                  ? ` • Không cấp huyện (${selectedDistrict?.ghtkDistrictName || selectedWard?.legacyDistrictName || "Trực thuộc tỉnh"})`
+                  : selectedDistrict
+                    ? ` • ${selectedDistrict.ghtkDistrictName}`
+                    : ""}
+                {selectedWard ? ` • ${selectedWard.name}` : ""}
+                {selectedHamlet ? ` • ${selectedHamlet.name}` : ""}
+              </GlassBadge>
+              <GlassBadge variant="secondary" size="sm">
+                VTP: #
+                {selectedWard?.vtpProvinceId ||
+                  selectedProvince?.vtpProvinceId ||
+                  1}{" "}
+                • J&T:{" "}
+                {selectedWard?.jtCityCode ||
+                  selectedProvince?.jtCityCode ||
+                  "HNI"}
+              </GlassBadge>
+              {rawLegacyProvince &&
+                rawLegacyProvince.mergedIntoProvinceCode &&
+                rawLegacyProvince.mergedIntoProvinceCode !==
+                  rawLegacyProvince.code && (
+                  <GlassBadge variant="accent" size="sm">
+                    <Building2 className="w-2.5 h-2.5 mr-0.5 inline" />
+                    {isFourTierMode
+                      ? `NQ 202/2025/QH15: → ${rawLegacyProvince.mergedIntoProvinceName}`
+                      : `Gộp từ: ${rawLegacyProvince.name}${selectedDistrict ? ` (${selectedDistrict.name} cũ)` : ""}`}
+                  </GlassBadge>
+                )}
+              {selectedWard && (
+                <GlassBadge variant="success" size="sm">
+                  <ShieldCheck className="w-2.5 h-2.5 mr-0.5 inline" />
+                  {!isFourTierMode
+                    ? t("threeTierNoDistrictMatchedBadge")
+                    : selectedHamlet
+                      ? t("fourTierMatchedBadge")
+                      : t("autoMatchedBadge")}
                 </GlassBadge>
               )}
-            {selectedWard && (
-              <GlassBadge variant="success" size="sm">
-                <ShieldCheck className="w-2.5 h-2.5 mr-0.5 inline" />
-                {!isFourTierMode
-                  ? t("threeTierNoDistrictMatchedBadge")
-                  : selectedHamlet
-                    ? t("fourTierMatchedBadge")
-                    : t("autoMatchedBadge")}
-              </GlassBadge>
-            )}
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setShowCarrierCrosswalkDetail((prev) => !prev)}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+              >
+                <ArrowLeftRight className="w-2.5 h-2.5" />
+                <span>Đối chiếu 3 Cấp ↔ 4 Cấp & 3PL</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange({
+                    provinceCode: null,
+                    provinceName: null,
+                    districtCode: null,
+                    districtName: null,
+                    wardCode: null,
+                    wardName: null,
+                    hamletCode: null,
+                    hamletName: null,
+                  });
+                }}
+                className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-destructive transition-colors cursor-pointer px-1.5 py-0.5 rounded-full hover:bg-destructive/10"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              onChange({
-                provinceCode: null,
-                provinceName: null,
-                districtCode: null,
-                districtName: null,
-                wardCode: null,
-                wardName: null,
-                hamletCode: null,
-                hamletName: null,
-              });
-            }}
-            className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-destructive transition-colors cursor-pointer px-1.5 py-0.5 rounded-full hover:bg-destructive/10"
-          >
-            <X className="w-2.5 h-2.5" />
-          </button>
+          {showCarrierCrosswalkDetail && dualCrosswalkPreview && (
+            <div className="rounded-xl border border-border/60 bg-muted/30 p-2 text-[10px] space-y-1">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="font-semibold text-foreground">
+                  Chuẩn 3 Cấp Mới (34 Tỉnh • Bỏ cấp huyện):
+                </span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                  {dualCrosswalkPreview.threeTierFormatted}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="font-semibold text-foreground">
+                  Chuẩn 4 Cấp Cũ (63 Tỉnh • 704 Q/H • Đẩy 3PL):
+                </span>
+                <span className="text-sky-600 dark:text-sky-400 font-medium">
+                  {dualCrosswalkPreview.fourTierFormatted}
+                </span>
+              </div>
+              {dualCrosswalkPreview.mergedFromList.length > 0 && (
+                <div className="text-muted-foreground pt-0.5 border-t border-border/40">
+                  Các xã/phường/thị trấn cũ sáp nhập:{" "}
+                  <span className="font-medium text-foreground">
+                    {dualCrosswalkPreview.mergedFromList.join(", ")}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

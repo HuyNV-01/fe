@@ -225,6 +225,114 @@ export interface IVnProvinceUnit {
   districts: IVnDistrictUnit[];
 }
 
+export interface IAdministrativeCrosswalkResult {
+  preferredMode: "3_TIER" | "4_TIER";
+  detectedInputTier: 3 | 4;
+  isMergedProvince: boolean;
+  threeTierAddress: {
+    provinceCode: string;
+    provinceName: string;
+    resolutionNumber: string;
+    ubtvqhResolutionNumber: string;
+    adminCenterName: string;
+    wardCode: string | null;
+    wardName: string | null;
+    wardUnitType: "PHUONG" | "XA" | "DAC_KHU" | null;
+    mergedFromWardNames: string[];
+    hamletCode: string | null;
+    hamletName: string | null;
+    addressLine: string | null;
+    fullFormattedAddress: string;
+  };
+  fourTierAddress: {
+    provinceCode: string;
+    provinceName: string;
+    districtCode: string | null;
+    districtName: string | null;
+    wardCode: string | null;
+    wardName: string | null;
+    wardUnitType: "PHUONG" | "XA" | "THI_TRAN" | "DAC_KHU" | null;
+    hamletCode: string | null;
+    hamletName: string | null;
+    addressLine: string | null;
+    fullFormattedAddress: string;
+  };
+  carrierMapping: {
+    ghn: {
+      provinceId: number;
+      districtId: number;
+      wardCode: string;
+      isReadyForShipment: boolean;
+    };
+    ghtk: {
+      province: string;
+      postMergerProvince: string;
+      district: string;
+      ward: string;
+      hamlet: string;
+      street: string;
+      isReadyForShipment: boolean;
+    };
+    viettelPost: {
+      provinceId: number;
+      districtId: number;
+      wardId: number;
+      nlpThreeTierAddress: string;
+      nlpFourTierAddress: string;
+      isReadyForShipment: boolean;
+    };
+    jtExpress: {
+      cityCode: string;
+      postMergerCityCode: string;
+      prov: string;
+      city: string;
+      area: string;
+      address: string;
+      isReadyForShipment: boolean;
+    };
+  };
+  processingTimeMs: number;
+}
+
+export interface ICarrierShippingQuoteItem {
+  carrierCode: "GHN" | "GHTK" | "VTP" | "JT";
+  carrierName: string;
+  serviceCode: string;
+  serviceName: string;
+  totalFeeVnd: number;
+  baseFeeVnd: number;
+  insuranceFeeVnd: number;
+  codFeeVnd: number;
+  remoteAreaSurchargeVnd: number;
+  estimatedDeliveryHours: number;
+  estimatedDeliveryLabel: string;
+  routeZoneType:
+    | "INTRA_PROVINCE"
+    | "SAME_REGION"
+    | "CROSS_REGION"
+    | "ISLAND_SPECIAL_ZONE";
+  quoteSource: "LIVE_CARRIER_API" | "CALIBRATED_RATE_TABLE";
+  mappedAddressSummary: string;
+  isRecommendedCheapest?: boolean;
+  isRecommendedFastest?: boolean;
+}
+
+export interface IMultiCarrierShippingFeeEstimateResult {
+  routeZoneType:
+    | "INTRA_PROVINCE"
+    | "SAME_REGION"
+    | "CROSS_REGION"
+    | "ISLAND_SPECIAL_ZONE";
+  routeZoneLabel: string;
+  chargeableWeightGrams: number;
+  cheapestCarrierCode: "GHN" | "GHTK" | "VTP" | "JT";
+  fastestCarrierCode: "GHN" | "GHTK" | "VTP" | "JT";
+  quotes: ICarrierShippingQuoteItem[];
+  senderCrosswalk: IAdministrativeCrosswalkResult;
+  receiverCrosswalk: IAdministrativeCrosswalkResult;
+  evaluatedAt: string;
+}
+
 export interface IExtractedCommerceEntities {
   phones?: string[];
   maskedPhones?: string[];

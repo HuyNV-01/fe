@@ -20,6 +20,122 @@ export const getAdministrativeUnitsApi = (
     params: { mode },
   });
 
+export const getAdministrativeUnitsStatsApi = (shopId: string) =>
+  apiClient.get(`/crm/${shopId}/administrative-units/stats`);
+
+export const searchAdministrativeUnitsFastApi = (params: {
+  shopId: string;
+  q: string;
+  mode?: "3_TIER" | "4_TIER" | "BOTH";
+  provinceCode?: string;
+  limit?: number;
+}) => {
+  const { shopId, ...query } = params;
+  return apiClient.get(`/crm/${shopId}/administrative-units/search`, {
+    params: query,
+  });
+};
+
+export const getAdministrativeWardHamletsApi = (params: {
+  shopId: string;
+  wardCode?: string;
+  q?: string;
+  ghtkToken?: string;
+}) => {
+  const { shopId, ...query } = params;
+  return apiClient.get(`/crm/${shopId}/administrative-units/hamlets`, {
+    params: query,
+  });
+};
+
+export const resolveAdministrativeCrosswalkApi = (payload: {
+  shopId: string;
+  preferredMode?: "3_TIER" | "4_TIER";
+  provinceCode?: string | null;
+  districtCode?: string | null;
+  wardCode?: string | null;
+  hamletCode?: string | null;
+  hamletName?: string | null;
+  addressLine?: string | null;
+  rawText?: string | null;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.post(`/crm/${shopId}/administrative-units/crosswalk`, body);
+};
+
+export const buildCarrierAddressPayloadApi = (payload: {
+  shopId: string;
+  receiverName?: string;
+  receiverPhone?: string;
+  customerId?: string;
+  senderProvinceCode?: string | null;
+  senderDistrictCode?: string | null;
+  senderWardCode?: string | null;
+  senderAddressLine?: string | null;
+  receiverProvinceCode?: string | null;
+  receiverDistrictCode?: string | null;
+  receiverWardCode?: string | null;
+  receiverHamletCode?: string | null;
+  receiverHamletName?: string | null;
+  receiverAddressLine?: string | null;
+  weightGrams?: number;
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
+  codAmount?: number;
+  insuranceValue?: number;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.post(
+    `/crm/${shopId}/administrative-units/carrier-payload`,
+    body,
+  );
+};
+
+export const estimateMultiCarrierShippingFeeApi = (payload: {
+  shopId: string;
+  receiverName?: string;
+  receiverPhone?: string;
+  customerId?: string;
+  senderProvinceCode?: string | null;
+  senderDistrictCode?: string | null;
+  senderWardCode?: string | null;
+  senderAddressLine?: string | null;
+  receiverProvinceCode?: string | null;
+  receiverDistrictCode?: string | null;
+  receiverWardCode?: string | null;
+  receiverHamletCode?: string | null;
+  receiverHamletName?: string | null;
+  receiverAddressLine?: string | null;
+  weightGrams?: number;
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
+  codAmount?: number;
+  insuranceValue?: number;
+  ghnToken?: string;
+  ghnShopId?: number;
+  ghtkToken?: string;
+  vtpToken?: string;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.post(
+    `/crm/${shopId}/administrative-units/estimate-shipping-fee`,
+    body,
+  );
+};
+
+export const syncAdministrativeUnitsApi = (payload: {
+  shopId: string;
+  ghnToken?: string;
+  ghtkToken?: string;
+  vtpToken?: string;
+  wardCode?: string;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.post(`/crm/${shopId}/administrative-units/sync`, body);
+};
+
 export const getShopCrmConfigApi = (shopId: string) =>
   apiClient.get(`/crm/${shopId}/settings/crm-config`);
 

@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/suspicious/noExplicitAny: <explanation> */
 import { createPersistedStore } from "../create-persisted-store";
 import {
   getAdministrativeUnitsApi,
