@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   GlassBadge,
   LiquidPopover,
@@ -17,10 +17,21 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import type { IVnProvinceUnit } from "@/types/crm";
 import {
+  VN_CURRENT_34_ADMINISTRATIVE_UNITS_TREE,
+  VN_FULL_ADMINISTRATIVE_UNITS_TREE,
+} from "@/constant/vn-administrative-units";
+import type {
+  IVnDistrictUnit,
+  IVnHamletUnit,
+  IVnProvinceUnit,
+  IVnWardUnit,
+} from "@/types/crm";
+import {
+  Building2,
   Check,
   ChevronsUpDown,
+  Layers,
   MapPin,
   ShieldCheck,
   Truck,
@@ -30,7 +41,7 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
 /**
- * Chuẩn hóa chuỗi tiếng Việt không dấu phục vụ tìm kiếm nhanh Tỉnh/Huyện/Xã trong Command (cmdk)
+ * Chuẩn hóa chuỗi tiếng Việt không dấu phục vụ tìm kiếm tức thời Tỉnh/Huyện/Xã/Thôn trong Command (cmdk)
  */
 function normalizeVietnameseSearchText(input: string): string {
   return input
@@ -43,269 +54,28 @@ function normalizeVietnameseSearchText(input: string): string {
 }
 
 /**
- * Cây hành chính Việt Nam dự phòng chuẩn 4 hãng vận chuyển (GHN, GHTK, ViettelPost, J&T)
- * đảm bảo Combobox luôn hoạt động mượt ngay cả khi API danh mục đang tải hoặc chạy chế độ offline
+ * Kiểm tra cây hành chính truyền từ store có đầy đủ chuẩn 63 tỉnh & >= 700 Quận/Huyện toàn quốc hay chưa
+ * nhằm tránh trường hợp localStorage lưu bản rút gọn cũ.
  */
-const DEFAULT_FALLBACK_ADMINISTRATIVE_TREE: IVnProvinceUnit[] = [
-  {
-    code: "01",
-    name: "Thành phố Hà Nội",
-    aliases: ["ha noi", "hn", "hanoi", "tp ha noi", "thủ đô hà nội"],
-    ghnProvinceId: 201,
-    ghtkProvinceName: "Hà Nội",
-    vtpProvinceId: 1,
-    jtCityCode: "HNI",
-    districts: [
-      {
-        code: "001",
-        name: "Quận Ba Đình",
-        aliases: ["ba dinh", "q ba dinh", "quan ba dinh"],
-        ghnDistrictId: 1484,
-        ghtkDistrictName: "Quận Ba Đình",
-        wards: [
-          {
-            code: "00001",
-            name: "Phường Phúc Xá",
-            aliases: ["phuc xa", "p phuc xa"],
-            ghnWardCode: "1A0101",
-            ghtkWardName: "Phường Phúc Xá",
-          },
-          {
-            code: "00004",
-            name: "Phường Trúc Bạch",
-            aliases: ["truc bach", "p truc bach"],
-            ghnWardCode: "1A0102",
-            ghtkWardName: "Phường Trúc Bạch",
-          },
-          {
-            code: "00006",
-            name: "Phường Vĩnh Phúc",
-            aliases: ["vinh phuc", "p vinh phuc"],
-            ghnWardCode: "1A0103",
-            ghtkWardName: "Phường Vĩnh Phúc",
-          },
-        ],
-      },
-      {
-        code: "005",
-        name: "Quận Cầu Giấy",
-        aliases: ["cau giay", "q cau giay", "quan cau giay", "cg"],
-        ghnDistrictId: 1485,
-        ghtkDistrictName: "Quận Cầu Giấy",
-        wards: [
-          {
-            code: "00157",
-            name: "Phường Dịch Vọng",
-            aliases: ["dich vong", "p dich vong"],
-            ghnWardCode: "1A0601",
-            ghtkWardName: "Phường Dịch Vọng",
-          },
-          {
-            code: "00166",
-            name: "Phường Dịch Vọng Hậu",
-            aliases: ["dich vong hau", "p dich vong hau", "dvh"],
-            ghnWardCode: "1A0602",
-            ghtkWardName: "Phường Dịch Vọng Hậu",
-          },
-          {
-            code: "00169",
-            name: "Phường Mai Dịch",
-            aliases: ["mai dich", "p mai dich"],
-            ghnWardCode: "1A0603",
-            ghtkWardName: "Phường Mai Dịch",
-          },
-          {
-            code: "00175",
-            name: "Phường Trung Hòa",
-            aliases: ["trung hoa", "p trung hoa"],
-            ghnWardCode: "1A0607",
-            ghtkWardName: "Phường Trung Hòa",
-          },
-        ],
-      },
-      {
-        code: "006",
-        name: "Quận Đống Đa",
-        aliases: ["dong da", "q dong da", "quan dong da"],
-        ghnDistrictId: 1486,
-        ghtkDistrictName: "Quận Đống Đa",
-        wards: [
-          {
-            code: "00199",
-            name: "Phường Láng Hạ",
-            aliases: ["lang ha", "p lang ha"],
-            ghnWardCode: "1A0406",
-            ghtkWardName: "Phường Láng Hạ",
-          },
-          {
-            code: "00202",
-            name: "Phường Láng Thượng",
-            aliases: ["lang thuong", "p lang thuong"],
-            ghnWardCode: "1A0407",
-            ghtkWardName: "Phường Láng Thượng",
-          },
-          {
-            code: "00229",
-            name: "Phường Trung Liệt",
-            aliases: ["trung liet", "p trung liet"],
-            ghnWardCode: "1A0416",
-            ghtkWardName: "Phường Trung Liệt",
-          },
-        ],
-      },
-      {
-        code: "009",
-        name: "Quận Thanh Xuân",
-        aliases: ["thanh xuan", "q thanh xuan", "tx"],
-        ghnDistrictId: 1493,
-        ghtkDistrictName: "Quận Thanh Xuân",
-        wards: [
-          {
-            code: "00343",
-            name: "Phường Nhân Chính",
-            aliases: ["nhan chinh", "p nhan chinh"],
-            ghnWardCode: "1A0905",
-            ghtkWardName: "Phường Nhân Chính",
-          },
-          {
-            code: "00355",
-            name: "Phường Khương Trung",
-            aliases: ["khuong trung", "p khuong trung"],
-            ghnWardCode: "1A0904",
-            ghtkWardName: "Phường Khương Trung",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    code: "79",
-    name: "Thành phố Hồ Chí Minh",
-    aliases: ["ho chi minh", "hcm", "tphcm", "sai gon", "sg", "tp hcm"],
-    ghnProvinceId: 202,
-    ghtkProvinceName: "TP. Hồ Chí Minh",
-    vtpProvinceId: 2,
-    jtCityCode: "SGN",
-    districts: [
-      {
-        code: "760",
-        name: "Quận 1",
-        aliases: ["quan 1", "q1", "q 1"],
-        ghnDistrictId: 1442,
-        ghtkDistrictName: "Quận 1",
-        wards: [
-          {
-            code: "26734",
-            name: "Phường Tân Định",
-            aliases: ["tan dinh", "p tan dinh"],
-            ghnWardCode: "20101",
-            ghtkWardName: "Phường Tân Định",
-          },
-          {
-            code: "26740",
-            name: "Phường Bến Nghé",
-            aliases: ["ben nghe", "p ben nghe"],
-            ghnWardCode: "20102",
-            ghtkWardName: "Phường Bến Nghé",
-          },
-          {
-            code: "26743",
-            name: "Phường Bến Thành",
-            aliases: ["ben thanh", "p ben thanh"],
-            ghnWardCode: "20103",
-            ghtkWardName: "Phường Bến Thành",
-          },
-        ],
-      },
-      {
-        code: "769",
-        name: "Thành phố Thủ Đức",
-        aliases: ["thu duc", "tp thu duc", "quan 2", "quan 9"],
-        ghnDistrictId: 3695,
-        ghtkDistrictName: "TP. Thủ Đức",
-        wards: [
-          {
-            code: "26839",
-            name: "Phường Hiệp Bình Chánh",
-            aliases: ["hiep binh chanh", "hbc"],
-            ghnWardCode: "90737",
-            ghtkWardName: "Phường Hiệp Bình Chánh",
-          },
-          {
-            code: "27088",
-            name: "Phường Thảo Điền",
-            aliases: ["thao dien", "p thao dien"],
-            ghnWardCode: "20201",
-            ghtkWardName: "Phường Thảo Điền",
-          },
-        ],
-      },
-      {
-        code: "766",
-        name: "Quận Tân Bình",
-        aliases: ["tan binh", "q tan binh", "tb"],
-        ghnDistrictId: 1454,
-        ghtkDistrictName: "Quận Tân Bình",
-        wards: [
-          {
-            code: "26965",
-            name: "Phường 2",
-            aliases: ["phuong 2", "p2", "p 2"],
-            ghnWardCode: "21302",
-            ghtkWardName: "Phường 2",
-          },
-          {
-            code: "26998",
-            name: "Phường 13",
-            aliases: ["phuong 13", "p13", "p 13"],
-            ghnWardCode: "21313",
-            ghtkWardName: "Phường 13",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    code: "48",
-    name: "Thành phố Đà Nẵng",
-    aliases: ["da nang", "dn", "tp da nang"],
-    ghnProvinceId: 203,
-    ghtkProvinceName: "Đà Nẵng",
-    vtpProvinceId: 3,
-    jtCityCode: "DAD",
-    districts: [
-      {
-        code: "492",
-        name: "Quận Hải Châu",
-        aliases: ["hai chau", "q hai chau"],
-        ghnDistrictId: 1526,
-        ghtkDistrictName: "Quận Hải Châu",
-        wards: [
-          {
-            code: "20227",
-            name: "Phường Hải Châu I",
-            aliases: ["hai chau 1", "hai chau i"],
-            ghnWardCode: "40103",
-            ghtkWardName: "Phường Hải Châu I",
-          },
-          {
-            code: "20242",
-            name: "Phường Hòa Thuận Tây",
-            aliases: ["hoa thuan tay"],
-            ghnWardCode: "40108",
-            ghtkWardName: "Phường Hòa Thuận Tây",
-          },
-        ],
-      },
-    ],
-  },
-];
+function isCompleteAdministrativeTree(
+  tree?: IVnProvinceUnit[] | null,
+): boolean {
+  if (!Array.isArray(tree) || tree.length < 63) return false;
+  let totalDistricts = 0;
+  for (const prov of tree) {
+    totalDistricts += Array.isArray(prov.districts) ? prov.districts.length : 0;
+  }
+  return totalDistricts >= 700;
+}
 
 export interface ProvinceDistrictWardComboboxProps {
-  administrativeTree: IVnProvinceUnit[];
+  administrativeTree?: IVnProvinceUnit[];
   provinceCode?: string | null;
   districtCode?: string | null;
   wardCode?: string | null;
+  hamletCode?: string | null;
+  hamletName?: string | null;
+  defaultTierMode?: "3_TIER" | "4_TIER";
   onChange: (value: {
     provinceCode: string | null;
     provinceName: string | null;
@@ -313,6 +83,8 @@ export interface ProvinceDistrictWardComboboxProps {
     districtName: string | null;
     wardCode: string | null;
     wardName: string | null;
+    hamletCode?: string | null;
+    hamletName?: string | null;
   }) => void;
 }
 
@@ -321,53 +93,212 @@ export function ProvinceDistrictWardCombobox({
   provinceCode,
   districtCode,
   wardCode,
+  hamletCode,
+  hamletName,
+  defaultTierMode = "3_TIER",
   onChange,
 }: ProvinceDistrictWardComboboxProps) {
   const t = useTranslations("Crm360.addressSelector");
   const nestingLevel = useGlassNestingLevel();
   const isOverGlass = nestingLevel > 0;
 
+  // Duy nhất 1 thanh chuyển đổi chế độ hành chính:
+  // - 3_TIER: Nhận diện 3 cấp chính toàn quốc (34 Tỉnh/Thành hiện tại sau sáp nhập, gộp đủ 703 Quận/Huyện & 3.756+ Phường/Xã/Đặc khu)
+  // - 4_TIER: Nhận diện 4 cấp hành chính đầy đủ cho toàn bộ 63 Tỉnh/Thành trước đó (Tỉnh -> Quận/Huyện -> Phường/Xã -> Thôn/Ấp/Bản/Khu phố/TDP)
+  const [tierMode, setTierMode] = useState<"3_TIER" | "4_TIER">(() =>
+    hamletCode || hamletName ? "4_TIER" : defaultTierMode,
+  );
+
+  // Tự động bật sang tab 4 Cấp khi NER bóc tách được Thôn/Ấp/Bản/Khu phố/Tổ dân phố từ tin nhắn
+  useEffect(() => {
+    if (hamletCode || hamletName) {
+      setTierMode("4_TIER");
+    }
+  }, [hamletCode, hamletName]);
+
   const [openProv, setOpenProv] = useState(false);
   const [openDist, setOpenDist] = useState(false);
   const [openWard, setOpenWard] = useState(false);
+  const [openHamlet, setOpenHamlet] = useState(false);
 
-  const effectiveTree = useMemo(
-    () =>
-      Array.isArray(administrativeTree) && administrativeTree.length > 0
-        ? administrativeTree
-        : DEFAULT_FALLBACK_ADMINISTRATIVE_TREE,
-    [administrativeTree],
+  const [wardSearchInput, setWardSearchInput] = useState("");
+  const [hamletSearchInput, setHamletSearchInput] = useState("");
+
+  // Cây 63 Tỉnh/Thành đầy đủ (dùng cho chế độ 4 Cấp Hành Chính)
+  const full63Tree = useMemo<IVnProvinceUnit[]>(() => {
+    if (isCompleteAdministrativeTree(administrativeTree)) {
+      return administrativeTree!;
+    }
+    return VN_FULL_ADMINISTRATIVE_UNITS_TREE;
+  }, [administrativeTree]);
+
+  // Cây 34 Tỉnh/Thành hiện tại sau sáp nhập (dùng cho chế độ 3 Cấp Hành Chính)
+  const current34Tree = useMemo<IVnProvinceUnit[]>(() => {
+    return VN_CURRENT_34_ADMINISTRATIVE_UNITS_TREE;
+  }, []);
+
+  // Cây tỉnh thành đang kích hoạt tương ứng với tab 3 Cấp (34 tỉnh) hoặc 4 Cấp (63 tỉnh)
+  const effectiveTree = useMemo<IVnProvinceUnit[]>(
+    () => (tierMode === "3_TIER" ? current34Tree : full63Tree),
+    [tierMode, current34Tree, full63Tree],
   );
 
-  const selectedProvince = useMemo(
-    () => effectiveTree.find((p) => p.code === provinceCode) || null,
-    [effectiveTree, provinceCode],
-  );
+  // Tìm tỉnh gốc trong bộ 63 tỉnh dựa trên districtCode (ưu tiên cao nhất khi chuyển qua lại giữa 3 cấp & 4 cấp) hoặc provinceCode
+  const rawLegacyProvince = useMemo<IVnProvinceUnit | null>(() => {
+    if (districtCode) {
+      const byDistrict = full63Tree.find((p) =>
+        p.districts.some((d) => d.code === districtCode),
+      );
+      if (byDistrict) return byDistrict;
+    }
+    if (provinceCode) {
+      const byCode = full63Tree.find((p) => p.code === provinceCode);
+      if (byCode) return byCode;
+    }
+    return null;
+  }, [full63Tree, provinceCode, districtCode]);
 
-  const districts = useMemo(
+  // Tỉnh/Thành đang hiển thị trên combobox Cấp 1 theo đúng chế độ 3 Cấp hoặc 4 Cấp
+  const selectedProvince = useMemo<IVnProvinceUnit | null>(() => {
+    if (!provinceCode && !rawLegacyProvince) return null;
+
+    if (tierMode === "3_TIER") {
+      if (provinceCode) {
+        const direct34 = current34Tree.find((p) => p.code === provinceCode);
+        if (direct34) return direct34;
+      }
+      if (rawLegacyProvince) {
+        const mergedTargetCode =
+          rawLegacyProvince.mergedIntoProvinceCode || rawLegacyProvince.code;
+        return (
+          current34Tree.find((p) => p.code === mergedTargetCode) ||
+          rawLegacyProvince
+        );
+      }
+      return null;
+    }
+
+    // Chế độ 4_TIER (63 Tỉnh/Thành trước sáp nhập)
+    if (rawLegacyProvince) {
+      return rawLegacyProvince;
+    }
+    if (provinceCode) {
+      return full63Tree.find((p) => p.code === provinceCode) || null;
+    }
+    return null;
+  }, [tierMode, provinceCode, rawLegacyProvince, current34Tree, full63Tree]);
+
+  const districts = useMemo<IVnDistrictUnit[]>(
     () => selectedProvince?.districts || [],
     [selectedProvince],
   );
 
-  const selectedDistrict = useMemo(
-    () => districts.find((d) => d.code === districtCode) || null,
-    [districts, districtCode],
-  );
+  const selectedDistrict = useMemo<IVnDistrictUnit | null>(() => {
+    if (!districtCode) return null;
+    return (
+      districts.find((d) => d.code === districtCode) ||
+      rawLegacyProvince?.districts.find((d) => d.code === districtCode) ||
+      null
+    );
+  }, [districts, districtCode, rawLegacyProvince]);
 
-  const wards = useMemo(
+  const wards = useMemo<IVnWardUnit[]>(
     () => selectedDistrict?.wards || [],
     [selectedDistrict],
   );
 
-  const selectedWard = useMemo(
-    () => wards.find((w) => w.code === wardCode) || null,
-    [wards, wardCode],
+  const selectedWard = useMemo<IVnWardUnit | null>(() => {
+    if (!wardCode) return null;
+    const matched = wards.find((w) => w.code === wardCode);
+    if (matched) return matched;
+    if (wardCode.startsWith("CUSTOM-WARD:")) {
+      const customName = wardCode.replace("CUSTOM-WARD:", "");
+      return {
+        code: wardCode,
+        name: customName,
+        aliases: [normalizeVietnameseSearchText(customName)],
+        ghnWardCode: "00000",
+        ghtkWardName: customName,
+        vtpWardId: 0,
+        hamlets: [],
+      };
+    }
+    return null;
+  }, [wards, wardCode]);
+
+  const hamlets = useMemo<IVnHamletUnit[]>(
+    () => selectedWard?.hamlets || [],
+    [selectedWard],
   );
+
+  const selectedHamlet = useMemo<IVnHamletUnit | null>(() => {
+    if (hamletCode) {
+      const found = hamlets.find((h) => h.code === hamletCode);
+      if (found) return found;
+    }
+    if (hamletName) {
+      return {
+        code: hamletCode || "CUSTOM-HAMLET",
+        name: hamletName,
+        unitType: "THON" as const,
+        aliases: [normalizeVietnameseSearchText(hamletName)],
+        ghtkHamletName: hamletName,
+      };
+    }
+    return null;
+  }, [hamlets, hamletCode, hamletName]);
+
+  const isFourTierMode = tierMode === "4_TIER";
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        {/* 1. Chọn Tỉnh / Thành phố */}
+      {/* Duy nhất 1 thanh Tab chuyển đổi: 3 Cấp Hành Chính (34 Tỉnh/Thành hiện tại) vs 4 Cấp Hành Chính (63 Tỉnh/Thành đầy đủ) */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="inline-flex items-center gap-1 rounded-full bg-muted/50 p-0.5 border border-border/50">
+          <button
+            type="button"
+            onClick={() => setTierMode("3_TIER")}
+            className={cn(
+              "px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1",
+              tierMode === "3_TIER"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <MapPin className="w-2.5 h-2.5" />
+            <span>
+              {t("mode3TierBtn")} ({current34Tree.length})
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTierMode("4_TIER")}
+            className={cn(
+              "px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors cursor-pointer inline-flex items-center gap-1",
+              tierMode === "4_TIER"
+                ? "bg-primary text-primary-foreground shadow-2xs"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Layers className="w-2.5 h-2.5" />
+            <span>
+              {t("mode4TierBtn")} ({full63Tree.length})
+            </span>
+          </button>
+        </div>
+
+        <span className="text-[10px] text-muted-foreground">
+          {isFourTierMode ? t("mode4TierScopeHint") : t("mode3TierScopeHint")}
+        </span>
+      </div>
+
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-2",
+          isFourTierMode ? "sm:grid-cols-2" : "sm:grid-cols-3",
+        )}
+      >
+        {/* Cấp 1: Chọn Tỉnh / Thành phố */}
         <LiquidPopover
           open={openProv}
           onOpenChange={setOpenProv}
@@ -397,7 +328,7 @@ export function ProvinceDistrictWardCombobox({
               </span>
             </PatternButton>
           </LiquidPopoverTrigger>
-          <LiquidPopoverContent className="w-72 p-0" align="start">
+          <LiquidPopoverContent className="w-80 p-0" align="start">
             <Command>
               <CommandInput placeholder={t("searchProvincePlaceholder")} />
               <CommandList className="max-h-64 overflow-y-auto p-1">
@@ -407,8 +338,19 @@ export function ProvinceDistrictWardCombobox({
                     const aliasesStr = Array.isArray(prov.aliases)
                       ? prov.aliases.join(" ")
                       : "";
-                    const searchValue = `${prov.name} ${normalizeVietnameseSearchText(prov.name)} ${aliasesStr} ${prov.code}`;
-                    const isSelected = provinceCode === prov.code;
+                    const mergedInfoStr = Array.isArray(
+                      prov.mergedFromProvinceNames,
+                    )
+                      ? prov.mergedFromProvinceNames.join(" ")
+                      : prov.mergedIntoProvinceName || "";
+                    const searchValue = `${prov.name} ${normalizeVietnameseSearchText(prov.name)} ${aliasesStr} ${mergedInfoStr} ${normalizeVietnameseSearchText(mergedInfoStr)} ${prov.code}`;
+                    const isSelected = selectedProvince?.code === prov.code;
+
+                    const hasMergedTarget =
+                      isFourTierMode &&
+                      prov.mergedIntoProvinceCode &&
+                      prov.mergedIntoProvinceCode !== prov.code &&
+                      prov.mergedIntoProvinceName;
 
                     return (
                       <CommandItem
@@ -422,9 +364,10 @@ export function ProvinceDistrictWardCombobox({
                             districtName: null,
                             wardCode: null,
                             wardName: null,
+                            hamletCode: null,
+                            hamletName: null,
                           });
                           setOpenProv(false);
-                          // Tự động mở tiếp Quận/Huyện để nhân viên chốt đơn thao tác liền mạch 1 chạm
                           if (
                             Array.isArray(prov.districts) &&
                             prov.districts.length > 0
@@ -446,9 +389,24 @@ export function ProvinceDistrictWardCombobox({
                               : "opacity-0",
                           )}
                         />
-                        <span className="truncate flex-1">{prov.name}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate">{prov.name}</div>
+                          {hasMergedTarget && (
+                            <div className="text-[10px] text-sky-600 dark:text-sky-400 truncate">
+                              → {prov.mergedIntoProvinceName} (
+                              {prov.districts.length} Q/H)
+                            </div>
+                          )}
+                          {!isFourTierMode &&
+                            Array.isArray(prov.mergedFromProvinceNames) &&
+                            prov.mergedFromProvinceNames.length > 1 && (
+                              <div className="text-[10px] text-muted-foreground truncate">
+                                Gộp: {prov.mergedFromProvinceNames.join(" + ")}
+                              </div>
+                            )}
+                        </div>
                         <span className="text-[10px] font-mono text-muted-foreground ml-1.5 shrink-0">
-                          {prov.jtCityCode}
+                          {prov.districts.length} Q/H
                         </span>
                       </CommandItem>
                     );
@@ -459,7 +417,7 @@ export function ProvinceDistrictWardCombobox({
           </LiquidPopoverContent>
         </LiquidPopover>
 
-        {/* 2. Chọn Quận / Huyện */}
+        {/* Cấp 2: Chọn Quận / Huyện / Thị xã / Thành phố thuộc tỉnh / Đặc khu */}
         <LiquidPopover
           open={openDist}
           onOpenChange={setOpenDist}
@@ -490,7 +448,7 @@ export function ProvinceDistrictWardCombobox({
               </span>
             </PatternButton>
           </LiquidPopoverTrigger>
-          <LiquidPopoverContent className="w-72 p-0" align="start">
+          <LiquidPopoverContent className="w-80 p-0" align="start">
             <Command>
               <CommandInput placeholder={t("searchDistrictPlaceholder")} />
               <CommandList className="max-h-64 overflow-y-auto p-1">
@@ -500,7 +458,11 @@ export function ProvinceDistrictWardCombobox({
                     const aliasesStr = Array.isArray(dist.aliases)
                       ? dist.aliases.join(" ")
                       : "";
-                    const searchValue = `${dist.name} ${normalizeVietnameseSearchText(dist.name)} ${aliasesStr} ${dist.code}`;
+                    const ownerProv = full63Tree.find((p) =>
+                      p.districts.some((d) => d.code === dist.code),
+                    );
+                    const ownerProvName = ownerProv?.name || "";
+                    const searchValue = `${dist.name} ${normalizeVietnameseSearchText(dist.name)} ${aliasesStr} ${ownerProvName} ${normalizeVietnameseSearchText(ownerProvName)} ${dist.code}`;
                     const isSelected = districtCode === dist.code;
 
                     return (
@@ -508,16 +470,20 @@ export function ProvinceDistrictWardCombobox({
                         key={dist.code}
                         value={searchValue}
                         onSelect={() => {
+                          const targetProv = isFourTierMode
+                            ? ownerProv || selectedProvince
+                            : selectedProvince || ownerProv;
                           onChange({
-                            provinceCode: selectedProvince?.code || null,
-                            provinceName: selectedProvince?.name || null,
+                            provinceCode: targetProv?.code || null,
+                            provinceName: targetProv?.name || null,
                             districtCode: dist.code,
                             districtName: dist.name,
                             wardCode: null,
                             wardName: null,
+                            hamletCode: null,
+                            hamletName: null,
                           });
                           setOpenDist(false);
-                          // Tự động mở tiếp Phường/Xã sau khi chọn Quận/Huyện
                           if (
                             Array.isArray(dist.wards) &&
                             dist.wards.length > 0
@@ -539,7 +505,18 @@ export function ProvinceDistrictWardCombobox({
                               : "opacity-0",
                           )}
                         />
-                        <span className="truncate flex-1">{dist.name}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate">{dist.name}</div>
+                          {!isFourTierMode &&
+                            ownerProv &&
+                            selectedProvince &&
+                            ownerProv.code !== selectedProvince.code && (
+                              <div className="text-[10px] text-muted-foreground truncate">
+                                Thuộc {ownerProv.name} cũ •{" "}
+                                {dist.wards?.length || 0} P/X
+                              </div>
+                            )}
+                        </div>
                         <span className="text-[10px] font-mono text-muted-foreground ml-1.5 shrink-0">
                           #{dist.ghnDistrictId}
                         </span>
@@ -552,7 +529,7 @@ export function ProvinceDistrictWardCombobox({
           </LiquidPopoverContent>
         </LiquidPopover>
 
-        {/* 3. Chọn Phường / Xã */}
+        {/* Cấp 3: Chọn Phường / Xã / Thị trấn / Đặc khu */}
         <LiquidPopover
           open={openWard}
           onOpenChange={setOpenWard}
@@ -583,11 +560,45 @@ export function ProvinceDistrictWardCombobox({
               </span>
             </PatternButton>
           </LiquidPopoverTrigger>
-          <LiquidPopoverContent className="w-72 p-0" align="end">
+          <LiquidPopoverContent className="w-80 p-0" align="end">
             <Command>
-              <CommandInput placeholder={t("searchWardPlaceholder")} />
+              <CommandInput
+                value={wardSearchInput}
+                onValueChange={setWardSearchInput}
+                placeholder={t("searchWardPlaceholder")}
+              />
               <CommandList className="max-h-64 overflow-y-auto p-1">
-                <CommandEmpty>{t("noUnitFound")}</CommandEmpty>
+                <CommandEmpty>
+                  {wardSearchInput.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const customWardName = wardSearchInput.trim();
+                        onChange({
+                          provinceCode: selectedProvince?.code || null,
+                          provinceName: selectedProvince?.name || null,
+                          districtCode: selectedDistrict?.code || null,
+                          districtName: selectedDistrict?.name || null,
+                          wardCode: `CUSTOM-WARD:${customWardName}`,
+                          wardName: customWardName,
+                          hamletCode: null,
+                          hamletName: null,
+                        });
+                        setWardSearchInput("");
+                        setOpenWard(false);
+                        if (isFourTierMode) {
+                          setTimeout(() => setOpenHamlet(true), 60);
+                        }
+                      }}
+                      className="w-full px-2.5 py-2 text-xs text-primary font-semibold hover:bg-primary/10 rounded-xl cursor-pointer text-left"
+                    >
+                      + {t("useCustomWardLabel")}: &ldquo;
+                      {wardSearchInput.trim()}&rdquo;
+                    </button>
+                  ) : (
+                    t("noUnitFound")
+                  )}
+                </CommandEmpty>
                 <CommandGroup>
                   {wards.map((ward) => {
                     const aliasesStr = Array.isArray(ward.aliases)
@@ -608,8 +619,18 @@ export function ProvinceDistrictWardCombobox({
                             districtName: selectedDistrict?.name || null,
                             wardCode: ward.code,
                             wardName: ward.name,
+                            hamletCode: null,
+                            hamletName: null,
                           });
+                          setWardSearchInput("");
                           setOpenWard(false);
+                          if (
+                            isFourTierMode &&
+                            Array.isArray(ward.hamlets) &&
+                            ward.hamlets.length > 0
+                          ) {
+                            setTimeout(() => setOpenHamlet(true), 60);
+                          }
                         }}
                         className={cn(
                           "cursor-pointer rounded-xl px-2.5 py-2 text-xs transition-colors",
@@ -637,9 +658,144 @@ export function ProvinceDistrictWardCombobox({
             </Command>
           </LiquidPopoverContent>
         </LiquidPopover>
+
+        {/* Cấp 4 Hành Chính (Thôn / Ấp / Bản / Khu phố / Tổ dân phố / Khóm / Tiểu khu / KĐT) */}
+        {isFourTierMode && (
+          <LiquidPopover
+            open={openHamlet}
+            onOpenChange={setOpenHamlet}
+            matchWidth={false}
+            placement="bottom-start"
+          >
+            <LiquidPopoverTrigger asChild disabled={!selectedWard}>
+              <PatternButton
+                type="button"
+                variant={isOverGlass ? "glass" : "outline"}
+                color="neutral"
+                size="sm"
+                rounded="full"
+                fullWidth
+                contentAlign="between"
+                disabled={!selectedWard}
+                className={cn(
+                  "text-xs font-normal h-9 px-3",
+                  !selectedHamlet && "text-muted-foreground",
+                )}
+                icon={
+                  <ChevronsUpDown className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                }
+                iconPosition="right"
+              >
+                <span className="truncate">
+                  {selectedHamlet ? selectedHamlet.name : t("selectHamlet")}
+                </span>
+              </PatternButton>
+            </LiquidPopoverTrigger>
+            <LiquidPopoverContent className="w-80 p-0" align="end">
+              <Command>
+                <CommandInput
+                  value={hamletSearchInput}
+                  onValueChange={setHamletSearchInput}
+                  placeholder={t("searchHamletPlaceholder")}
+                />
+                <CommandList className="max-h-64 overflow-y-auto p-1">
+                  <CommandEmpty>
+                    {hamletSearchInput.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const customName = hamletSearchInput.trim();
+                          onChange({
+                            provinceCode:
+                              rawLegacyProvince?.code ||
+                              selectedProvince?.code ||
+                              null,
+                            provinceName:
+                              rawLegacyProvince?.name ||
+                              selectedProvince?.name ||
+                              null,
+                            districtCode: selectedDistrict?.code || null,
+                            districtName: selectedDistrict?.name || null,
+                            wardCode: selectedWard?.code || null,
+                            wardName: selectedWard?.name || null,
+                            hamletCode: `CUSTOM-${Date.now().toString().slice(-4)}`,
+                            hamletName: customName,
+                          });
+                          setHamletSearchInput("");
+                          setOpenHamlet(false);
+                        }}
+                        className="w-full px-2.5 py-2 text-xs text-primary font-semibold hover:bg-primary/10 rounded-xl cursor-pointer text-left"
+                      >
+                        + {t("useCustomHamletLabel")}: &ldquo;
+                        {hamletSearchInput.trim()}&rdquo;
+                      </button>
+                    ) : (
+                      t("noUnitFound")
+                    )}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {hamlets.map((hamlet) => {
+                      const aliasesStr = Array.isArray(hamlet.aliases)
+                        ? hamlet.aliases.join(" ")
+                        : "";
+                      const searchValue = `${hamlet.name} ${normalizeVietnameseSearchText(hamlet.name)} ${aliasesStr} ${hamlet.code}`;
+                      const isSelected =
+                        hamletCode === hamlet.code ||
+                        hamletName === hamlet.name;
+
+                      return (
+                        <CommandItem
+                          key={hamlet.code}
+                          value={searchValue}
+                          onSelect={() => {
+                            onChange({
+                              provinceCode:
+                                rawLegacyProvince?.code ||
+                                selectedProvince?.code ||
+                                null,
+                              provinceName:
+                                rawLegacyProvince?.name ||
+                                selectedProvince?.name ||
+                                null,
+                              districtCode: selectedDistrict?.code || null,
+                              districtName: selectedDistrict?.name || null,
+                              wardCode: selectedWard?.code || null,
+                              wardName: selectedWard?.name || null,
+                              hamletCode: hamlet.code,
+                              hamletName: hamlet.name,
+                            });
+                            setOpenHamlet(false);
+                          }}
+                          className={cn(
+                            "cursor-pointer rounded-xl px-2.5 py-2 text-xs transition-colors",
+                            isSelected &&
+                              "bg-primary/15 dark:bg-white/15 font-semibold text-foreground",
+                          )}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-3.5 w-3.5 shrink-0",
+                              isSelected
+                                ? "opacity-100 text-primary"
+                                : "opacity-0",
+                            )}
+                          />
+                          <span className="truncate flex-1">{hamlet.name}</span>
+                          <span className="text-[10px] font-mono text-muted-foreground ml-1.5 shrink-0">
+                            {hamlet.unitType}
+                          </span>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </LiquidPopoverContent>
+          </LiquidPopover>
+        )}
       </div>
 
-      {/* Hiển thị mã vùng ánh xạ sẵn 4 hãng vận chuyển (GHN, GHTK, ViettelPost, J&T) */}
+      {/* Hiển thị mã vùng ánh xạ sẵn 4 hãng vận chuyển (GHN, GHTK 4 cấp, ViettelPost, J&T) & Đối chiếu sáp nhập */}
       {selectedProvince && (
         <div className="flex items-center justify-between gap-1.5 flex-wrap text-[10px]">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -655,15 +811,29 @@ export function ProvinceDistrictWardCombobox({
               {selectedDistrict
                 ? ` • ${selectedDistrict.ghtkDistrictName}`
                 : ""}
+              {selectedHamlet ? ` • ${selectedHamlet.name}` : ""}
             </GlassBadge>
             <GlassBadge variant="secondary" size="sm">
               VTP: #{selectedProvince.vtpProvinceId} • J&T:{" "}
               {selectedProvince.jtCityCode}
             </GlassBadge>
+            {rawLegacyProvince &&
+              rawLegacyProvince.mergedIntoProvinceCode &&
+              rawLegacyProvince.mergedIntoProvinceCode !==
+                rawLegacyProvince.code && (
+                <GlassBadge variant="accent" size="sm">
+                  <Building2 className="w-2.5 h-2.5 mr-0.5 inline" />
+                  {isFourTierMode
+                    ? `ĐVHC mới: ${rawLegacyProvince.mergedIntoProvinceName}`
+                    : `Tỉnh cũ: ${rawLegacyProvince.name}`}
+                </GlassBadge>
+              )}
             {selectedWard && (
               <GlassBadge variant="success" size="sm">
                 <ShieldCheck className="w-2.5 h-2.5 mr-0.5 inline" />
-                {t("autoMatchedBadge")}
+                {selectedHamlet && isFourTierMode
+                  ? t("fourTierMatchedBadge")
+                  : t("autoMatchedBadge")}
               </GlassBadge>
             )}
           </div>
@@ -678,6 +848,8 @@ export function ProvinceDistrictWardCombobox({
                 districtName: null,
                 wardCode: null,
                 wardName: null,
+                hamletCode: null,
+                hamletName: null,
               });
             }}
             className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-destructive transition-colors cursor-pointer px-1.5 py-0.5 rounded-full hover:bg-destructive/10"

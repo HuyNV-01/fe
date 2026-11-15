@@ -141,17 +141,41 @@ export interface IExtractedPhoneTrustSummary {
   lastLookupAt: string;
 }
 
+export type VnHamletUnitType =
+  | "THON"
+  | "AP"
+  | "BAN"
+  | "LANG"
+  | "KHU_PHO"
+  | "TO_DAN_PHO"
+  | "KHOM"
+  | "TIEU_KHU"
+  | "XOM"
+  | "KHU_DO_THI"
+  | "DUONG_PHO";
+
+export interface IVnHamletUnit {
+  code: string;
+  name: string;
+  unitType: VnHamletUnitType;
+  aliases: string[];
+  ghtkHamletName: string;
+}
+
 export interface IVnWardUnit {
   code: string;
   name: string;
+  unitType?: "PHUONG" | "XA" | "THI_TRAN" | "DAC_KHU";
   aliases: string[];
   ghnWardCode: string;
   ghtkWardName: string;
+  hamlets?: IVnHamletUnit[];
 }
 
 export interface IVnDistrictUnit {
   code: string;
   name: string;
+  unitType?: "QUAN" | "HUYEN" | "THI_XA" | "THANH_PHO" | "DAC_KHU";
   aliases: string[];
   ghnDistrictId: number;
   ghtkDistrictName: string;
@@ -161,11 +185,17 @@ export interface IVnDistrictUnit {
 export interface IVnProvinceUnit {
   code: string;
   name: string;
+  region?: "BAC_BO" | "TRUNG_BO" | "TAY_NGUYEN" | "NAM_BO";
   aliases: string[];
   ghnProvinceId: number;
   ghtkProvinceName: string;
   vtpProvinceId: number;
   jtCityCode: string;
+  isCurrent34Province?: boolean;
+  mergedIntoProvinceCode?: string;
+  mergedIntoProvinceName?: string;
+  mergedFromProvinceCodes?: string[];
+  mergedFromProvinceNames?: string[];
   districts: IVnDistrictUnit[];
 }
 
@@ -186,8 +216,18 @@ export interface IExtractedCommerceEntities {
   districtName?: string | null;
   wardCode?: string | null;
   wardName?: string | null;
+  hamletCode?: string | null;
+  hamletName?: string | null;
+  hamletType?: VnHamletUnitType | null;
+  legacyProvinceCode?: string | null;
+  legacyProvinceName?: string | null;
+  mergedProvinceCode?: string | null;
+  mergedProvinceName?: string | null;
+  isMergedProvince?: boolean;
+  detectedAddressTier?: 3 | 4 | null;
   addressLine?: string | null;
   fullFormattedAddress?: string | null;
+  fullFourTierFormattedAddress?: string | null;
   hasAddressDetected?: boolean;
   carrierCodes?: {
     ghnProvinceId?: number;
@@ -196,6 +236,7 @@ export interface IExtractedCommerceEntities {
     ghtkProvince?: string;
     ghtkDistrict?: string;
     ghtkWard?: string;
+    ghtkHamlet?: string;
     vtpProvinceId?: number;
     jtCityCode?: string;
   } | null;
@@ -275,6 +316,8 @@ export interface ICustomerProfile {
   defaultDistrictName?: string | null;
   defaultWardCode?: string | null;
   defaultWardName?: string | null;
+  defaultHamletCode?: string | null;
+  defaultHamletName?: string | null;
   defaultAddressLine?: string | null;
   tier: CustomerTierType;
   rfmScoreR: number;

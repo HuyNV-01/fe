@@ -222,6 +222,8 @@ export function Customer360Panel({
   const [provinceCode, setProvinceCode] = useState<string | null>(null);
   const [districtCode, setDistrictCode] = useState<string | null>(null);
   const [wardCode, setWardCode] = useState<string | null>(null);
+  const [hamletCode, setHamletCode] = useState<string | null>(null);
+  const [hamletName, setHamletName] = useState<string | null>(null);
   const [addressLine, setAddressLine] = useState("");
   const [industryCategory, setIndustryCategory] =
     useState<ShopBusinessCategoryType>("GENERAL_MULTI_CATEGORY");
@@ -351,6 +353,8 @@ export function Customer360Panel({
       setProvinceCode(customer.defaultProvinceCode || null);
       setDistrictCode(customer.defaultDistrictCode || null);
       setWardCode(customer.defaultWardCode || null);
+      setHamletCode(customer.defaultHamletCode || null);
+      setHamletName(customer.defaultHamletName || null);
       setAddressLine(customer.defaultAddressLine || "");
       const resolvedIndustry =
         customer.industryCategory ||
@@ -512,6 +516,8 @@ export function Customer360Panel({
       defaultProvinceCode: provinceCode || undefined,
       defaultDistrictCode: districtCode || undefined,
       defaultWardCode: wardCode || undefined,
+      defaultHamletCode: hamletCode || undefined,
+      defaultHamletName: hamletName || undefined,
       defaultAddressLine: addressLine.trim() || undefined,
       industryCategory,
       heightCm:
@@ -1005,10 +1011,14 @@ export function Customer360Panel({
                   provinceCode={provinceCode}
                   districtCode={districtCode}
                   wardCode={wardCode}
+                  hamletCode={hamletCode}
+                  hamletName={hamletName}
                   onChange={(val) => {
                     setProvinceCode(val.provinceCode);
                     setDistrictCode(val.districtCode);
                     setWardCode(val.wardCode);
+                    setHamletCode(val.hamletCode ?? null);
+                    setHamletName(val.hamletName ?? null);
                   }}
                 />
                 <LiquidGlassInput className="p-0 overflow-hidden mt-2.5">

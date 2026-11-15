@@ -12,8 +12,13 @@ import type {
   ShopBusinessCategoryType,
 } from "@/types/crm";
 
-export const getAdministrativeUnitsApi = (shopId: string) =>
-  apiClient.get(`/crm/${shopId}/administrative-units`);
+export const getAdministrativeUnitsApi = (
+  shopId: string,
+  mode: "ALL_63" | "CURRENT_34" = "ALL_63",
+) =>
+  apiClient.get(`/crm/${shopId}/administrative-units`, {
+    params: { mode },
+  });
 
 export const getShopCrmConfigApi = (shopId: string) =>
   apiClient.get(`/crm/${shopId}/settings/crm-config`);
@@ -87,6 +92,8 @@ export const createCustomerProfileApi = (payload: {
   defaultProvinceCode?: string;
   defaultDistrictCode?: string;
   defaultWardCode?: string;
+  defaultHamletCode?: string;
+  defaultHamletName?: string;
   defaultAddressLine?: string;
   tier?: CustomerTierType;
   industryCategory?: ShopBusinessCategoryType;
@@ -110,6 +117,8 @@ export const updateCustomerProfileApi = (payload: {
   defaultProvinceCode?: string;
   defaultDistrictCode?: string;
   defaultWardCode?: string;
+  defaultHamletCode?: string;
+  defaultHamletName?: string;
   defaultAddressLine?: string;
   tier?: CustomerTierType;
   industryCategory?: ShopBusinessCategoryType;

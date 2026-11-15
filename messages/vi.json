@@ -505,7 +505,10 @@
           "timesUnit": "lần",
           "sentFromPagePrefix": "Gửi từ Trang",
           "receivedViaPagePrefix": "Nhận qua Trang",
-          "applyNerToOrderBtn": "Điền vào Hồ sơ / Đơn hàng"
+          "applyNerToOrderBtn": "Điền vào Hồ sơ / Đơn hàng",
+          "addressTier3Badge": "Chuẩn 3 Cấp",
+          "addressTier4Badge": "Chuẩn 4 Cấp Hành Chính",
+          "mergedProvincePrefix": "ĐVHC mới"
         },
         "input": {
           "placeholder": "Nhập tin nhắn của bạn...",
@@ -2142,7 +2145,7 @@
       "quotaRemainingLabel": "Còn {remaining}/{limit} lượt mở/giờ"
     },
     "addressSelector": {
-      "title": "Địa Chỉ Giao Hàng Chuẩn 3 Cấp (Tỉnh/Thành • Quận/Huyện • Phường/Xã)",
+      "title": "Địa Chỉ Hành Chính Chuẩn 3 Cấp Toàn Quốc & 4 Cấp Mở Rộng (63 / 34 Tỉnh Thành)",
       "autoMatchedBadge": "Tự động khớp từ tin nhắn",
       "selectProvince": "Chọn Tỉnh / Thành phố",
       "searchProvincePlaceholder": "Tìm Tỉnh / Thành phố...",
@@ -2158,7 +2161,15 @@
       "wardLabel": "Phường / Xã / Thị trấn",
       "wardPlaceholder": "Chọn Phường / Xã...",
       "streetAddressLabel": "Số nhà, tên đường, tòa nhà / thôn xóm",
-      "streetAddressPlaceholder": "VD: Số 18 Ngõ 120 Trường Chinh..."
+      "streetAddressPlaceholder": "VD: Số 18 Ngõ 120 Trường Chinh...",
+      "mode3TierBtn": "3 Cấp Chính",
+      "mode4TierBtn": "4 Cấp Hành Chính",
+      "catalog63ProvincesBtn": "63 Tỉnh/Thành (Đầy đủ)",
+      "catalog34ProvincesBtn": "34 Tỉnh/Thành (Sau sáp nhập)",
+      "selectHamlet": "Chọn Cấp 4 (Thôn/Ấp/Khu phố/TDP)",
+      "searchHamletPlaceholder": "Tìm hoặc nhập Thôn / Ấp / Khu phố / Tổ dân phố...",
+      "useCustomHamletLabel": "Dùng đơn vị cấp 4",
+      "fourTierMatchedBadge": "Đã khớp đủ 4 cấp hành chính"
     },
     "adAttribution": {
       "leadSyncedBadge": "Đã gửi CAPI LeadSubmitted",
@@ -2221,7 +2232,7 @@
       },
       "fullNameLabel": "Họ và tên khách hàng",
       "updateRawPhoneLabel": "Cập nhật SĐT mới (Mã hóa PII)",
-      "threeTierAddressLabel": "Địa chỉ giao hàng 3 cấp (Tỉnh/Thành • Quận/Huyện • Phường/Xã)",
+      "threeTierAddressLabel": "Địa chỉ giao hàng 3 cấp & 4 cấp hành chính (Tỉnh/Thành • Quận/Huyện • Phường/Xã • Thôn/Ấp/KP)",
       "streetAddressPlaceholder": "Số nhà, tên đường, tòa nhà / thôn xóm...",
       "heightCmLabel": "Cao (cm)",
       "weightKgLabel": "Nặng (kg)",

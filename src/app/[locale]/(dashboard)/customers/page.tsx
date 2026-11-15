@@ -92,7 +92,7 @@ export default function CustomersCrmPage() {
       "Tổng chi tiêu (VND)",
       "Điểm thưởng",
       "Số dư Ví",
-      "Địa chỉ 3 cấp",
+      "Địa chỉ 3 cấp / 4 cấp",
     ];
     const rows = customers.map((c) => [
       c.code,
@@ -106,6 +106,7 @@ export default function CustomersCrmPage() {
       c.walletCreditBalance || 0,
       `"${[
         c.defaultAddressLine,
+        c.defaultHamletName,
         c.defaultWardName,
         c.defaultDistrictName,
         c.defaultProvinceName,
@@ -312,11 +313,12 @@ export default function CustomersCrmPage() {
                     phoneMasked={cust.phoneMasked}
                   />
 
-                  {/* Địa chỉ hành chính 3 cấp */}
+                  {/* Địa chỉ hành chính 3 cấp & 4 cấp */}
                   <p className="text-xs text-muted-foreground line-clamp-2">
                     📍{" "}
                     {[
                       cust.defaultAddressLine,
+                      cust.defaultHamletName,
                       cust.defaultWardName,
                       cust.defaultDistrictName,
                       cust.defaultProvinceName,

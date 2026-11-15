@@ -49,6 +49,7 @@ import type {
   ShopBusinessCategoryType,
 } from "@/types/crm";
 import type { IConversation } from "@/types/chat";
+import { VN_FULL_ADMINISTRATIVE_UNITS_TREE } from "@/constant/vn-administrative-units";
 import { toast } from "sonner";
 import { tStore } from "@/i18n/translate-store";
 
@@ -153,6 +154,8 @@ interface CrmState {
     defaultProvinceCode?: string;
     defaultDistrictCode?: string;
     defaultWardCode?: string;
+    defaultHamletCode?: string;
+    defaultHamletName?: string;
     defaultAddressLine?: string;
     tier?: CustomerTierType;
     industryCategory?: ShopBusinessCategoryType;
@@ -293,7 +296,7 @@ interface CrmState {
 
 export const useCrmStore = createPersistedStore<CrmState>(
   (set, get) => ({
-    administrativeTree: [],
+    administrativeTree: VN_FULL_ADMINISTRATIVE_UNITS_TREE,
     shopCrmConfig: null,
     isLoadingShopCrmConfig: false,
     customers: [],
@@ -314,15 +317,27 @@ export const useCrmStore = createPersistedStore<CrmState>(
     isVerifyingChain: false,
 
     fetchAdministrativeTree: async (shopId) => {
-      if (!shopId || get().administrativeTree.length > 0) return;
+      const currentTree = get().administrativeTree || [];
+      const totalDistricts = currentTree.reduce(
+        (acc, p) => acc + (Array.isArray(p.districts) ? p.districts.length : 0),
+        0,
+      );
+      if (currentTree.length < 63 || totalDistricts < 700) {
+        set({ administrativeTree: VN_FULL_ADMINISTRATIVE_UNITS_TREE });
+      }
+      if (!shopId || (currentTree.length >= 63 && totalDistricts >= 700))
+        return;
       try {
-        const res: any = await getAdministrativeUnitsApi(shopId);
+        const res: any = await getAdministrativeUnitsApi(shopId, "ALL_63");
         const tree: IVnProvinceUnit[] = res?.data?.data ?? res?.data ?? [];
         if (Array.isArray(tree) && tree.length > 0) {
           set({ administrativeTree: tree });
         }
       } catch {
-        // Ignore
+        // Fallback to full 63-province embedded dictionary
+        if (get().administrativeTree.length < 63) {
+          set({ administrativeTree: VN_FULL_ADMINISTRATIVE_UNITS_TREE });
+        }
       }
     },
 
