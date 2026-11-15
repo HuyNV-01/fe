@@ -18,17 +18,25 @@ export default function ItemMenu({
   route,
   onClick,
   className,
-}: ItemProps) {
+  ...props
+}: React.ComponentProps<typeof DropdownMenuItem> & ItemProps) {
   const routes = useRouter();
 
   const handleClick = () => {
-    routes.push(`${route}`);
+    if (route) {
+      routes.push(`${route}`);
+    }
   };
 
   return (
     <DropdownMenuItem
       onClick={route ? handleClick : onClick}
-      className={cn("text-sm! cursor-pointer", className)}
+      className={cn(
+        "text-sm! cursor-pointer rounded-xl transition-colors duration-150",
+        "focus:bg-primary/10 dark:focus:bg-white/15 focus:text-foreground my-0.5",
+        className,
+      )}
+      {...props}
     >
       {icon && icon}
       {children}

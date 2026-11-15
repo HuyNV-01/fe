@@ -7,6 +7,10 @@ import type {
   MessageTypeEnum,
 } from "@/common/enum";
 import type { IUserRes } from "./common";
+import type {
+  IExtractedCommerceEntities,
+  IExtractedPhoneTrustSummary,
+} from "./crm";
 
 export type TagCategoryType =
   | "CONSULTATION_STATUS"
@@ -222,6 +226,7 @@ export interface IConversation {
   hasOrderCreated?: boolean;
   sourcePostId?: string | null;
   sourceAdId?: string | null;
+  sourceCampaignId?: string | null;
   ctwaClickId?: string | null;
   activeTagIdsJson?: string[] | null;
   snoozedUntilAt?: string | null;
@@ -230,6 +235,7 @@ export interface IConversation {
   pageShortCode?: string;
   pageName?: string;
   channelAvatarUrl?: string | null;
+  externalPageId?: string | null;
 }
 
 export interface IPollOption {
@@ -364,6 +370,14 @@ export interface IMessageMetadata {
   quickReplyShortcutUsed?: string;
   productCards?: IQuickReplyProductCard[];
   translation?: IMessageTranslation;
+  // Thông tin định danh Trang / Fanpage trên từng tin nhắn
+  channelType?: string;
+  channelIntegrationId?: string;
+  externalPageId?: string;
+  pageShortCode?: string;
+  pageName?: string;
+  channelAvatarUrl?: string | null;
+  hasMaskedPhonesInContent?: boolean;
   // Universal Comment Response & Anti-Competitor Shielding (F03.3 & F03.4)
   externalCustomerName?: string;
   externalCustomerAvatar?: string | null;
@@ -390,6 +404,15 @@ export interface IMessageMetadata {
   privateReplyByAgentId?: string;
   linkedInboxConversationId?: string;
   commentReplyMode?: CommentReplyModeType;
+  buyerDeliveredAt?: string | null;
+  buyerReadAt?: string | null;
+  platformSeenSyncedAt?: string | null;
+  viewerReadBy?: Array<{
+    id: string;
+    name: string;
+    avatar: string | null;
+    readAt: string;
+  }>;
 }
 
 export interface ISendMessagePayload {
@@ -437,8 +460,11 @@ export interface IMessageStatusUpdatePayload {
 export interface IMessageReadPayload {
   conversationId: string;
   userId: string;
-  user: IUserRes;
+  user?: IUserRes;
   lastReadAt: string;
+  status?: MessageStatus;
+  isBuyerReceipt?: boolean;
+  platformSeenSynced?: boolean;
 }
 
 export interface IMessageRecalledPayload {
@@ -487,14 +513,49 @@ export interface IMessage {
   direction?: "INBOUND" | "OUTBOUND" | "INTERNAL_NOTE" | "SYSTEM";
   isInternalNote?: boolean;
   messageTagIdsJson?: string[] | null;
-  extractedEntitiesJson?: {
-    phones?: string[];
-    provinceCode?: string | null;
-    districtCode?: string | null;
-    wardCode?: string | null;
-    addressLine?: string | null;
-    skuCodes?: string[];
-  } | null;
+  extractedEntitiesJson?:
+    | (IExtractedCommerceEntities & {
+        phones?: string[];
+        maskedPhones?: string[];
+        normalizedPhones?: Array<{
+          rawMatch: string;
+          localPhone?: string;
+          e164Phone?: string;
+          maskedPhone?: string;
+          carrierName: string;
+        }>;
+        phoneTrustSummary?: IExtractedPhoneTrustSummary | null;
+        provinceCode?: string | null;
+        provinceName?: string | null;
+        districtCode?: string | null;
+        districtName?: string | null;
+        wardCode?: string | null;
+        wardName?: string | null;
+        addressLine?: string | null;
+        fullFormattedAddress?: string | null;
+        hasAddressDetected?: boolean;
+        carrierCodes?: {
+          ghnProvinceId?: number;
+          ghnDistrictId?: number;
+          ghnWardCode?: string;
+          ghtkProvince?: string;
+          ghtkDistrict?: string;
+          ghtkWard?: string;
+          vtpProvinceId?: number;
+          jtCityCode?: string;
+        } | null;
+        skuCodes?: string[];
+        colors?: string[];
+        sizes?: string[];
+        heightCm?: number | null;
+        weightKg?: number | null;
+        quantities?: number[];
+        paymentIntent?: "BANK_TRANSFER" | "COD" | null;
+        deliveryTimeNote?: string | null;
+        processingTimeMs?: number;
+        maskedText?: string;
+      })
+    | null;
   aiDraftConfidence?: number | null;
   orderIdRef?: string | null;
 }
@@ -574,6 +635,10 @@ export interface IConversationDetails {
   shopId?: string | null;
   channelType?: string;
   channelIntegrationId?: string | null;
+  pageName?: string | null;
+  pageShortCode?: string | null;
+  channelAvatarUrl?: string | null;
+  externalPageId?: string | null;
   interactionType?: "INBOX" | "COMMENT" | "LIVESTREAM" | "MARKETPLACE";
   supportStatus?: string;
   assignedAgentId?: string | null;
@@ -583,8 +648,10 @@ export interface IConversationDetails {
   snoozedUntilAt?: string | null;
   snoozeNote?: string | null;
   activeTagIdsJson?: string[];
+  customerId?: string | null;
   sourceAdId?: string | null;
   sourcePostId?: string | null;
+  sourceCampaignId?: string | null;
   ctwaClickId?: string | null;
   accountabilityTimelineJson?: IAccountabilityMilestone[];
   mySettings: {

@@ -7,6 +7,7 @@ import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useTagStore } from "@/lib/stores/tags/use-tag-store";
+import { useCrmStore } from "@/lib/stores/crm/use-crm-store";
 import { SocketNamespaceEnum } from "@/common/enum";
 import { SOCKET_EVENTS } from "@/constant/socket-events";
 import { tStore } from "@/i18n/translate-store";
@@ -19,8 +20,15 @@ import { playNotificationSound } from "@/utils/sound";
 import type {
   IAccountabilityMilestone,
   ICollisionLockState,
+  IMessage,
   IMessageTranslation,
+  MessageStatus,
 } from "@/types/chat";
+import type {
+  AdsConversionEventNameType,
+  AdsConversionPlatformType,
+  ICustomerProfile,
+} from "@/types/crm";
 
 export const useOmnichannelSocket = () => {
   const currentUser = useAuthStore((s) => s.currentAccount);
@@ -61,6 +69,14 @@ export const useOmnichannelSocket = () => {
   const handleRealtimeCommentDeletedOnPlatform = useChatStore(
     (s) => s.handleRealtimeCommentDeletedOnPlatform,
   );
+  const handleBuyerSeenSynced = useChatStore((s) => s.handleBuyerSeenSynced);
+  const handleNerEntitiesDetected = useChatStore(
+    (s) => s.handleNerEntitiesDetected,
+  );
+  const handleReadMessage = useChatStore((s) => s.handleReadMessage);
+  const updateMessageStatusBatch = useChatStore(
+    (s) => s.updateMessageStatusBatch,
+  );
   const handleRealtimeConversationTagsUpdated = useTagStore(
     (s) => s.handleRealtimeConversationTagsUpdated,
   );
@@ -70,12 +86,21 @@ export const useOmnichannelSocket = () => {
   const fetchShopTags = useTagStore((s) => s.fetchShopTags);
   const fetchQuickReplies = useTagStore((s) => s.fetchQuickReplies);
 
+  const fetchAdministrativeTree = useCrmStore((s) => s.fetchAdministrativeTree);
+  const handleRealtimeCrmProfileUpdated = useCrmStore(
+    (s) => s.handleRealtimeCrmProfileUpdated,
+  );
+  const handleRealtimeCapiEventDispatched = useCrmStore(
+    (s) => s.handleRealtimeCapiEventDispatched,
+  );
+
   useEffect(() => {
     if (activeShopId) {
       fetchShopTags(activeShopId);
       fetchQuickReplies(activeShopId);
+      fetchAdministrativeTree(activeShopId);
     }
-  }, [activeShopId, fetchShopTags, fetchQuickReplies]);
+  }, [activeShopId, fetchShopTags, fetchQuickReplies, fetchAdministrativeTree]);
 
   useEffect(() => {
     if (!isAuthenticated || !currentUser?.user?.id) return;
@@ -329,11 +354,51 @@ export const useOmnichannelSocket = () => {
       messageId?: string;
       platformDeliveryStatus?: "DISPATCHED" | "SIMULATED_SANDBOX" | "FAILED";
       platformExternalId?: string | null;
+      customerReceiptStatus?: MessageStatus;
+      deliveredMessageIds?: string[];
+      buyerReaderUser?: {
+        id: string;
+        name: string;
+        avatar: string | null;
+      };
+      timestamp?: string;
     }>(
       SocketNamespaceEnum.CHAT,
       SOCKET_EVENTS.OMNICHANNEL_INBOX.OUTBOUND_DELIVERY_STATUS,
       (payload) => {
-        if (!payload?.conversationId || !payload?.messageId) return;
+        if (!payload?.conversationId) return;
+
+        if (payload.customerReceiptStatus === "read") {
+          handleReadMessage({
+            conversationId: payload.conversationId,
+            userId:
+              payload.buyerReaderUser?.id ||
+              `customer:${payload.conversationId}`,
+            user: payload.buyerReaderUser
+              ? {
+                  id: payload.buyerReaderUser.id,
+                  name: payload.buyerReaderUser.name,
+                  email: "",
+                  avatar: payload.buyerReaderUser.avatar || undefined,
+                }
+              : undefined,
+            lastReadAt: payload.timestamp || new Date().toISOString(),
+            status: "read",
+            isBuyerReceipt: true,
+          });
+        } else if (
+          payload.customerReceiptStatus === "delivered" &&
+          payload.deliveredMessageIds &&
+          payload.deliveredMessageIds.length > 0
+        ) {
+          updateMessageStatusBatch({
+            conversationId: payload.conversationId,
+            messageIds: payload.deliveredMessageIds,
+            status: "delivered",
+          });
+        }
+
+        if (!payload.messageId) return;
         useChatStore.setState((state) => {
           const msgs = state.messages[payload.conversationId];
           if (!msgs) return;
@@ -349,6 +414,99 @@ export const useOmnichannelSocket = () => {
             };
           }
         });
+      },
+    );
+
+    const cleanBuyerSeenSynced = socketService.on<{
+      conversationId: string;
+      senderAction: "mark_seen" | "typing_on" | "typing_off";
+      platformDeliveryStatus?: "DISPATCHED" | "SIMULATED_SANDBOX" | "FAILED";
+      viewerUser?: { id: string; name: string; avatar: string | null } | null;
+      syncedAt: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.BUYER_SEEN_SYNCED,
+      (payload) => {
+        if (!payload?.conversationId) return;
+        handleBuyerSeenSynced(payload);
+      },
+    );
+
+    const cleanNerEntitiesDetected = socketService.on<{
+      shopId: string;
+      conversationId: string;
+      messageId: string;
+      extractedEntities: IMessage["extractedEntitiesJson"];
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.NER_ENTITIES_DETECTED,
+      (payload) => {
+        if (!payload?.conversationId || !payload?.messageId) return;
+        handleNerEntitiesDetected(payload);
+      },
+    );
+
+    const cleanCrmProfileUpdated = socketService.on<{
+      conversationId: string;
+      customer: ICustomerProfile;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.CRM_PROFILE_UPDATED,
+      (payload) => {
+        if (!payload?.customer?.id) return;
+        handleRealtimeCrmProfileUpdated(payload);
+      },
+    );
+
+    const cleanCapiEventDispatched = socketService.on<{
+      conversationId: string;
+      logId: string;
+      platform: AdsConversionPlatformType;
+      eventName: AdsConversionEventNameType;
+      eventId: string;
+      ctwaClickId?: string | null;
+      sourceAdId?: string | null;
+      valueAmount: number;
+      currency: string;
+      syncStatus:
+        | "DISPATCHED_LIVE"
+        | "SIMULATED_SANDBOX"
+        | "QUEUED_RETRY"
+        | "FAILED";
+      syncedAt?: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.CAPI_EVENT_DISPATCHED,
+      (payload) => {
+        if (!payload?.logId) return;
+        handleRealtimeCapiEventDispatched(payload);
+      },
+    );
+
+    const cleanSecurityAuditAlert = socketService.on<{
+      shopId: string;
+      actorUserId: string;
+      actorName: string;
+      usedCount: number;
+      hourlyLimit: number;
+      customerId: string;
+      timestamp: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.OMNICHANNEL_INBOX.SECURITY_AUDIT_ALERT,
+      (payload) => {
+        if (!payload) return;
+        playNotificationSound();
+        showWarningToast(
+          tStore("Crm360.toasts.securityUnmaskAlertDesc", {
+            actorName: payload.actorName,
+            usedCount: payload.usedCount,
+            hourlyLimit: payload.hourlyLimit,
+          }),
+          {
+            title: tStore("Crm360.toasts.securityUnmaskAlertTitle"),
+          },
+        );
       },
     );
 
@@ -482,6 +640,11 @@ export const useOmnichannelSocket = () => {
       cleanCommentPrivateReplySent();
       cleanCommentDeletedOnPlatform();
       cleanOutboundDeliveryStatus();
+      cleanBuyerSeenSynced();
+      cleanNerEntitiesDetected();
+      cleanCrmProfileUpdated();
+      cleanCapiEventDispatched();
+      cleanSecurityAuditAlert();
       cleanChannelIntegrationUpdated();
       cleanChannelIntegrationRemoved();
       cleanTokenHealthChecked();
@@ -506,7 +669,13 @@ export const useOmnichannelSocket = () => {
     handleRealtimeCommentLikeUpdated,
     handleRealtimeCommentPrivateReplySent,
     handleRealtimeCommentDeletedOnPlatform,
+    handleBuyerSeenSynced,
+    handleNerEntitiesDetected,
+    handleReadMessage,
+    updateMessageStatusBatch,
     handleRealtimeConversationTagsUpdated,
     handleRealtimeMessageTagged,
+    handleRealtimeCrmProfileUpdated,
+    handleRealtimeCapiEventDispatched,
   ]);
 };

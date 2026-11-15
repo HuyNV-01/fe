@@ -15,11 +15,19 @@ export default function ItemSelect({
   children,
   value,
   className,
+  ...props
 }: React.ComponentProps<typeof SelectPrimitive.Item> & ItemProps) {
   return (
     <SelectItem
       value={value}
-      className={cn("text-sm! cursor-pointer", className)}
+      className={cn(
+        "text-sm! cursor-pointer rounded-xl transition-colors duration-150",
+        "focus:bg-primary/10 dark:focus:bg-white/15 focus:text-foreground",
+        "data-[state=checked]:bg-primary/15 dark:data-[state=checked]:bg-white/20 data-[state=checked]:font-semibold",
+        "my-0.5",
+        className,
+      )}
+      {...props}
     >
       <div className="flex items-center gap-2">
         {icon && icon}

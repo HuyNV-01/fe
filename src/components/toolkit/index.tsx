@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useRef, forwardRef, type ReactNode } from "react";
+import React, {
+  useState,
+  useRef,
+  useMemo,
+  forwardRef,
+  type ReactNode,
+} from "react";
 import {
   CheckCircle2,
   AlertCircle,
@@ -19,13 +25,23 @@ import {
   LiquidGlassInput,
   LiquidGlassFeature,
   LiquidGlassAlert,
+  LiquidGlassAnchor,
+  LiquidGlassPortal,
+  LiquidGlassConfigProvider,
+  useLiquidGlassConfig,
+  useGlassNestingLevel,
   type LiquidGlassProps,
+  type LiquidGlassAnchorProps,
+  type LiquidGlassThemeConfig,
   type GlassVariant,
 } from "@/components/liquid-glass";
 import {
   LiquidPopover,
   LiquidPopoverTrigger,
   LiquidPopoverContent,
+  type LiquidPopoverProps,
+  type LiquidPopoverTriggerProps,
+  type LiquidPopoverContentProps,
 } from "@/components/liquid-glass/liquid-popover";
 import {
   Dialog,
@@ -70,13 +86,21 @@ import {
 import {
   Truncate,
   TruncatedText,
-  TruncatedTextProps,
+  type TruncatedTextProps,
 } from "@/components/common/truncated-text";
-import DropdownMenuContentCus from "@/components/dropdown-menu/dropdown-menu-content-cus";
-import DropdownMenuSubContentCus from "@/components/dropdown-menu/dropdown-menu-sub-content-cus";
+import DropdownMenuContentCus, {
+  type DropdownMenuContentCusProps,
+} from "@/components/dropdown-menu/dropdown-menu-content-cus";
+import DropdownMenuSubContentCus, {
+  type DropdownMenuSubContentCusProps,
+} from "@/components/dropdown-menu/dropdown-menu-sub-content-cus";
 import ItemMenu from "@/components/dropdown-menu/item-menu";
-import ContentSelect from "@/components/select/select-content";
-import TriggerSelect from "@/components/select/select-trigger";
+import ContentSelect, {
+  type ContentSelectProps,
+} from "@/components/select/select-content";
+import TriggerSelect, {
+  type TriggerSelectProps,
+} from "@/components/select/select-trigger";
 import ItemSelect from "@/components/select/select-item";
 import { getInitials } from "@/utils/helper";
 import { useTranslations } from "next-intl";
@@ -95,6 +119,11 @@ export {
   LiquidGlassInput,
   LiquidGlassFeature,
   LiquidGlassAlert,
+  LiquidGlassAnchor,
+  LiquidGlassPortal,
+  LiquidGlassConfigProvider,
+  useLiquidGlassConfig,
+  useGlassNestingLevel,
   LiquidPopover,
   LiquidPopoverTrigger,
   LiquidPopoverContent,
@@ -126,7 +155,16 @@ export {
 
 export type {
   LiquidGlassProps,
+  LiquidGlassAnchorProps,
+  LiquidGlassThemeConfig,
   GlassVariant,
+  LiquidPopoverProps,
+  LiquidPopoverTriggerProps,
+  LiquidPopoverContentProps,
+  DropdownMenuContentCusProps,
+  DropdownMenuSubContentCusProps,
+  ContentSelectProps,
+  TriggerSelectProps,
   SearchResultItem,
   SearchGroup,
   LiquidSearchLabels,
@@ -176,47 +214,63 @@ export const GlassModal = ({
   showCloseButton = true,
   className,
 }: GlassModalProps) => {
+  const themeConfig = useLiquidGlassConfig();
+  const nestingLevel = useGlassNestingLevel();
+
+  // Vì DialogContent được portal ra document.body tạo một ngữ cảnh cửa sổ mới,
+  // nâng maxBackdropNestingDepth tương ứng để các thẻ LiquidGlassCard / LiquidGlassInput / Select bên trong Modal không bị mất blur
+  const modalGlassConfig = useMemo(
+    () => ({
+      ...themeConfig,
+      maxBackdropNestingDepth:
+        nestingLevel + themeConfig.maxBackdropNestingDepth + 2,
+    }),
+    [themeConfig, nestingLevel],
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={showCloseButton}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "p-0 bg-transparent border-none shadow-none max-w-[calc(100vw-1.5rem)]",
+          "p-0 bg-transparent border-none shadow-none max-w-[calc(100vw-1.5rem)] overflow-visible",
           MODAL_SIZE_MAP[size],
           className,
         )}
       >
-        <LiquidGlassModal
-          className="p-5 sm:p-6 max-h-[90dvh] overflow-hidden"
-          contentClassName="flex flex-col max-h-[calc(90dvh-2.5rem)] min-h-0 overflow-hidden"
-        >
-          {(title || description) && (
-            <DialogHeader className="mb-3.5 shrink-0 pr-6">
-              {title && (
-                <DialogTitle className="text-base sm:text-lg font-bold">
-                  {title}
-                </DialogTitle>
-              )}
-              {description && (
-                <DialogDescription className="text-xs sm:text-sm">
-                  {description}
-                </DialogDescription>
-              )}
-            </DialogHeader>
-          )}
-          {children && (
-            <ScrollArea className="flex-1 min-h-0 pr-1">
-              {children}
-              <ScrollBar orientation="vertical" />
-            </ScrollArea>
-          )}
-          {footer && (
-            <DialogFooter className="mt-4 gap-2 shrink-0 w-full">
-              {footer}
-            </DialogFooter>
-          )}
-        </LiquidGlassModal>
+        <LiquidGlassConfigProvider config={modalGlassConfig}>
+          <LiquidGlassModal
+            className="p-5 sm:p-6 max-h-[90dvh] overflow-hidden"
+            contentClassName="flex flex-col max-h-[calc(90dvh-2.5rem)] min-h-0 overflow-hidden"
+          >
+            {(title || description) && (
+              <DialogHeader className="mb-3.5 shrink-0 pr-6">
+                {title && (
+                  <DialogTitle className="text-base sm:text-lg font-bold">
+                    {title}
+                  </DialogTitle>
+                )}
+                {description && (
+                  <DialogDescription className="text-xs sm:text-sm">
+                    {description}
+                  </DialogDescription>
+                )}
+              </DialogHeader>
+            )}
+            {children && (
+              <ScrollArea className="flex-1 min-h-0 pr-1">
+                {children}
+                <ScrollBar orientation="vertical" />
+              </ScrollArea>
+            )}
+            {footer && (
+              <DialogFooter className="mt-4 gap-2 shrink-0 w-full">
+                {footer}
+              </DialogFooter>
+            )}
+          </LiquidGlassModal>
+        </LiquidGlassConfigProvider>
       </DialogContent>
     </Dialog>
   );
@@ -353,44 +407,60 @@ export const GlassSheet = ({
   footer,
   className,
 }: GlassSheetProps) => {
+  const themeConfig = useLiquidGlassConfig();
+  const nestingLevel = useGlassNestingLevel();
+
+  // SheetContent được portal ra document.body làm một ngăn kéo độc lập;
+  // nâng maxBackdropNestingDepth để các thẻ LiquidGlassCard / Select / Input bên trong (như Customer360Panel) giữ trọn hiệu ứng kính
+  const sheetGlassConfig = useMemo(
+    () => ({
+      ...themeConfig,
+      maxBackdropNestingDepth:
+        nestingLevel + themeConfig.maxBackdropNestingDepth + 2,
+    }),
+    [themeConfig, nestingLevel],
+  );
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={side}
         className={cn(
-          "w-full sm:max-w-md h-dvh max-h-dvh p-2! bg-transparent! border-none shadow-none flex flex-col overflow-hidden",
+          "w-full sm:max-w-md h-dvh max-h-dvh p-2! bg-transparent! border-none shadow-none flex flex-col overflow-visible",
           className,
         )}
       >
-        <LiquidGlassModal
-          className="h-full w-full p-4 sm:p-5 overflow-hidden"
-          contentClassName="flex flex-col h-full min-h-0 overflow-hidden"
-        >
-          {(title || description || headerExtra) && (
-            <SheetHeader className="p-0 pb-3 border-b border-border/40 shrink-0">
-              {title && (
-                <SheetTitle className="text-base font-bold truncate">
-                  {title}
-                </SheetTitle>
-              )}
-              {description && (
-                <SheetDescription className="text-xs break-words">
-                  {description}
-                </SheetDescription>
-              )}
-              {headerExtra}
-            </SheetHeader>
-          )}
-          <ScrollArea className="flex-1 min-h-0 py-3 pr-2">
-            {children}
-            <ScrollBar orientation="vertical" />
-          </ScrollArea>
-          {footer && (
-            <SheetFooter className="p-0 pt-3 border-t border-border/40 shrink-0">
-              {footer}
-            </SheetFooter>
-          )}
-        </LiquidGlassModal>
+        <LiquidGlassConfigProvider config={sheetGlassConfig}>
+          <LiquidGlassModal
+            className="h-full w-full p-4 sm:p-5 overflow-hidden"
+            contentClassName="flex flex-col h-full min-h-0 overflow-hidden"
+          >
+            {(title || description || headerExtra) && (
+              <SheetHeader className="p-0 pb-3 border-b border-border/40 shrink-0">
+                {title && (
+                  <SheetTitle className="text-base font-bold truncate">
+                    {title}
+                  </SheetTitle>
+                )}
+                {description && (
+                  <SheetDescription className="text-xs break-words">
+                    {description}
+                  </SheetDescription>
+                )}
+                {headerExtra}
+              </SheetHeader>
+            )}
+            <ScrollArea className="flex-1 min-h-0 py-3 pr-2">
+              {children}
+              <ScrollBar orientation="vertical" />
+            </ScrollArea>
+            {footer && (
+              <SheetFooter className="p-0 pt-3 border-t border-border/40 shrink-0">
+                {footer}
+              </SheetFooter>
+            )}
+          </LiquidGlassModal>
+        </LiquidGlassConfigProvider>
       </SheetContent>
     </Sheet>
   );
