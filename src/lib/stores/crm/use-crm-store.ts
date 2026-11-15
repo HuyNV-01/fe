@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: <explanation> */
 import { createPersistedStore } from "../create-persisted-store";
 import {
   getAdministrativeUnitsApi,
@@ -322,10 +323,35 @@ export const useCrmStore = createPersistedStore<CrmState>(
         (acc, p) => acc + (Array.isArray(p.districts) ? p.districts.length : 0),
         0,
       );
-      if (currentTree.length < 63 || totalDistricts < 700) {
+      const totalWards = currentTree.reduce(
+        (acc, p) =>
+          acc +
+          (p.districts || []).reduce(
+            (dAcc, d) => dAcc + (Array.isArray(d.wards) ? d.wards.length : 0),
+            0,
+          ),
+        0,
+      );
+      const hasEmptyDistrict = currentTree.some((p) =>
+        (p.districts || []).some(
+          (d) => !Array.isArray(d.wards) || d.wards.length === 0,
+        ),
+      );
+      if (
+        currentTree.length < 63 ||
+        totalDistricts < 704 ||
+        totalWards < 9000 ||
+        hasEmptyDistrict
+      ) {
         set({ administrativeTree: VN_FULL_ADMINISTRATIVE_UNITS_TREE });
       }
-      if (!shopId || (currentTree.length >= 63 && totalDistricts >= 700))
+      if (
+        !shopId ||
+        (currentTree.length >= 63 &&
+          totalDistricts >= 704 &&
+          totalWards >= 9000 &&
+          !hasEmptyDistrict)
+      )
         return;
       try {
         const res: any = await getAdministrativeUnitsApi(shopId, "ALL_63");

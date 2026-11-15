@@ -169,6 +169,23 @@ export interface IVnWardUnit {
   aliases: string[];
   ghnWardCode: string;
   ghtkWardName: string;
+  vtpWardId?: number;
+  isNewPostMergerWard?: boolean;
+  mergedFromWardNames?: string[];
+  mergedIntoNewWardCode?: string;
+  mergedIntoNewWardName?: string;
+  legacyProvinceCode?: string;
+  legacyProvinceName?: string;
+  legacyDistrictCode?: string;
+  legacyDistrictName?: string;
+  mergedProvinceCode?: string;
+  mergedProvinceName?: string;
+  ghnProvinceId?: number;
+  ghnDistrictId?: number;
+  ghtkProvinceName?: string;
+  ghtkDistrictName?: string;
+  vtpProvinceId?: number;
+  jtCityCode?: string;
   hamlets?: IVnHamletUnit[];
 }
 
@@ -179,6 +196,10 @@ export interface IVnDistrictUnit {
   aliases: string[];
   ghnDistrictId: number;
   ghtkDistrictName: string;
+  legacyProvinceCode?: string;
+  legacyProvinceName?: string;
+  mergedProvinceCode?: string;
+  mergedProvinceName?: string;
   wards: IVnWardUnit[];
 }
 
@@ -196,6 +217,11 @@ export interface IVnProvinceUnit {
   mergedIntoProvinceName?: string;
   mergedFromProvinceCodes?: string[];
   mergedFromProvinceNames?: string[];
+  resolutionNumber?: string;
+  ubtvqhResolutionNumber?: string;
+  adminCenterName?: string;
+  totalPostMergerCommunesCount?: number;
+  directWards?: IVnWardUnit[];
   districts: IVnDistrictUnit[];
 }
 
@@ -227,6 +253,7 @@ export interface IExtractedCommerceEntities {
   detectedAddressTier?: 3 | 4 | null;
   addressLine?: string | null;
   fullFormattedAddress?: string | null;
+  fullThreeTierPostMergerAddress?: string | null;
   fullFourTierFormattedAddress?: string | null;
   hasAddressDetected?: boolean;
   carrierCodes?: {

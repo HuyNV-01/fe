@@ -1111,6 +1111,14 @@ export default function ChatConversationPage({
                                 ner.wardCode ||
                                 activeCustomerProfile?.defaultWardCode ||
                                 undefined,
+                              defaultHamletCode:
+                                ner.hamletCode ||
+                                activeCustomerProfile?.defaultHamletCode ||
+                                undefined,
+                              defaultHamletName:
+                                ner.hamletName ||
+                                activeCustomerProfile?.defaultHamletName ||
+                                undefined,
                               defaultAddressLine:
                                 ner.addressLine ||
                                 ner.fullFormattedAddress ||
