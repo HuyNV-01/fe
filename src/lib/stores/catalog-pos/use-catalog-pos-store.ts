@@ -36,6 +36,7 @@ import type {
   InventoryMovementType,
   PosOrderPaymentMethodType,
   PosOrderStatusType,
+  ProductIndustryType,
   ProductSerialStatusType,
 } from "@/types/catalog-pos";
 import type { ICarrierShippingQuoteItem } from "@/types/crm";
@@ -78,13 +79,20 @@ interface CatalogPosState {
     search?: string;
     warehouseId?: string;
     bundleOnly?: boolean;
+    industryType?: ProductIndustryType;
   }) => Promise<void>;
   createProductWithMatrix: (payload: {
     shopId: string;
     code: string;
     name: string;
+    industryType?: ProductIndustryType;
     categoryName?: string;
     brandName?: string;
+    unitName?: string;
+    attributeAxis1Name?: string;
+    attributeAxis1Values?: string[];
+    attributeAxis2Name?: string;
+    attributeAxis2Values?: string[];
     colors?: string[];
     sizes?: string[];
     retailPrice?: number;
@@ -92,14 +100,25 @@ interface CatalogPosState {
     costPrice?: number;
     maxDiscountPercent?: number;
     weightGrams?: number;
+    lengthCm?: number;
+    widthCm?: number;
+    heightCm?: number;
     requiresSerialImei?: boolean;
     warrantyMonths?: number;
+    requiresBatchExpiry?: boolean;
+    batchCode?: string;
+    manufacturingDate?: string;
+    expiryDate?: string;
+    shelfLifeMonths?: number;
+    storageCondition?: string;
+    technicalSpecsJson?: Record<string, string>;
     initialOnHandQtyPerVariant?: number;
   }) => Promise<boolean>;
   createBundleBom: (payload: {
     shopId: string;
     skuCode: string;
     variantName: string;
+    industryType?: ProductIndustryType;
     retailPrice: number;
     maxDiscountPercent?: number;
     components: IBundleBomComponent[];
@@ -107,8 +126,12 @@ interface CatalogPosState {
   askSizeAdvisor: (payload: {
     shopId: string;
     productId?: string;
-    heightCm: number;
-    weightKg: number;
+    industryType?: ProductIndustryType;
+    heightCm?: number;
+    weightKg?: number;
+    babyAgeMonths?: number;
+    skinType?: string;
+    usageNeed?: string;
   }) => Promise<string | null>;
   adjustStocktake: (payload: {
     shopId: string;
@@ -301,7 +324,7 @@ export const useCatalogPosStore = createPersistedStore<CatalogPosState>(
         await createProductWithMatrixApi(payload);
         await get().fetchCatalogAndStock({ shopId: payload.shopId });
         toast.success(
-          "Đã tạo sản phẩm và sinh ma trận biến thể SKU thành công!",
+          "Đã tạo sản phẩm đa ngành và sinh ma trận biến thể SKU thành công!",
         );
         return true;
       } catch (err: any) {
@@ -562,7 +585,12 @@ export const useCatalogPosStore = createPersistedStore<CatalogPosState>(
       const totalWeightGrams = Math.max(
         250,
         cartItems.reduce(
-          (sum, it) => sum + (it.variant.weightGrams || 300) * it.quantity,
+          (sum, it) =>
+            sum +
+            (it.variant.chargeableWeightGrams ||
+              it.variant.weightGrams ||
+              300) *
+              it.quantity,
           0,
         ),
       );

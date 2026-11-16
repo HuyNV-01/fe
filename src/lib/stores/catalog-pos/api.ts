@@ -4,6 +4,7 @@ import type {
   InventoryMovementType,
   PosOrderPaymentMethodType,
   PosOrderStatusType,
+  ProductIndustryType,
   ProductSerialStatusType,
 } from "@/types/catalog-pos";
 
@@ -32,6 +33,7 @@ export const listCatalogVariantsApi = (params: {
   search?: string;
   warehouseId?: string;
   bundleOnly?: boolean;
+  industryType?: ProductIndustryType;
 }) => {
   const { shopId, ...query } = params;
   return apiClient.get(`/catalog-pos/${shopId}/variants`, { params: query });
@@ -41,9 +43,14 @@ export const createProductWithMatrixApi = (payload: {
   shopId: string;
   code: string;
   name: string;
+  industryType?: ProductIndustryType;
   categoryName?: string;
   brandName?: string;
   unitName?: string;
+  attributeAxis1Name?: string;
+  attributeAxis1Values?: string[];
+  attributeAxis2Name?: string;
+  attributeAxis2Values?: string[];
   colors?: string[];
   sizes?: string[];
   retailPrice?: number;
@@ -51,8 +58,18 @@ export const createProductWithMatrixApi = (payload: {
   costPrice?: number;
   maxDiscountPercent?: number;
   weightGrams?: number;
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
   requiresSerialImei?: boolean;
   warrantyMonths?: number;
+  requiresBatchExpiry?: boolean;
+  batchCode?: string;
+  manufacturingDate?: string;
+  expiryDate?: string;
+  shelfLifeMonths?: number;
+  storageCondition?: string;
+  technicalSpecsJson?: Record<string, string>;
   initialOnHandQtyPerVariant?: number;
 }) => {
   const { shopId, ...body } = payload;
@@ -63,6 +80,7 @@ export const createBundleBomVariantApi = (payload: {
   shopId: string;
   skuCode: string;
   variantName: string;
+  industryType?: ProductIndustryType;
   retailPrice: number;
   maxDiscountPercent?: number;
   components: IBundleBomComponent[];
@@ -74,8 +92,12 @@ export const createBundleBomVariantApi = (payload: {
 export const recommendApparelSizeApi = (payload: {
   shopId: string;
   productId?: string;
-  heightCm: number;
-  weightKg: number;
+  industryType?: ProductIndustryType;
+  heightCm?: number;
+  weightKg?: number;
+  babyAgeMonths?: number;
+  skinType?: string;
+  usageNeed?: string;
 }) => {
   const { shopId, ...body } = payload;
   return apiClient.post(`/catalog-pos/${shopId}/size-advisor`, body);

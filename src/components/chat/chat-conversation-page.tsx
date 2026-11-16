@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   AlertTriangle,
+  ShoppingBag,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
@@ -35,6 +36,7 @@ import { ConversationSnoozeAndTimelineSheet } from "@/components/chat/conversati
 import { MaskedVoipCallModal } from "@/components/chat/masked-voip-call-modal";
 import { AdAttributionHeaderCard } from "@/components/crm/ad-attribution-header-card";
 import { Customer360Panel } from "@/components/crm/customer-360-panel";
+import { InChatPosDrawer } from "@/components/pos/in-chat-pos-drawer";
 import {
   LiquidGlassInput,
   GlassAvatar,
@@ -161,6 +163,7 @@ export default function ChatConversationPage({
 
   const [isInfoDrawerOpen, setIsInfoDrawerOpen] = useState(false);
   const [isCrm360DrawerOpen, setIsCrm360DrawerOpen] = useState(false);
+  const [isInChatPosDrawerOpen, setIsInChatPosDrawerOpen] = useState(false);
   const [isSearchBarOpen, setIsSearchBarOpen] = useState(false);
   const [inChatSearchQuery, setInChatSearchQuery] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
@@ -275,6 +278,18 @@ export default function ChatConversationPage({
     fetchCustomer360ByConversation,
   ]);
 
+  // F06.1: Phím tắt Alt+O mở nhanh ngăn kéo Lên Đơn Hàng Trong Chat (In-Chat POS)
+  useEffect(() => {
+    const handleAltOShortcut = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === "o" || e.key === "O")) {
+        e.preventDefault();
+        setIsInChatPosDrawerOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleAltOShortcut);
+    return () => window.removeEventListener("keydown", handleAltOShortcut);
+  }, []);
+
   // F03.7 & T03: Heartbeat khóa chống đụng độ nhân viên (Collision Lock 25s)
   useEffect(() => {
     if (!conversationId || !effectiveShopId) return;
@@ -362,6 +377,17 @@ export default function ChatConversationPage({
     () => (conversationId ? messages[conversationId] || [] : []),
     [messages, conversationId],
   );
+
+  // Bóc tách thông tin NER mới nhất từ tin nhắn trong cuộc trò chuyện để truyền vào InChatPosDrawer (F04.1 -> F06.1)
+  const latestExtractedNer = useMemo(() => {
+    for (let i = rawMessages.length - 1; i >= 0; i--) {
+      const msg = rawMessages[i];
+      if (msg.extractedEntitiesJson) {
+        return msg.extractedEntitiesJson;
+      }
+    }
+    return null;
+  }, [rawMessages]);
 
   const pinnedMessages = useMemo(() => {
     const fromMessages = rawMessages.filter(
@@ -492,7 +518,6 @@ export default function ChatConversationPage({
     return () => clearInterval(timer);
   }, [rawMessages, currentConversation?.disappearingTtl, purgeExpiredMessages]);
 
-  // Ánh xạ vị trí đọc tin nhắn mới nhất của từng người đọc trên cả 2 chiều (OUTBOUND & INBOUND)
   const readReceiptsMap = useMemo(() => {
     const map: Record<
       string,
@@ -758,7 +783,7 @@ export default function ChatConversationPage({
           onDeleteConversation={() => setIsDeleteConvConfirmOpen(true)}
         />
 
-        {/* Thanh định danh Trang kết nối (Avatar Page + Tên Page) & Chỉ số Uy tín Nhận/Hoàn/Bị báo cáo + Phím tắt Tag */}
+        {/* Thanh định danh Trang kết nối + Phím tắt Tag + Nút mở CRM 360 & In-Chat POS (Alt+O) */}
         <div className="flex items-center justify-between gap-2 px-2 sm:px-3 border-t border-border/30 bg-background/60 flex-wrap">
           <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap py-1">
             <div className="flex-1 min-w-0">
@@ -782,7 +807,19 @@ export default function ChatConversationPage({
           </div>
 
           {effectiveShopId && !isGroupChat && (
-            <div className="py-1 shrink-0">
+            <div className="py-1 shrink-0 flex items-center gap-1.5">
+              <PatternButton
+                type="button"
+                size="sm"
+                rounded="full"
+                variant="solid"
+                color="primary"
+                className="h-7 px-2.5 text-xs"
+                onClick={() => setIsInChatPosDrawerOpen(true)}
+                icon={<ShoppingBag className="w-3.5 h-3.5" />}
+              >
+                Lên đơn POS (Alt+O)
+              </PatternButton>
               <PatternButton
                 type="button"
                 size="sm"
@@ -1252,7 +1289,6 @@ export default function ChatConversationPage({
             </div>
           )}
 
-          {/* Tóm tắt nhanh Chỉ số Nhận / Hoàn / Bị báo cáo của khách ngay trên thanh công cụ chat */}
           {activeCustomerProfile && customerTrustEval && (
             <button
               type="button"
@@ -1338,6 +1374,30 @@ export default function ChatConversationPage({
         onDeletedConversation={() => router.push(config.routes.private.chat)}
         onLeaveGroup={handleLeaveGroup}
       />
+
+      {/* Ngăn kéo Lên Đơn Hàng Nhanh Trong Chat (In-Chat POS — Alt+O — F06.1 – F06.6) */}
+      {effectiveShopId && (
+        <GlassSheet
+          open={isInChatPosDrawerOpen}
+          onOpenChange={setIsInChatPosDrawerOpen}
+          title="Lên Đơn Hàng Nhanh Trong Chat (In-Chat POS — Alt+O)"
+          description="Giữ chỗ nguyên tử Redis Lua (<1ms), tư vấn thông số đa ngành, so sánh ship 4 hãng, gộp/tách đơn & sinh mã VietQR động EMVCo"
+          side="right"
+        >
+          <div className="py-2">
+            <InChatPosDrawer
+              shopId={effectiveShopId}
+              conversationId={conversationId}
+              customerProfile={activeCustomerProfile}
+              fallbackCustomerName={resolvedHeaderName}
+              latestExtractedNer={latestExtractedNer}
+              onSendInvoiceCardToChat={async (markdownCardText) => {
+                await handleSendMessage(markdownCardText);
+              }}
+            />
+          </div>
+        </GlassSheet>
+      )}
 
       {/* Ngăn kéo Hồ sơ Khách hàng CRM 360° ngay trong khung chat (F04.2 - F04.5) */}
       {effectiveShopId && (

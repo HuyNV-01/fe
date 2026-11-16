@@ -25,7 +25,10 @@ import { Select, SelectValue } from "@/components/ui/select";
 import { ProvinceDistrictWardCombobox } from "@/components/crm/province-district-ward-combobox";
 import { useCatalogPosStore } from "@/lib/stores/catalog-pos/use-catalog-pos-store";
 import { useCrmStore } from "@/lib/stores/crm/use-crm-store";
-import type { PosOrderPaymentMethodType } from "@/types/catalog-pos";
+import type {
+  PosOrderPaymentMethodType,
+  ProductIndustryType,
+} from "@/types/catalog-pos";
 import type { ICustomerProfile, IExtractedCommerceEntities } from "@/types/crm";
 import {
   AlertTriangle,
@@ -33,10 +36,7 @@ import {
   Boxes,
   CheckCircle2,
   Coins,
-  Copy,
-  CreditCard,
   GitMerge,
-  Layers,
   Minus,
   Package,
   Plus,
@@ -117,6 +117,9 @@ export function InChatPosDrawer({
   const [searchSkuQuery, setSearchSkuQuery] = useState("");
   const [selectedWarehouseId, setSelectedWarehouseId] =
     useState<string>("AUTO");
+  const [filterIndustry, setFilterIndustry] = useState<
+    "ALL" | ProductIndustryType
+  >("ALL");
 
   // Thông tin người nhận & Địa chỉ 3 cấp / 4 cấp
   const [customerName, setCustomerName] = useState(
@@ -152,12 +155,19 @@ export function InChatPosDrawer({
       "",
   );
 
-  // Tư vấn size nhanh
+  // Tư vấn thông số / kích cỡ đa ngành hàng (Thời trang, Mẹ & Bé, Mỹ phẩm, Điện tử/F&B)
+  const [advisorMode, setAdvisorMode] =
+    useState<ProductIndustryType>("FASHION_APPAREL");
   const [advisorHeightCm, setAdvisorHeightCm] = useState<number>(
     customerProfile?.heightCm || latestExtractedNer?.heightCm || 160,
   );
   const [advisorWeightKg, setAdvisorWeightKg] = useState<number>(
     customerProfile?.weightKg || latestExtractedNer?.weightKg || 52,
+  );
+  const [advisorBabyMonths, setAdvisorBabyMonths] = useState<number>(8);
+  const [advisorSkinType, setAdvisorSkinType] = useState<string>("COMBINATION");
+  const [advisorUsageNeed, setAdvisorUsageNeed] = useState<string>(
+    "Gia đình 4 người / Sử dụng hàng ngày",
   );
 
   // Vận chuyển, giảm giá & thanh toán
@@ -225,14 +235,22 @@ export function InChatPosDrawer({
 
   const filteredCatalogVariants = useMemo(() => {
     const q = searchSkuQuery.trim().toLowerCase();
-    if (!q) return variants.slice(0, 8);
-    return variants.filter(
-      (v) =>
-        v.skuCode.toLowerCase().includes(q) ||
-        v.barcode.toLowerCase().includes(q) ||
-        v.variantName.toLowerCase().includes(q),
-    );
-  }, [variants, searchSkuQuery]);
+    return variants
+      .filter((v) => {
+        if (filterIndustry !== "ALL" && v.industryType !== filterIndustry) {
+          return false;
+        }
+        if (!q) return true;
+        return (
+          v.skuCode.toLowerCase().includes(q) ||
+          v.barcode.toLowerCase().includes(q) ||
+          v.variantName.toLowerCase().includes(q) ||
+          (v.categoryName || "").toLowerCase().includes(q) ||
+          (v.batchCode || "").toLowerCase().includes(q)
+        );
+      })
+      .slice(0, 12);
+  }, [variants, searchSkuQuery, filterIndustry]);
 
   // Tự động điền SĐT, Địa chỉ 3 cấp / 4 cấp và sản phẩm SKU từ tin nhắn NER (F04.1 -> F06.1)
   const handleFillFromExtractedNer = async () => {
@@ -268,7 +286,6 @@ export function InChatPosDrawer({
       setOrderNote(latestExtractedNer.deliveryTimeNote);
     }
 
-    // Tự động khớp mã SKU từ tin nhắn vào giỏ hàng
     if (
       Array.isArray(latestExtractedNer.skuCodes) &&
       latestExtractedNer.skuCodes.length > 0
@@ -298,7 +315,10 @@ export function InChatPosDrawer({
       0,
     );
     const totalWeightGrams = cartItems.reduce(
-      (sum, it) => sum + (it.variant.weightGrams || 300) * it.quantity,
+      (sum, it) =>
+        sum +
+        (it.variant.chargeableWeightGrams || it.variant.weightGrams || 300) *
+          it.quantity,
       0,
     );
     const minVariantMaxDiscount =
@@ -538,13 +558,13 @@ export function InChatPosDrawer({
               )}
             </div>
 
-            {/* Tìm kiếm SKU / Quét Barcode & Giữ chỗ nguyên tử Redis Lua (< 1ms) */}
+            {/* Tìm kiếm SKU Đa Ngành Hàng / Quét Barcode & Giữ chỗ nguyên tử Redis Lua (< 1ms) */}
             <GlassSurfaceCard className="p-3 space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
                   <Barcode className="w-3.5 h-3.5 text-primary" />
                   <span>
-                    Tìm SKU / Quét Barcode (Giữ chỗ Redis Lua &lt;1ms)
+                    Tìm SKU Đa Ngành / Quét Barcode (Giữ chỗ Redis Lua &lt;1ms)
                   </span>
                 </Label>
                 <GlassBadge variant="info" size="sm">
@@ -560,7 +580,7 @@ export function InChatPosDrawer({
                       <Input
                         value={searchSkuQuery}
                         onChange={(e) => setSearchSkuQuery(e.target.value)}
-                        placeholder="Gõ mã SKU (A12, B05, COMBO, S9) hoặc Barcode..."
+                        placeholder="Gõ SKU (A12, SRM, GRN, S9, COMBO) hoặc Barcode..."
                         className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-0"
                       />
                     </div>
@@ -587,7 +607,34 @@ export function InChatPosDrawer({
                 </Select>
               </div>
 
-              {/* Danh sách gợi ý SKU kèm tồn khả dụng đa kho & nhãn Combo BOM */}
+              {/* Bộ lọc nhanh ngành hàng */}
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+                {(
+                  [
+                    { key: "ALL", label: "Tất cả" },
+                    { key: "FASHION_APPAREL", label: "👗 Thời trang" },
+                    { key: "COSMETICS_BEAUTY", label: "💄 Mỹ phẩm" },
+                    { key: "ELECTRONICS_TECH", label: "📱 Điện tử" },
+                    { key: "FOOD_BEVERAGE", label: "🍵 Thực phẩm" },
+                    { key: "MOTHER_AND_BABY", label: "🍼 Mẹ & Bé" },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setFilterIndustry(item.key)}
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                      filterIndustry === item.key
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Danh sách gợi ý SKU kèm tồn khả dụng đa kho, Lô HSD & nhãn Combo BOM */}
               <ScrollArea className="max-h-44 pr-1">
                 <div className="space-y-1.5">
                   {filteredCatalogVariants.map((variant) => (
@@ -608,6 +655,11 @@ export function InChatPosDrawer({
                           {variant.requiresSerialImei && (
                             <GlassBadge variant="warning" size="sm">
                               Serial/IMEI
+                            </GlassBadge>
+                          )}
+                          {variant.requiresBatchExpiry && variant.batchCode && (
+                            <GlassBadge variant="info" size="sm">
+                              Lô {variant.batchCode}
                             </GlassBadge>
                           )}
                           <span className="truncate font-medium">
@@ -667,40 +719,168 @@ export function InChatPosDrawer({
                 </div>
               </ScrollArea>
 
-              {/* Công cụ Gợi ý Size tức thì theo Chiều cao & Cân nặng (F05.1) */}
-              <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <Ruler className="w-3.5 h-3.5 text-indigo-500" />
-                  <span className="text-[11px] font-medium">Tư vấn Size:</span>
-                  <Input
-                    type="number"
-                    value={advisorHeightCm}
-                    onChange={(e) => setAdvisorHeightCm(Number(e.target.value))}
-                    className="h-6 w-14 text-[11px] px-1.5"
-                  />
-                  <span className="text-[10px] text-muted-foreground">cm</span>
-                  <Input
-                    type="number"
-                    value={advisorWeightKg}
-                    onChange={(e) => setAdvisorWeightKg(Number(e.target.value))}
-                    className="h-6 w-13 text-[11px] px-1.5"
-                  />
-                  <span className="text-[10px] text-muted-foreground">kg</span>
+              {/* Công cụ Tư vấn Thông số & Size Đa Ngành Hàng (F05.1) */}
+              <div className="pt-2 border-t border-border/40 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Ruler className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="text-[11px] font-semibold">
+                      Tư vấn Thông số Đa Ngành:
+                    </span>
+                    <Select
+                      value={advisorMode}
+                      onValueChange={(v) =>
+                        setAdvisorMode(v as ProductIndustryType)
+                      }
+                    >
+                      <TriggerSelect className="h-6 text-[10px] w-36 px-2">
+                        <SelectValue />
+                      </TriggerSelect>
+                      <ContentSelect>
+                        <ItemSelect value="FASHION_APPAREL">
+                          👗 Thời trang (Cao/Nặng)
+                        </ItemSelect>
+                        <ItemSelect value="MOTHER_AND_BABY">
+                          🍼 Mẹ & Bé (Kg/Tháng)
+                        </ItemSelect>
+                        <ItemSelect value="COSMETICS_BEAUTY">
+                          💄 Mỹ phẩm (Loại da)
+                        </ItemSelect>
+                        <ItemSelect value="ELECTRONICS_TECH">
+                          📱 Điện tử / F&B (Nhu cầu)
+                        </ItemSelect>
+                      </ContentSelect>
+                    </Select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      askSizeAdvisor({
+                        shopId,
+                        industryType: advisorMode,
+                        heightCm: advisorHeightCm,
+                        weightKg: advisorWeightKg,
+                        babyAgeMonths:
+                          advisorMode === "MOTHER_AND_BABY"
+                            ? advisorBabyMonths
+                            : undefined,
+                        skinType:
+                          advisorMode === "COSMETICS_BEAUTY"
+                            ? advisorSkinType
+                            : undefined,
+                        usageNeed:
+                          advisorMode === "ELECTRONICS_TECH"
+                            ? advisorUsageNeed
+                            : undefined,
+                      })
+                    }
+                    className="text-[10px] font-semibold text-primary hover:underline cursor-pointer"
+                  >
+                    Gợi ý chuẩn →
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    askSizeAdvisor({
-                      shopId,
-                      heightCm: advisorHeightCm,
-                      weightKg: advisorWeightKg,
-                    })
-                  }
-                  className="text-[10px] font-semibold text-primary hover:underline cursor-pointer"
-                >
-                  Gợi ý chuẩn Size →
-                </button>
+
+                {advisorMode === "FASHION_APPAREL" && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      Cao:
+                    </span>
+                    <Input
+                      type="number"
+                      value={advisorHeightCm}
+                      onChange={(e) =>
+                        setAdvisorHeightCm(Number(e.target.value))
+                      }
+                      className="h-6 w-14 text-[11px] px-1.5"
+                    />
+                    <span className="text-[10px] text-muted-foreground">
+                      cm • Nặng:
+                    </span>
+                    <Input
+                      type="number"
+                      value={advisorWeightKg}
+                      onChange={(e) =>
+                        setAdvisorWeightKg(Number(e.target.value))
+                      }
+                      className="h-6 w-14 text-[11px] px-1.5"
+                    />
+                    <span className="text-[10px] text-muted-foreground">
+                      kg
+                    </span>
+                  </div>
+                )}
+
+                {advisorMode === "MOTHER_AND_BABY" && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      Cân nặng bé:
+                    </span>
+                    <Input
+                      type="number"
+                      value={advisorWeightKg}
+                      onChange={(e) =>
+                        setAdvisorWeightKg(Number(e.target.value))
+                      }
+                      className="h-6 w-14 text-[11px] px-1.5"
+                    />
+                    <span className="text-[10px] text-muted-foreground">
+                      kg • Tháng tuổi:
+                    </span>
+                    <Input
+                      type="number"
+                      value={advisorBabyMonths}
+                      onChange={(e) =>
+                        setAdvisorBabyMonths(Number(e.target.value))
+                      }
+                      className="h-6 w-14 text-[11px] px-1.5"
+                    />
+                    <span className="text-[10px] text-muted-foreground">
+                      tháng
+                    </span>
+                  </div>
+                )}
+
+                {advisorMode === "COSMETICS_BEAUTY" && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      Loại da khách:
+                    </span>
+                    <Select
+                      value={advisorSkinType}
+                      onValueChange={setAdvisorSkinType}
+                    >
+                      <TriggerSelect className="h-6 text-[10px] flex-1">
+                        <SelectValue />
+                      </TriggerSelect>
+                      <ContentSelect>
+                        <ItemSelect value="OILY">
+                          Da dầu / Lỗ chân lông to
+                        </ItemSelect>
+                        <ItemSelect value="DRY">
+                          Da khô / Thiếu ẩm bong tróc
+                        </ItemSelect>
+                        <ItemSelect value="SENSITIVE">
+                          Da nhạy cảm / Đang treatment
+                        </ItemSelect>
+                        <ItemSelect value="COMBINATION">
+                          Da hỗn hợp thiên dầu / thường
+                        </ItemSelect>
+                      </ContentSelect>
+                    </Select>
+                  </div>
+                )}
+
+                {advisorMode === "ELECTRONICS_TECH" && (
+                  <Input
+                    value={advisorUsageNeed}
+                    onChange={(e) => setAdvisorUsageNeed(e.target.value)}
+                    placeholder="Nhập nhu cầu sử dụng của khách..."
+                    className="h-6 text-[11px] px-2"
+                  />
+                )}
               </div>
+
               {sizeAdviceText && (
                 <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-500/10 px-2.5 py-1.5 rounded-lg">
                   ✨ {sizeAdviceText}
@@ -715,7 +895,7 @@ export function InChatPosDrawer({
                   <Package className="w-3.5 h-3.5 text-primary" />
                   <span>
                     Sản phẩm trong giỏ ({cartItems.length} mã •{" "}
-                    {financialSummary.totalWeightGrams}g)
+                    {financialSummary.totalWeightGrams}g tính cước)
                   </span>
                 </span>
                 {financialSummary.subtotal >= 500000 && (
@@ -747,6 +927,9 @@ export function InChatPosDrawer({
                             "vi-VN",
                           )}
                           đ • Trần giảm: {item.variant.maxDiscountPercent}%
+                          {item.variant.batchCode
+                            ? ` • Lô: ${item.variant.batchCode}`
+                            : ""}
                         </div>
                       </div>
 
@@ -827,7 +1010,7 @@ export function InChatPosDrawer({
               )}
             </GlassSurfaceCard>
 
-            {/* Địa chỉ giao hàng 3 Cấp Mới (34 tỉnh) & 4 Cấp Cũ (63 tỉnh) + So sánh Phí ship 4 hãng (GHN, GHTK, VTP, J&T) */}
+            {/* Địa chỉ giao hàng 3 Cấp Mới (34 tỉnh) & 4 Cấp Cũ (63 tỉnh) + So sánh Phí ship 4 hãng */}
             <GlassSurfaceCard className="p-3 space-y-2.5">
               <Label className="text-xs font-semibold flex items-center gap-1.5">
                 <Truck className="w-3.5 h-3.5 text-primary" />
@@ -879,7 +1062,6 @@ export function InChatPosDrawer({
                 className="h-8 text-xs"
               />
 
-              {/* Bảng So sánh Phí Vận chuyển 4 Hãng thời gian thực (GHN, GHTK Level-4, ViettelPost, J&T) */}
               {shippingQuotes.length > 0 && (
                 <div className="space-y-1.5 pt-1">
                   <div className="flex items-center justify-between">
@@ -995,7 +1177,6 @@ export function InChatPosDrawer({
                 />
               )}
 
-              {/* Đổi điểm thưởng & Trừ Ví tiền thừa khách hàng (F11.4) */}
               {customerProfile &&
                 (customerProfile.loyaltyPointsBalance > 0 ||
                   customerProfile.walletCreditBalance > 0) && (
@@ -1164,7 +1345,6 @@ export function InChatPosDrawer({
                   </GlassBadge>
                 </div>
 
-                {/* Nếu đơn đang chờ Quản lý duyệt giảm giá vượt trần -> Hiển thị nút duyệt 1 chạm (F06.3) */}
                 {activeCreatedOrder.discountApprovalStatus === "PENDING" && (
                   <GlassAlert
                     variant="warning"

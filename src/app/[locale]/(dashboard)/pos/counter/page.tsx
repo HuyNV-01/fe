@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   GlassBadge,
   GlassEmptyState,
+  GlassModal,
   GlassSectionHeader,
   GlassSurfaceCard,
   GlassTabs,
@@ -14,6 +15,8 @@ import {
 } from "@/components/toolkit";
 import { Input } from "@/components/ui/input";
 import { useCatalogPosStore } from "@/lib/stores/catalog-pos/use-catalog-pos-store";
+import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
+import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 import {
   Barcode,
   CheckCircle2,
@@ -26,7 +29,6 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 
 const COUNTER_SYNC_CHANNEL = "seller_os_counter_pos_sync";
 
@@ -34,8 +36,9 @@ export default function CounterPosPage() {
   const searchParams = useSearchParams();
   const isCustomerDisplayMode = searchParams.get("mode") === "customer-display";
 
+  const activeShopIdFromPerm = usePermissionStore((s) => s.activeShopId);
   const activeShop = useChannelWorkspaceStore((s) => s.activeShop);
-  const shopId = activeShop?.id || "default_shop";
+  const shopId = activeShopIdFromPerm || activeShop?.id || "default_shop";
 
   const {
     variants,
@@ -54,6 +57,7 @@ export default function CounterPosPage() {
 
   const [barcodeInput, setBarcodeInput] = useState("");
   const [customerMirrorData, setCustomerMirrorData] = useState<any>(null);
+  const [openK80ReceiptModal, setOpenK80ReceiptModal] = useState(false);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
   const activeTabSession = useMemo(
@@ -140,7 +144,7 @@ export default function CounterPosPage() {
     }
   };
 
-  const handleCheckoutF9 = async () => {
+  const handleCheckoutF9 = useCallback(async () => {
     if (!activeTabSession || activeTabSession.items.length === 0) {
       toast.error("Giỏ hàng tại quầy đang trống!");
       return;
@@ -162,8 +166,22 @@ export default function CounterPosPage() {
     });
     if (created) {
       updateCounterTabMeta({ activeOrder: created });
+      setOpenK80ReceiptModal(true);
     }
-  };
+  }, [activeTabSession, shopId, submitInChatPosOrder, updateCounterTabMeta]);
+
+  // Phím tắt toàn cục F9 để thanh toán & in hóa đơn nhiệt K80 tức thì tại quầy (F06.7)
+  useEffect(() => {
+    if (isCustomerDisplayMode) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F9") {
+        e.preventDefault();
+        void handleCheckoutF9();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isCustomerDisplayMode, handleCheckoutF9]);
 
   // Chế độ Màn hình phụ hướng về phía khách hàng (/pos/counter?mode=customer-display)
   if (isCustomerDisplayMode) {
@@ -254,9 +272,9 @@ export default function CounterPosPage() {
       <GlassSectionHeader
         icon={<ShoppingBag className="w-5 h-5" />}
         title="Bán Hàng Tại Quầy Siêu Tốc & Màn Hình Phụ Khách Hàng (/pos/counter — F06.7 & T08)"
-        subtitle="Hỗ trợ quét súng mã vạch liên tục, mở tối đa 10 hóa đơn chờ cùng lúc (Multi-Tab Hold Carts) & đồng bộ VietQR 2 màn hình"
+        subtitle="Hỗ trợ quét súng mã vạch liên tục, mở tối đa 10 hóa đơn chờ cùng lúc (Multi-Tab Hold Carts), phím tắt F9 in nhiệt K80 & đồng bộ VietQR 2 màn hình"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <PatternButton
               type="button"
               size="sm"
@@ -310,7 +328,7 @@ export default function CounterPosPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Cột trái: Quét Barcode & Chọn nhanh sản phẩm */}
+        {/* Cột trái: Quét Barcode & Chọn nhanh sản phẩm đa ngành */}
         <div className="lg:col-span-2 space-y-3">
           <GlassSurfaceCard className="p-4 space-y-3">
             <form onSubmit={handleBarcodeScanSubmit} className="flex gap-2">
@@ -347,7 +365,7 @@ export default function CounterPosPage() {
                     onClick={() => addVariantToCounterTab(v)}
                     className="p-3 rounded-xl border border-border/50 bg-background/50 hover:bg-primary/5 text-left transition-all cursor-pointer disabled:opacity-40"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1">
                       <span className="font-mono font-bold text-xs text-primary">
                         {v.skuCode}
                       </span>
@@ -361,8 +379,13 @@ export default function CounterPosPage() {
                     <div className="text-xs font-semibold truncate mt-1">
                       {v.variantName}
                     </div>
-                    <div className="text-xs font-bold text-foreground mt-1">
-                      {Number(v.retailPrice).toLocaleString("vi-VN")}đ
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs font-bold text-foreground">
+                        {Number(v.retailPrice).toLocaleString("vi-VN")}đ
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {v.categoryName}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -477,29 +500,140 @@ export default function CounterPosPage() {
                       .transferReferenceCode
                   }
                 </div>
-                <PatternButton
-                  type="button"
-                  size="sm"
-                  rounded="full"
-                  variant="solid"
-                  color="success"
-                  fullWidth
-                  icon={<CheckCircle2 className="w-3.5 h-3.5" />}
-                  onClick={() =>
-                    confirmVietQrPaymentReceived({
-                      shopId,
-                      orderIdOrReference: activeTabSession.activeOrder!.id,
-                      paidAmountVnd: totalPayable,
-                    })
-                  }
-                >
-                  Xác nhận Đã Nhận Chuyển Khoản
-                </PatternButton>
+                <div className="grid grid-cols-1 gap-1.5">
+                  <PatternButton
+                    type="button"
+                    size="sm"
+                    rounded="full"
+                    variant="glass"
+                    color="primary"
+                    fullWidth
+                    icon={<Printer className="w-3.5 h-3.5" />}
+                    onClick={() => setOpenK80ReceiptModal(true)}
+                  >
+                    Xem & In Hóa Đơn Nhiệt K80
+                  </PatternButton>
+                  <PatternButton
+                    type="button"
+                    size="sm"
+                    rounded="full"
+                    variant="solid"
+                    color="success"
+                    fullWidth
+                    icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                    onClick={() =>
+                      confirmVietQrPaymentReceived({
+                        shopId,
+                        orderIdOrReference: activeTabSession.activeOrder!.id,
+                        paidAmountVnd: totalPayable,
+                      })
+                    }
+                  >
+                    Xác nhận Đã Nhận Chuyển Khoản
+                  </PatternButton>
+                </div>
               </div>
             )}
           </GlassSurfaceCard>
         </div>
       </div>
+
+      {/* Modal Xem trước & In Hóa đơn nhiệt khổ K80 (80mm) tại quầy (F06.7) */}
+      <GlassModal
+        open={openK80ReceiptModal}
+        onOpenChange={setOpenK80ReceiptModal}
+        title="Hóa Đơn Nhiệt Tại Quầy Khổ K80 (80mm Thermal Receipt)"
+        description="Chuẩn máy in nhiệt thu ngân K80 kèm mã VietQR động chuẩn NAPAS EMVCo"
+        size="md"
+        footer={
+          <>
+            <PatternButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              rounded="full"
+              onClick={() => setOpenK80ReceiptModal(false)}
+            >
+              Đóng
+            </PatternButton>
+            <PatternButton
+              type="button"
+              variant="solid"
+              color="primary"
+              size="sm"
+              rounded="full"
+              icon={<Printer className="w-3.5 h-3.5" />}
+              onClick={() => window.print()}
+            >
+              In Hóa Đơn Nhiệt K80 Ngay
+            </PatternButton>
+          </>
+        }
+      >
+        {activeTabSession?.activeOrder && (
+          <div className="p-4 rounded-xl border border-dashed border-border font-mono text-xs space-y-2 bg-white text-slate-900">
+            <div className="text-center border-b border-dashed pb-2">
+              <div className="font-bold text-sm">
+                {activeShop?.shopName || "PANCAKE SELLER OS SHOWROOM"}
+              </div>
+              <div className="text-[11px]">
+                Mã hóa đơn: #{activeTabSession.activeOrder.orderCode}
+              </div>
+              <div className="text-[10px]">
+                Khách hàng: {activeTabSession.activeOrder.customerName}
+              </div>
+            </div>
+
+            <div className="divide-y divide-dashed">
+              {activeTabSession.activeOrder.itemsJson?.map((line) => (
+                <div
+                  key={line.variantId}
+                  className="py-1.5 flex justify-between gap-2"
+                >
+                  <div>
+                    <div className="font-semibold">{line.variantName}</div>
+                    <div className="text-[10px]">
+                      {line.skuCode} • {line.quantity} x{" "}
+                      {Number(line.finalUnitPrice).toLocaleString("vi-VN")}đ
+                    </div>
+                  </div>
+                  <div className="font-bold">
+                    {Number(line.lineTotalAmount).toLocaleString("vi-VN")}đ
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-dashed pt-2 flex justify-between font-bold text-sm">
+              <span>TỔNG THANH TOÁN:</span>
+              <span>
+                {Number(
+                  activeTabSession.activeOrder.totalPayableAmount,
+                ).toLocaleString("vi-VN")}
+                đ
+              </span>
+            </div>
+
+            {activeTabSession.activeOrder.vietqrPayloadJson && (
+              <div className="text-center pt-2 space-y-1">
+                <img
+                  src={
+                    activeTabSession.activeOrder.vietqrPayloadJson.qrImageUrl
+                  }
+                  alt="VietQR K80"
+                  className="w-36 h-36 mx-auto object-contain"
+                />
+                <div className="text-[10px] font-bold">
+                  {
+                    activeTabSession.activeOrder.vietqrPayloadJson
+                      .transferReferenceCode
+                  }
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </GlassModal>
     </div>
   );
 }

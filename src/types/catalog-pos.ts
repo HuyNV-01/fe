@@ -1,3 +1,12 @@
+export type ProductIndustryType =
+  | "GENERAL_MULTI_CATEGORY"
+  | "FASHION_APPAREL"
+  | "COSMETICS_BEAUTY"
+  | "ELECTRONICS_TECH"
+  | "FOOD_BEVERAGE"
+  | "MOTHER_AND_BABY"
+  | "HOME_LIVING_APPLIANCES";
+
 export type InventoryMovementType =
   | "PO_RECEIVE"
   | "POS_RESERVE"
@@ -86,7 +95,17 @@ export interface IProductSizeChartRow {
   chestCm?: number;
   waistCm?: number;
   hipCm?: number;
+  minAgeMonths?: number;
+  maxAgeMonths?: number;
+  skinTypeRecommendation?: string;
   fitNote?: string;
+}
+
+export interface IProductUomConversion {
+  unitName: string;
+  conversionFactor: number;
+  barcode?: string;
+  retailPrice?: number;
 }
 
 export interface IBundleBomComponent {
@@ -114,11 +133,19 @@ export interface IProductVariant {
   id: string;
   shopId: string;
   productId: string;
+  industryType?: ProductIndustryType;
+  categoryName?: string;
+  brandName?: string | null;
+  unitName?: string;
   skuCode: string;
   barcode: string;
   variantName: string;
   colorName?: string | null;
   sizeCode?: string | null;
+  attributeAxis1Name?: string | null;
+  attributeAxis1Value?: string | null;
+  attributeAxis2Name?: string | null;
+  attributeAxis2Value?: string | null;
   attributesJson?: Record<string, string> | null;
   imageUrl?: string | null;
   retailPrice: number;
@@ -132,11 +159,23 @@ export interface IProductVariant {
   lengthCm: number;
   widthCm: number;
   heightCm: number;
+  volumetricWeightGrams?: number;
+  chargeableWeightGrams?: number;
   isBundleBom: boolean;
   bundleComponentsJson?: IBundleBomComponent[] | null;
   isFreeGiftItem: boolean;
   requiresSerialImei: boolean;
   warrantyMonths: number;
+  requiresBatchExpiry?: boolean;
+  batchCode?: string | null;
+  manufacturingDate?: string | null;
+  expiryDate?: string | null;
+  shelfLifeMonths?: number;
+  storageCondition?: string | null;
+  daysUntilExpiry?: number | null;
+  isNearExpiryWarning?: boolean;
+  technicalSpecsJson?: Record<string, string> | null;
+  uomConversionsJson?: IProductUomConversion[] | null;
   sizeChartMetadataJson?: IProductSizeChartRow[] | null;
   isActive: boolean;
   totalOnHandQty: number;

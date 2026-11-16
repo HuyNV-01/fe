@@ -46,7 +46,16 @@ export type {
   SaasWebhookBlueprintItem,
 };
 
+export interface ActiveShopSummary {
+  id: string;
+  shopId: string;
+  shopCode: string;
+  shopName: string;
+  role?: string;
+}
+
 export interface ChannelWorkspaceStoreState {
+  activeShop: ActiveShopSummary | null;
   channels: ConnectedChannelItem[];
   saasBlueprints: SaasWebhookBlueprintItem[];
   saasProfiles: SaasAppProfileItem[];
@@ -63,6 +72,7 @@ export interface ChannelWorkspaceStoreState {
   isLoadingMergedInbox: boolean;
   isLoadingMarketplaceReservations: boolean;
 
+  setActiveShop: (shop: ActiveShopSummary | null) => void;
   fetchShopChannels: (shopId: string) => Promise<void>;
   fetchSaasWebhookConfig: (shopId: string) => Promise<void>;
   fetchSaasAppProfiles: (shopId: string) => Promise<void>;
@@ -272,6 +282,7 @@ export interface ChannelWorkspaceStoreState {
 export const useChannelWorkspaceStore =
   createPersistedStore<ChannelWorkspaceStoreState>(
     (set, get) => ({
+      activeShop: null,
       channels: [],
       saasBlueprints: [],
       saasProfiles: [],
@@ -288,10 +299,24 @@ export const useChannelWorkspaceStore =
       isLoadingMergedInbox: false,
       isLoadingMarketplaceReservations: false,
 
+      setActiveShop: (shop) => {
+        set((state) => {
+          state.activeShop = shop;
+        });
+      },
+
       fetchShopChannels: async (shopId) => {
         if (!shopId) return;
         set((state) => {
           state.isLoadingChannels = true;
+          if (!state.activeShop || state.activeShop.id !== shopId) {
+            state.activeShop = {
+              id: shopId,
+              shopId,
+              shopCode: state.activeShop?.shopCode || "SHOP",
+              shopName: state.activeShop?.shopName || "Cửa hàng đang chọn",
+            };
+          }
         });
         try {
           const res: any = await listShopChannelsApi(shopId);

@@ -26,6 +26,13 @@ export enum NotificationTypeEnum {
   INBOX_CONVERSATION_ASSIGNED = "INBOX_CONVERSATION_ASSIGNED",
   INBOX_SLA_RECLAIMED = "INBOX_SLA_RECLAIMED",
   MARKETPLACE_ORDER_SYNCED = "MARKETPLACE_ORDER_SYNCED",
+  SECURITY_ALERT = "SECURITY_ALERT",
+  POS_DISCOUNT_APPROVAL_REQUEST = "POS_DISCOUNT_APPROVAL_REQUEST",
+  POS_DISCOUNT_APPROVAL_RESOLVED = "POS_DISCOUNT_APPROVAL_RESOLVED",
+  POS_VIETQR_PAYMENT_RECEIVED = "POS_VIETQR_PAYMENT_RECEIVED",
+  WAREHOUSE_LOW_STOCK_ALERT = "WAREHOUSE_LOW_STOCK_ALERT",
+  WAREHOUSE_TRANSFER_DISPATCHED = "WAREHOUSE_TRANSFER_DISPATCHED",
+  WAREHOUSE_TRANSFER_RECEIVED = "WAREHOUSE_TRANSFER_RECEIVED",
   SYSTEM = "SYSTEM",
 }
 
@@ -40,6 +47,12 @@ export enum NotificationResourceTypeEnum {
   SHOP_INVITATION = "SHOP_INVITATION",
   CHANNEL_INTEGRATION = "CHANNEL_INTEGRATION",
   WEBHOOK_LOG = "WEBHOOK_LOG",
+  CUSTOMER_PROFILE = "CUSTOMER_PROFILE",
+  SECURITY_AUDIT = "SECURITY_AUDIT",
+  POS_ORDER = "POS_ORDER",
+  PRODUCT_VARIANT = "PRODUCT_VARIANT",
+  WAREHOUSE_TRANSFER = "WAREHOUSE_TRANSFER",
+  INVENTORY_LEDGER = "INVENTORY_LEDGER",
   SYSTEM = "SYSTEM",
 }
 
@@ -50,6 +63,7 @@ export interface INotificationActor {
 }
 
 export interface INotificationMetadata {
+  shopId?: string;
   conversationId?: string;
   conversationName?: string;
   conversationType?: string;
@@ -60,6 +74,21 @@ export interface INotificationMetadata {
   emoji?: string;
   unreadMessageCount?: number;
   actionUrl?: string;
+  actorUserId?: string;
+  actorName?: string;
+  usedCount?: number;
+  hourlyLimit?: number;
+  orderId?: string;
+  orderCode?: string;
+  discountPercent?: number;
+  allowedMaxDiscountPercent?: number;
+  paidAmountVnd?: number;
+  bankTransactionId?: string;
+  transferId?: string;
+  transferCode?: string;
+  skuCode?: string;
+  warehouseId?: string;
+  serialNumber?: string;
   titleKey?: string;
   contentKey?: string;
   i18nParams?: Record<string, string | number | boolean | null | undefined>;
