@@ -1,11 +1,17 @@
 import { createPersistedStore } from "../create-persisted-store";
 import {
+  getShopCatalogPosConfigApi,
+  updateShopCatalogPosConfigApi,
+  upsertSellerCategoryBlueprintApi,
+  deleteSellerCategoryBlueprintApi,
+  seedSampleCatalogApi,
   listCatalogVariantsApi,
+  updateProductVariantApi,
+  deleteProductVariantApi,
   createProductWithMatrixApi,
   createBundleBomVariantApi,
   recommendApparelSizeApi,
   reserveStockAtomicApi,
-  releaseStockAtomicApi,
   adjustWarehouseStocktakeApi,
   listInventoryLedgersApi,
   listWarehouseTransfersApi,
@@ -25,11 +31,18 @@ import {
 import { estimateMultiCarrierShippingFeeApi } from "../crm/api";
 import type {
   IBundleBomComponent,
+  IDynamicAdvisorResult,
   IInventoryMovementLedger,
   IPosDraftCartItem,
   IPosOrder,
+  IProductFreeGiftRule,
   IProductSerialItem,
   IProductVariant,
+  ISellerAdvisorFieldSchema,
+  ISellerAdvisorRuleRow,
+  ISellerCategoryBlueprint,
+  ISellerVietQrBankConfig,
+  IShopCatalogAndPosConfig,
   IWarehouse,
   IWarehouseRoutingPreview,
   IWarehouseTransferOrder,
@@ -56,6 +69,7 @@ interface CounterPosTabSession {
 interface CatalogPosState {
   warehouses: IWarehouse[];
   variants: IProductVariant[];
+  catalogConfig: IShopCatalogAndPosConfig | null;
   isLoadingCatalog: boolean;
 
   inventoryLedgers: IInventoryMovementLedger[];
@@ -69,10 +83,53 @@ interface CatalogPosState {
   routingPreviewByConv: Record<string, IWarehouseRoutingPreview | null>;
   activeCreatedOrderByConv: Record<string, IPosOrder | null>;
   sizeAdviceText: string | null;
+  advisorResult: IDynamicAdvisorResult | null;
 
   // Multi-tab Hold Carts cho Bán hàng tại quầy (/pos/counter — tối đa 10 hóa đơn đồng thời)
   counterTabs: CounterPosTabSession[];
   activeCounterTabId: string;
+
+  fetchCatalogPosConfig: (
+    shopId: string,
+  ) => Promise<IShopCatalogAndPosConfig | null>;
+  updateCatalogPosConfig: (payload: {
+    shopId: string;
+    categories?: ISellerCategoryBlueprint[];
+    freeGiftRules?: IProductFreeGiftRule[];
+    vietQrBankConfig?: Partial<ISellerVietQrBankConfig>;
+    autoSeedDemoCatalogWhenEmpty?: boolean;
+  }) => Promise<boolean>;
+  upsertSellerCategoryBlueprint: (payload: {
+    shopId: string;
+    categoryId?: string;
+    code: string;
+    name: string;
+    badgeLabel?: string;
+    iconEmoji?: string;
+    industryType?: ProductIndustryType;
+    defaultUnitName?: string;
+    attributeAxis1Name?: string;
+    attributeAxis1SampleValues?: string[];
+    attributeAxis2Name?: string;
+    attributeAxis2SampleValues?: string[];
+    requiresSerialImei?: boolean;
+    defaultWarrantyMonths?: number;
+    requiresBatchExpiry?: boolean;
+    defaultShelfLifeMonths?: number;
+    defaultStorageCondition?: string | null;
+    defaultMaxDiscountPercent?: number;
+    enableAdvisorInPos?: boolean;
+    advisorTitle?: string;
+    advisorFields?: ISellerAdvisorFieldSchema[];
+    advisorRules?: ISellerAdvisorRuleRow[];
+    isActive?: boolean;
+    sortOrder?: number;
+  }) => Promise<boolean>;
+  deleteSellerCategoryBlueprint: (params: {
+    shopId: string;
+    categoryId: string;
+  }) => Promise<boolean>;
+  seedSampleCatalog: (shopId: string) => Promise<boolean>;
 
   fetchCatalogAndStock: (params: {
     shopId: string;
@@ -80,11 +137,44 @@ interface CatalogPosState {
     warehouseId?: string;
     bundleOnly?: boolean;
     industryType?: ProductIndustryType;
+    customCategoryId?: string;
   }) => Promise<void>;
+  updateProductVariant: (payload: {
+    shopId: string;
+    variantId: string;
+    variantName?: string;
+    customCategoryId?: string | null;
+    industryType?: ProductIndustryType;
+    categoryName?: string;
+    brandName?: string | null;
+    unitName?: string;
+    barcode?: string;
+    retailPrice?: number;
+    wholesalePrice?: number;
+    costPrice?: number;
+    maxDiscountPercent?: number;
+    weightGrams?: number;
+    lengthCm?: number;
+    widthCm?: number;
+    heightCm?: number;
+    isFreeGiftItem?: boolean;
+    requiresSerialImei?: boolean;
+    warrantyMonths?: number;
+    requiresBatchExpiry?: boolean;
+    batchCode?: string | null;
+    expiryDate?: string | null;
+    storageCondition?: string | null;
+    isActive?: boolean;
+  }) => Promise<boolean>;
+  deleteProductVariant: (params: {
+    shopId: string;
+    variantId: string;
+  }) => Promise<boolean>;
   createProductWithMatrix: (payload: {
     shopId: string;
     code: string;
     name: string;
+    customCategoryId?: string;
     industryType?: ProductIndustryType;
     categoryName?: string;
     brandName?: string;
@@ -103,6 +193,7 @@ interface CatalogPosState {
     lengthCm?: number;
     widthCm?: number;
     heightCm?: number;
+    isFreeGiftItem?: boolean;
     requiresSerialImei?: boolean;
     warrantyMonths?: number;
     requiresBatchExpiry?: boolean;
@@ -118,6 +209,7 @@ interface CatalogPosState {
     shopId: string;
     skuCode: string;
     variantName: string;
+    customCategoryId?: string;
     industryType?: ProductIndustryType;
     retailPrice: number;
     maxDiscountPercent?: number;
@@ -126,7 +218,9 @@ interface CatalogPosState {
   askSizeAdvisor: (payload: {
     shopId: string;
     productId?: string;
+    customCategoryId?: string;
     industryType?: ProductIndustryType;
+    dynamicInputs?: Record<string, string | number>;
     heightCm?: number;
     weightKg?: number;
     babyAgeMonths?: number;
@@ -289,6 +383,7 @@ export const useCatalogPosStore = createPersistedStore<CatalogPosState>(
   (set, get) => ({
     warehouses: [],
     variants: [],
+    catalogConfig: null,
     isLoadingCatalog: false,
     inventoryLedgers: [],
     transferOrders: [],
@@ -300,8 +395,104 @@ export const useCatalogPosStore = createPersistedStore<CatalogPosState>(
     routingPreviewByConv: {},
     activeCreatedOrderByConv: {},
     sizeAdviceText: null,
+    advisorResult: null,
     counterTabs: [DEFAULT_COUNTER_TAB],
     activeCounterTabId: "tab-1",
+
+    fetchCatalogPosConfig: async (shopId) => {
+      if (!shopId) return null;
+      try {
+        const res: any = await getShopCatalogPosConfigApi(shopId);
+        const cfg: IShopCatalogAndPosConfig =
+          res?.data?.data ?? res?.data ?? null;
+        if (cfg) {
+          set({ catalogConfig: cfg });
+        }
+        return cfg;
+      } catch {
+        return null;
+      }
+    },
+
+    updateCatalogPosConfig: async (payload) => {
+      try {
+        const res: any = await updateShopCatalogPosConfigApi(payload);
+        const cfg: IShopCatalogAndPosConfig =
+          res?.data?.data ?? res?.data ?? null;
+        if (cfg) {
+          set({ catalogConfig: cfg });
+        }
+        toast.success(
+          "Đã lưu cấu hình ngành hàng, quà tặng & VietQR của cửa hàng!",
+        );
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể lưu cấu hình ngành hàng.",
+        );
+        return false;
+      }
+    },
+
+    upsertSellerCategoryBlueprint: async (payload) => {
+      try {
+        const res: any = await upsertSellerCategoryBlueprintApi(payload);
+        const cfg: IShopCatalogAndPosConfig =
+          res?.data?.data ?? res?.data ?? null;
+        if (cfg) {
+          set({ catalogConfig: cfg });
+        }
+        toast.success(
+          `Đã lưu cấu hình ngành hàng "${payload.name}" thành công!`,
+        );
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể lưu ngành hàng tùy chỉnh.",
+        );
+        return false;
+      }
+    },
+
+    deleteSellerCategoryBlueprint: async ({ shopId, categoryId }) => {
+      try {
+        const res: any = await deleteSellerCategoryBlueprintApi({
+          shopId,
+          categoryId,
+        });
+        const cfg: IShopCatalogAndPosConfig =
+          res?.data?.data ?? res?.data ?? null;
+        if (cfg) {
+          set({ catalogConfig: cfg });
+        }
+        toast.success("Đã xóa ngành hàng khỏi cấu hình cửa hàng!");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể xóa ngành hàng.",
+        );
+        return false;
+      }
+    },
+
+    seedSampleCatalog: async (shopId) => {
+      try {
+        const res: any = await seedSampleCatalogApi(shopId);
+        const data = res?.data?.data ?? res?.data ?? {};
+        set({
+          warehouses: Array.isArray(data.warehouses) ? data.warehouses : [],
+          variants: Array.isArray(data.variants) ? data.variants : [],
+          catalogConfig: data.catalogConfig ?? get().catalogConfig,
+        });
+        toast.success("Đã nạp bộ dữ liệu sản phẩm mẫu đa ngành thành công!");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể nạp dữ liệu mẫu.",
+        );
+        return false;
+      }
+    },
 
     fetchCatalogAndStock: async (params) => {
       if (!params.shopId) return;
@@ -312,10 +503,39 @@ export const useCatalogPosStore = createPersistedStore<CatalogPosState>(
         set({
           warehouses: Array.isArray(data.warehouses) ? data.warehouses : [],
           variants: Array.isArray(data.variants) ? data.variants : [],
+          catalogConfig: data.catalogConfig ?? get().catalogConfig,
           isLoadingCatalog: false,
         });
       } catch {
         set({ isLoadingCatalog: false });
+      }
+    },
+
+    updateProductVariant: async (payload) => {
+      try {
+        await updateProductVariantApi(payload);
+        await get().fetchCatalogAndStock({ shopId: payload.shopId });
+        toast.success("Đã cập nhật thông tin biến thể SKU thành công!");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể cập nhật biến thể SKU.",
+        );
+        return false;
+      }
+    },
+
+    deleteProductVariant: async ({ shopId, variantId }) => {
+      try {
+        await deleteProductVariantApi({ shopId, variantId });
+        await get().fetchCatalogAndStock({ shopId });
+        toast.success("Đã ngừng kinh doanh / xóa biến thể SKU khỏi danh mục!");
+        return true;
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Không thể xóa biến thể SKU.",
+        );
+        return false;
       }
     },
 
@@ -324,7 +544,7 @@ export const useCatalogPosStore = createPersistedStore<CatalogPosState>(
         await createProductWithMatrixApi(payload);
         await get().fetchCatalogAndStock({ shopId: payload.shopId });
         toast.success(
-          "Đã tạo sản phẩm đa ngành và sinh ma trận biến thể SKU thành công!",
+          "Đã tạo sản phẩm và sinh ma trận biến thể SKU theo cấu hình ngành hàng thành công!",
         );
         return true;
       } catch (err: any) {
@@ -348,9 +568,10 @@ export const useCatalogPosStore = createPersistedStore<CatalogPosState>(
     askSizeAdvisor: async (payload) => {
       try {
         const res: any = await recommendApparelSizeApi(payload);
-        const data = res?.data?.data ?? res?.data;
+        const data: IDynamicAdvisorResult | null =
+          res?.data?.data ?? res?.data ?? null;
         const msg = data?.adviceMessage || null;
-        set({ sizeAdviceText: msg });
+        set({ sizeAdviceText: msg, advisorResult: data });
         return msg;
       } catch {
         return null;

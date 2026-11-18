@@ -7,6 +7,7 @@ import {
   GlassAlert,
   GlassBadge,
   GlassEmptyState,
+  GlassModal,
   GlassSurfaceCard,
   GlassTabs,
   ItemSelect,
@@ -26,8 +27,9 @@ import { ProvinceDistrictWardCombobox } from "@/components/crm/province-district
 import { useCatalogPosStore } from "@/lib/stores/catalog-pos/use-catalog-pos-store";
 import { useCrmStore } from "@/lib/stores/crm/use-crm-store";
 import type {
+  ISellerAdvisorFieldSchema,
+  ISellerAdvisorRuleRow,
   PosOrderPaymentMethodType,
-  ProductIndustryType,
 } from "@/types/catalog-pos";
 import type { ICustomerProfile, IExtractedCommerceEntities } from "@/types/crm";
 import {
@@ -36,6 +38,7 @@ import {
   Boxes,
   CheckCircle2,
   Coins,
+  Gift,
   GitMerge,
   Minus,
   Package,
@@ -44,6 +47,7 @@ import {
   Ruler,
   Search,
   Send,
+  Settings2,
   ShieldAlert,
   ShoppingBag,
   Sparkles,
@@ -92,13 +96,17 @@ export function InChatPosDrawer({
   const {
     warehouses,
     variants,
+    catalogConfig,
     inChatDraftCartByConv,
     mergeableDuplicateOrdersByConv,
     shippingQuotesByConv,
     routingPreviewByConv,
     activeCreatedOrderByConv,
     sizeAdviceText,
+    advisorResult,
     fetchCatalogAndStock,
+    fetchCatalogPosConfig,
+    upsertSellerCategoryBlueprint,
     addOrIncrementInChatCartItem,
     updateInChatCartItemQuantity,
     clearInChatCart,
@@ -117,9 +125,8 @@ export function InChatPosDrawer({
   const [searchSkuQuery, setSearchSkuQuery] = useState("");
   const [selectedWarehouseId, setSelectedWarehouseId] =
     useState<string>("AUTO");
-  const [filterIndustry, setFilterIndustry] = useState<
-    "ALL" | ProductIndustryType
-  >("ALL");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] =
+    useState<string>("ALL");
 
   // Thông tin người nhận & Địa chỉ 3 cấp / 4 cấp
   const [customerName, setCustomerName] = useState(
@@ -155,19 +162,36 @@ export function InChatPosDrawer({
       "",
   );
 
-  // Tư vấn thông số / kích cỡ đa ngành hàng (Thời trang, Mẹ & Bé, Mỹ phẩm, Điện tử/F&B)
-  const [advisorMode, setAdvisorMode] =
-    useState<ProductIndustryType>("FASHION_APPAREL");
-  const [advisorHeightCm, setAdvisorHeightCm] = useState<number>(
-    customerProfile?.heightCm || latestExtractedNer?.heightCm || 160,
+  // Tư vấn thông số / kích cỡ động 100% theo cấu hình ngành hàng của Người bán (Loại bỏ hoàn toàn hardcode)
+  const [selectedAdvisorCategoryId, setSelectedAdvisorCategoryId] =
+    useState<string>("");
+  const [dynamicAdvisorInputs, setDynamicAdvisorInputs] = useState<
+    Record<string, string | number>
+  >({});
+
+  // Modal cấu hình nhanh Ngành hàng & Bộ tiêu chí tư vấn ngay trong khung Chat POS
+  const [openQuickCategoryModal, setOpenQuickCategoryModal] = useState(false);
+  const [customCatCode, setCustomCatCode] = useState("");
+  const [customCatName, setCustomCatName] = useState("");
+  const [customCatBadge, setCustomCatBadge] = useState("");
+  const [customCatEmoji, setCustomCatEmoji] = useState("📦");
+  const [customCatUnit, setCustomCatUnit] = useState("Sản phẩm");
+  const [customAxis1Name, setCustomAxis1Name] = useState("Phân loại 1");
+  const [customAxis1Values, setCustomAxis1Values] = useState(
+    "Tiêu chuẩn, Cao cấp",
   );
-  const [advisorWeightKg, setAdvisorWeightKg] = useState<number>(
-    customerProfile?.weightKg || latestExtractedNer?.weightKg || 52,
-  );
-  const [advisorBabyMonths, setAdvisorBabyMonths] = useState<number>(8);
-  const [advisorSkinType, setAdvisorSkinType] = useState<string>("COMBINATION");
-  const [advisorUsageNeed, setAdvisorUsageNeed] = useState<string>(
-    "Gia đình 4 người / Sử dụng hàng ngày",
+  const [customAxis2Name, setCustomAxis2Name] = useState("Kích cỡ / Quy cách");
+  const [customAxis2Values, setCustomAxis2Values] = useState("S, M, L");
+  const [customAdvisorFieldKey, setCustomAdvisorFieldKey] =
+    useState("footLengthCm");
+  const [customAdvisorFieldLabel, setCustomAdvisorFieldLabel] =
+    useState("Chiều dài chân");
+  const [customAdvisorFieldUnit, setCustomAdvisorFieldUnit] = useState("cm");
+  const [customRuleCode, setCustomRuleCode] = useState("Size 39");
+  const [customRuleMin, setCustomRuleMin] = useState(24);
+  const [customRuleMax, setCustomRuleMax] = useState(24.5);
+  const [customRuleNote, setCustomRuleNote] = useState(
+    "Form chuẩn ôm chân êm ái",
   );
 
   // Vận chuyển, giảm giá & thanh toán
@@ -192,9 +216,32 @@ export function InChatPosDrawer({
   const routingPreview = routingPreviewByConv[conversationId] || null;
   const activeCreatedOrder = activeCreatedOrderByConv[conversationId] || null;
 
+  // Danh sách ngành hàng hoạt động do Người bán cấu hình
+  const sellerActiveCategories = useMemo(() => {
+    const list = (catalogConfig?.categories || []).filter((c) => c.isActive);
+    return list.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  }, [catalogConfig]);
+
+  // Danh sách ngành hàng có bật Công cụ Tư vấn Thông số trong POS
+  const advisorEnabledCategories = useMemo(
+    () => sellerActiveCategories.filter((c) => c.enableAdvisorInPos),
+    [sellerActiveCategories],
+  );
+
+  const activeAdvisorCategory = useMemo(
+    () =>
+      advisorEnabledCategories.find(
+        (c) => c.categoryId === selectedAdvisorCategoryId,
+      ) ||
+      advisorEnabledCategories[0] ||
+      null,
+    [advisorEnabledCategories, selectedAdvisorCategoryId],
+  );
+
   useEffect(() => {
     if (!shopId) return;
     void fetchCatalogAndStock({ shopId });
+    void fetchCatalogPosConfig(shopId);
     void checkMergeableDuplicateOrders({
       shopId,
       customerId: customerProfile?.id,
@@ -205,7 +252,53 @@ export function InChatPosDrawer({
     conversationId,
     customerProfile?.id,
     fetchCatalogAndStock,
+    fetchCatalogPosConfig,
     checkMergeableDuplicateOrders,
+  ]);
+
+  // Khởi tạo giá trị mặc định cho bộ trường tư vấn động khi đổi Ngành hàng hoặc khi có dữ liệu NER / Hồ sơ CRM 360
+  useEffect(() => {
+    if (!activeAdvisorCategory) return;
+    if (selectedAdvisorCategoryId !== activeAdvisorCategory.categoryId) {
+      setSelectedAdvisorCategoryId(activeAdvisorCategory.categoryId);
+    }
+    setDynamicAdvisorInputs((prev) => {
+      const next: Record<string, string | number> = { ...prev };
+      for (const field of activeAdvisorCategory.advisorFields || []) {
+        if (
+          field.nerAutoFillField === "heightCm" &&
+          (latestExtractedNer?.heightCm || customerProfile?.heightCm)
+        ) {
+          next[field.fieldKey] =
+            latestExtractedNer?.heightCm ||
+            customerProfile?.heightCm ||
+            field.defaultValue ||
+            160;
+        } else if (
+          field.nerAutoFillField === "weightKg" &&
+          (latestExtractedNer?.weightKg || customerProfile?.weightKg)
+        ) {
+          next[field.fieldKey] =
+            latestExtractedNer?.weightKg ||
+            customerProfile?.weightKg ||
+            field.defaultValue ||
+            52;
+        } else if (next[field.fieldKey] === undefined) {
+          next[field.fieldKey] =
+            field.defaultValue ??
+            (field.fieldType === "NUMBER"
+              ? (field.min ?? 0)
+              : (field.options?.[0]?.value ?? ""));
+        }
+      }
+      return next;
+    });
+  }, [
+    activeAdvisorCategory,
+    latestExtractedNer?.heightCm,
+    latestExtractedNer?.weightKg,
+    customerProfile?.heightCm,
+    customerProfile?.weightKg,
   ]);
 
   // Tự động cập nhật báo giá phí vận chuyển 4 hãng & định tuyến kho khi thay đổi địa chỉ hoặc giỏ hàng
@@ -237,8 +330,21 @@ export function InChatPosDrawer({
     const q = searchSkuQuery.trim().toLowerCase();
     return variants
       .filter((v) => {
-        if (filterIndustry !== "ALL" && v.industryType !== filterIndustry) {
-          return false;
+        if (selectedCategoryFilter !== "ALL") {
+          const catObj = sellerActiveCategories.find(
+            (c) => c.categoryId === selectedCategoryFilter,
+          );
+          const matchByCustomId = v.customCategoryId === selectedCategoryFilter;
+          const matchByIndustry =
+            catObj &&
+            !v.customCategoryId &&
+            v.industryType === catObj.industryType;
+          const matchByName =
+            catObj &&
+            (v.categoryName || "").toLowerCase() === catObj.name.toLowerCase();
+          if (!matchByCustomId && !matchByIndustry && !matchByName) {
+            return false;
+          }
         }
         if (!q) return true;
         return (
@@ -250,7 +356,12 @@ export function InChatPosDrawer({
         );
       })
       .slice(0, 12);
-  }, [variants, searchSkuQuery, filterIndustry]);
+  }, [
+    variants,
+    searchSkuQuery,
+    selectedCategoryFilter,
+    sellerActiveCategories,
+  ]);
 
   // Tự động điền SĐT, Địa chỉ 3 cấp / 4 cấp và sản phẩm SKU từ tin nhắn NER (F04.1 -> F06.1)
   const handleFillFromExtractedNer = async () => {
@@ -276,11 +387,16 @@ export function InChatPosDrawer({
     if (latestExtractedNer.addressLine) {
       setAddressLine(latestExtractedNer.addressLine);
     }
-    if (latestExtractedNer.heightCm) {
-      setAdvisorHeightCm(latestExtractedNer.heightCm);
-    }
-    if (latestExtractedNer.weightKg) {
-      setAdvisorWeightKg(latestExtractedNer.weightKg);
+    if (latestExtractedNer.heightCm || latestExtractedNer.weightKg) {
+      setDynamicAdvisorInputs((prev) => ({
+        ...prev,
+        ...(latestExtractedNer.heightCm
+          ? { heightCm: latestExtractedNer.heightCm }
+          : {}),
+        ...(latestExtractedNer.weightKg
+          ? { weightKg: latestExtractedNer.weightKg }
+          : {}),
+      }));
     }
     if (latestExtractedNer.deliveryTimeNote) {
       setOrderNote(latestExtractedNer.deliveryTimeNote);
@@ -308,7 +424,7 @@ export function InChatPosDrawer({
     );
   };
 
-  // Tính toán tổng tiền giỏ hàng thời gian thực
+  // Tính toán tổng tiền giỏ hàng & đối chiếu Quy tắc Quà tặng kèm 0đ Động do Người bán cấu hình
   const financialSummary = useMemo(() => {
     const subtotal = cartItems.reduce(
       (sum, it) => sum + it.variant.retailPrice * it.quantity,
@@ -383,6 +499,19 @@ export function InChatPosDrawer({
       ? Math.max(50000, Math.round(totalPayable * 0.3))
       : 0;
 
+    // Đối chiếu các Quy tắc Quà tặng kèm 0đ động từ `catalogConfig.freeGiftRules`
+    const activeGiftRules = (catalogConfig?.freeGiftRules || []).filter(
+      (r) => r.isActive,
+    );
+    const unlockedGiftRules = activeGiftRules.filter(
+      (r) => subtotal >= Number(r.minOrderSubtotalVnd || 0),
+    );
+    const nextLockedGiftRule = activeGiftRules
+      .filter((r) => subtotal < Number(r.minOrderSubtotalVnd || 0))
+      .sort(
+        (a, b) => Number(a.minOrderSubtotalVnd) - Number(b.minOrderSubtotalVnd),
+      )[0];
+
     return {
       subtotal,
       totalWeightGrams,
@@ -397,6 +526,8 @@ export function InChatPosDrawer({
       totalPayable,
       isHighRiskBuyer,
       depositRequired,
+      unlockedGiftRules,
+      nextLockedGiftRule,
     };
   }, [
     cartItems,
@@ -407,6 +538,7 @@ export function InChatPosDrawer({
     customerProfile,
     redeemLoyaltyPoints,
     applyWalletCredit,
+    catalogConfig,
   ]);
 
   const handleCreatePosOrder = async () => {
@@ -531,7 +663,7 @@ export function InChatPosDrawer({
 
         {activeTab === "CART" && (
           <div className="space-y-3">
-            {/* Nút 1 chạm Điền SĐT, Địa chỉ 3 cấp & SKU từ tin nhắn NER (F04.1) */}
+            {/* Nút 1 chạm Điền SĐT, Địa chỉ 3 cấp & SKU từ tin nhắn NER + Nút Cấu hình Ngành hàng Động */}
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <PatternButton
                 type="button"
@@ -546,29 +678,41 @@ export function InChatPosDrawer({
                 ✨ Điền SĐT, Địa chỉ 3 Cấp & SKU từ Tin nhắn
               </PatternButton>
 
-              {cartItems.length > 0 && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => clearInChatCart(conversationId)}
-                  className="text-[11px] text-muted-foreground hover:text-destructive inline-flex items-center gap-1 cursor-pointer"
+                  onClick={() => setOpenQuickCategoryModal(true)}
+                  className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 cursor-pointer font-medium"
                 >
-                  <Trash2 className="w-3 h-3" />
-                  <span>Xóa giỏ</span>
+                  <Settings2 className="w-3 h-3" />
+                  <span>+ Tự cấu hình Ngành hàng</span>
                 </button>
-              )}
+
+                {cartItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => clearInChatCart(conversationId)}
+                    className="text-[11px] text-muted-foreground hover:text-destructive inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Xóa giỏ</span>
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Tìm kiếm SKU Đa Ngành Hàng / Quét Barcode & Giữ chỗ nguyên tử Redis Lua (< 1ms) */}
+            {/* Tìm kiếm SKU theo Danh mục Người bán cấu hình / Quét Barcode & Giữ chỗ nguyên tử Redis Lua (< 1ms) */}
             <GlassSurfaceCard className="p-3 space-y-2.5">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
                   <Barcode className="w-3.5 h-3.5 text-primary" />
                   <span>
-                    Tìm SKU Đa Ngành / Quét Barcode (Giữ chỗ Redis Lua &lt;1ms)
+                    Tìm Sản phẩm / Quét Barcode (Giữ chỗ Redis Lua &lt;1ms)
                   </span>
                 </Label>
                 <GlassBadge variant="info" size="sm">
-                  {warehouses.length} Kho hoạt động
+                  {warehouses.length} Kho • {sellerActiveCategories.length}{" "}
+                  Ngành hàng
                 </GlassBadge>
               </div>
 
@@ -580,7 +724,7 @@ export function InChatPosDrawer({
                       <Input
                         value={searchSkuQuery}
                         onChange={(e) => setSearchSkuQuery(e.target.value)}
-                        placeholder="Gõ SKU (A12, SRM, GRN, S9, COMBO) hoặc Barcode..."
+                        placeholder="Tìm theo mã SKU, tên sản phẩm, danh mục hoặc quét Barcode..."
                         className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-0"
                       />
                     </div>
@@ -607,29 +751,32 @@ export function InChatPosDrawer({
                 </Select>
               </div>
 
-              {/* Bộ lọc nhanh ngành hàng */}
+              {/* Bộ lọc nhanh Ngành hàng Động 100% từ cấu hình của Người bán (Không hardcode) */}
               <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-                {(
-                  [
-                    { key: "ALL", label: "Tất cả" },
-                    { key: "FASHION_APPAREL", label: "👗 Thời trang" },
-                    { key: "COSMETICS_BEAUTY", label: "💄 Mỹ phẩm" },
-                    { key: "ELECTRONICS_TECH", label: "📱 Điện tử" },
-                    { key: "FOOD_BEVERAGE", label: "🍵 Thực phẩm" },
-                    { key: "MOTHER_AND_BABY", label: "🍼 Mẹ & Bé" },
-                  ] as const
-                ).map((item) => (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategoryFilter("ALL")}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                    selectedCategoryFilter === "ALL"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Tất cả ({variants.length})
+                </button>
+                {sellerActiveCategories.map((cat) => (
                   <button
-                    key={item.key}
+                    key={cat.categoryId}
                     type="button"
-                    onClick={() => setFilterIndustry(item.key)}
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors cursor-pointer ${
-                      filterIndustry === item.key
+                    onClick={() => setSelectedCategoryFilter(cat.categoryId)}
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                      selectedCategoryFilter === cat.categoryId
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted/60 text-muted-foreground hover:bg-muted"
                     }`}
                   >
-                    {item.label}
+                    {cat.iconEmoji ? `${cat.iconEmoji} ` : ""}
+                    {cat.badgeLabel || cat.name}
                   </button>
                 ))}
               </div>
@@ -647,6 +794,11 @@ export function InChatPosDrawer({
                           <span className="font-mono font-bold text-[11px] text-primary">
                             {variant.skuCode}
                           </span>
+                          {variant.categoryName && (
+                            <GlassBadge variant="secondary" size="sm">
+                              {variant.categoryName}
+                            </GlassBadge>
+                          )}
                           {variant.isBundleBom && (
                             <GlassBadge variant="accent" size="sm">
                               Combo BOM
@@ -719,178 +871,176 @@ export function InChatPosDrawer({
                 </div>
               </ScrollArea>
 
-              {/* Công cụ Tư vấn Thông số & Size Đa Ngành Hàng (F05.1) */}
-              <div className="pt-2 border-t border-border/40 space-y-1.5">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-1.5">
-                    <Ruler className="w-3.5 h-3.5 text-indigo-500" />
-                    <span className="text-[11px] font-semibold">
-                      Tư vấn Thông số Đa Ngành:
-                    </span>
-                    <Select
-                      value={advisorMode}
-                      onValueChange={(v) =>
-                        setAdvisorMode(v as ProductIndustryType)
+              {/* Công cụ Tư vấn Thông số & Size Động theo Ngành hàng Người bán tự cấu hình (F05.1) */}
+              {advisorEnabledCategories.length > 0 && activeAdvisorCategory && (
+                <div className="pt-2 border-t border-border/40 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Ruler className="w-3.5 h-3.5 text-indigo-500" />
+                      <span className="text-[11px] font-semibold">
+                        Tư vấn theo Ngành hàng:
+                      </span>
+                      <Select
+                        value={activeAdvisorCategory.categoryId}
+                        onValueChange={(v) => setSelectedAdvisorCategoryId(v)}
+                      >
+                        <TriggerSelect className="h-6 text-[10px] w-44 px-2">
+                          <SelectValue />
+                        </TriggerSelect>
+                        <ContentSelect>
+                          {advisorEnabledCategories.map((cat) => (
+                            <ItemSelect
+                              key={cat.categoryId}
+                              value={cat.categoryId}
+                            >
+                              {cat.iconEmoji ? `${cat.iconEmoji} ` : ""}
+                              {cat.badgeLabel || cat.name}
+                            </ItemSelect>
+                          ))}
+                        </ContentSelect>
+                      </Select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        askSizeAdvisor({
+                          shopId,
+                          customCategoryId: activeAdvisorCategory.categoryId,
+                          industryType: activeAdvisorCategory.industryType,
+                          dynamicInputs: dynamicAdvisorInputs,
+                        })
                       }
+                      className="text-[10px] font-semibold text-primary hover:underline cursor-pointer"
                     >
-                      <TriggerSelect className="h-6 text-[10px] w-36 px-2">
-                        <SelectValue />
-                      </TriggerSelect>
-                      <ContentSelect>
-                        <ItemSelect value="FASHION_APPAREL">
-                          👗 Thời trang (Cao/Nặng)
-                        </ItemSelect>
-                        <ItemSelect value="MOTHER_AND_BABY">
-                          🍼 Mẹ & Bé (Kg/Tháng)
-                        </ItemSelect>
-                        <ItemSelect value="COSMETICS_BEAUTY">
-                          💄 Mỹ phẩm (Loại da)
-                        </ItemSelect>
-                        <ItemSelect value="ELECTRONICS_TECH">
-                          📱 Điện tử / F&B (Nhu cầu)
-                        </ItemSelect>
-                      </ContentSelect>
-                    </Select>
+                      Gợi ý chuẩn →
+                    </button>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      askSizeAdvisor({
-                        shopId,
-                        industryType: advisorMode,
-                        heightCm: advisorHeightCm,
-                        weightKg: advisorWeightKg,
-                        babyAgeMonths:
-                          advisorMode === "MOTHER_AND_BABY"
-                            ? advisorBabyMonths
-                            : undefined,
-                        skinType:
-                          advisorMode === "COSMETICS_BEAUTY"
-                            ? advisorSkinType
-                            : undefined,
-                        usageNeed:
-                          advisorMode === "ELECTRONICS_TECH"
-                            ? advisorUsageNeed
-                            : undefined,
-                      })
-                    }
-                    className="text-[10px] font-semibold text-primary hover:underline cursor-pointer"
-                  >
-                    Gợi ý chuẩn →
-                  </button>
-                </div>
+                  {/* Render động các trường nhập liệu (`advisorFields`) do Người bán cấu hình cho ngành hàng đang chọn */}
+                  {activeAdvisorCategory.advisorFields.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {activeAdvisorCategory.advisorFields.map((field) => (
+                        <div
+                          key={field.fieldKey}
+                          className="flex items-center gap-1.5"
+                        >
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {field.label}:
+                          </span>
+                          {field.fieldType === "SELECT" &&
+                          Array.isArray(field.options) ? (
+                            <Select
+                              value={String(
+                                dynamicAdvisorInputs[field.fieldKey] ??
+                                  field.defaultValue ??
+                                  field.options[0]?.value ??
+                                  "",
+                              )}
+                              onValueChange={(val) =>
+                                setDynamicAdvisorInputs((prev) => ({
+                                  ...prev,
+                                  [field.fieldKey]: val,
+                                }))
+                              }
+                            >
+                              <TriggerSelect className="h-6 text-[10px] flex-1">
+                                <SelectValue />
+                              </TriggerSelect>
+                              <ContentSelect>
+                                {field.options.map((opt) => (
+                                  <ItemSelect key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </ItemSelect>
+                                ))}
+                              </ContentSelect>
+                            </Select>
+                          ) : (
+                            <div className="flex items-center gap-1 flex-1">
+                              <Input
+                                type={
+                                  field.fieldType === "NUMBER"
+                                    ? "number"
+                                    : "text"
+                                }
+                                value={
+                                  dynamicAdvisorInputs[field.fieldKey] ??
+                                  field.defaultValue ??
+                                  ""
+                                }
+                                onChange={(e) =>
+                                  setDynamicAdvisorInputs((prev) => ({
+                                    ...prev,
+                                    [field.fieldKey]:
+                                      field.fieldType === "NUMBER"
+                                        ? Number(e.target.value)
+                                        : e.target.value,
+                                  }))
+                                }
+                                placeholder={field.placeholder || field.label}
+                                className="h-6 text-[11px] px-1.5 flex-1"
+                              />
+                              {field.unit && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {field.unit}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                {advisorMode === "FASHION_APPAREL" && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground">
-                      Cao:
-                    </span>
-                    <Input
-                      type="number"
-                      value={advisorHeightCm}
-                      onChange={(e) =>
-                        setAdvisorHeightCm(Number(e.target.value))
-                      }
-                      className="h-6 w-14 text-[11px] px-1.5"
-                    />
-                    <span className="text-[10px] text-muted-foreground">
-                      cm • Nặng:
-                    </span>
-                    <Input
-                      type="number"
-                      value={advisorWeightKg}
-                      onChange={(e) =>
-                        setAdvisorWeightKg(Number(e.target.value))
-                      }
-                      className="h-6 w-14 text-[11px] px-1.5"
-                    />
-                    <span className="text-[10px] text-muted-foreground">
-                      kg
-                    </span>
-                  </div>
-                )}
-
-                {advisorMode === "MOTHER_AND_BABY" && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground">
-                      Cân nặng bé:
-                    </span>
-                    <Input
-                      type="number"
-                      value={advisorWeightKg}
-                      onChange={(e) =>
-                        setAdvisorWeightKg(Number(e.target.value))
-                      }
-                      className="h-6 w-14 text-[11px] px-1.5"
-                    />
-                    <span className="text-[10px] text-muted-foreground">
-                      kg • Tháng tuổi:
-                    </span>
-                    <Input
-                      type="number"
-                      value={advisorBabyMonths}
-                      onChange={(e) =>
-                        setAdvisorBabyMonths(Number(e.target.value))
-                      }
-                      className="h-6 w-14 text-[11px] px-1.5"
-                    />
-                    <span className="text-[10px] text-muted-foreground">
-                      tháng
-                    </span>
-                  </div>
-                )}
-
-                {advisorMode === "COSMETICS_BEAUTY" && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground">
-                      Loại da khách:
-                    </span>
-                    <Select
-                      value={advisorSkinType}
-                      onValueChange={setAdvisorSkinType}
-                    >
-                      <TriggerSelect className="h-6 text-[10px] flex-1">
-                        <SelectValue />
-                      </TriggerSelect>
-                      <ContentSelect>
-                        <ItemSelect value="OILY">
-                          Da dầu / Lỗ chân lông to
-                        </ItemSelect>
-                        <ItemSelect value="DRY">
-                          Da khô / Thiếu ẩm bong tróc
-                        </ItemSelect>
-                        <ItemSelect value="SENSITIVE">
-                          Da nhạy cảm / Đang treatment
-                        </ItemSelect>
-                        <ItemSelect value="COMBINATION">
-                          Da hỗn hợp thiên dầu / thường
-                        </ItemSelect>
-                      </ContentSelect>
-                    </Select>
-                  </div>
-                )}
-
-                {advisorMode === "ELECTRONICS_TECH" && (
-                  <Input
-                    value={advisorUsageNeed}
-                    onChange={(e) => setAdvisorUsageNeed(e.target.value)}
-                    placeholder="Nhập nhu cầu sử dụng của khách..."
-                    className="h-6 text-[11px] px-2"
-                  />
-                )}
-              </div>
-
-              {sizeAdviceText && (
-                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-500/10 px-2.5 py-1.5 rounded-lg">
-                  ✨ {sizeAdviceText}
+                  {sizeAdviceText && (
+                    <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-500/10 px-2.5 py-2 rounded-lg space-y-1.5">
+                      <div>✨ {sizeAdviceText}</div>
+                      {advisorResult?.suggestedVariantsInStock &&
+                        advisorResult.suggestedVariantsInStock.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-emerald-500/20">
+                            <span className="text-[10px] text-muted-foreground">
+                              SKU khớp còn tồn:
+                            </span>
+                            {advisorResult.suggestedVariantsInStock.map(
+                              (sug) => {
+                                const fullVar = variants.find(
+                                  (v) => v.id === sug.variantId,
+                                );
+                                if (!fullVar) return null;
+                                return (
+                                  <button
+                                    key={sug.variantId}
+                                    type="button"
+                                    onClick={() =>
+                                      addOrIncrementInChatCartItem({
+                                        shopId,
+                                        conversationId,
+                                        variant: fullVar,
+                                        warehouseId:
+                                          selectedWarehouseId === "AUTO"
+                                            ? undefined
+                                            : selectedWarehouseId,
+                                      })
+                                    }
+                                    className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-semibold hover:bg-emerald-700 cursor-pointer"
+                                  >
+                                    + Thêm {sug.skuCode} (Tồn:{" "}
+                                    {sug.totalAvailableQty})
+                                  </button>
+                                );
+                              },
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  )}
                 </div>
               )}
             </GlassSurfaceCard>
 
             {/* Danh sách Sản phẩm đã chọn trong Giỏ hàng POS */}
             <GlassSurfaceCard className="p-3 space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="font-semibold text-xs flex items-center gap-1.5">
                   <Package className="w-3.5 h-3.5 text-primary" />
                   <span>
@@ -898,11 +1048,25 @@ export function InChatPosDrawer({
                     {financialSummary.totalWeightGrams}g tính cước)
                   </span>
                 </span>
-                {financialSummary.subtotal >= 500000 && (
+                {financialSummary.unlockedGiftRules.length > 0 ? (
                   <GlassBadge variant="success" size="sm">
-                    🎁 Đủ ĐK nhận Quà tặng 0đ
+                    🎁 Đủ ĐK tặng:{" "}
+                    {financialSummary.unlockedGiftRules
+                      .map((r) => `${r.giftSkuCode} (x${r.giftQty})`)
+                      .join(", ")}
                   </GlassBadge>
-                )}
+                ) : financialSummary.nextLockedGiftRule ? (
+                  <GlassBadge variant="info" size="sm">
+                    <Gift className="w-3 h-3 mr-1 inline" />
+                    Mua thêm{" "}
+                    {(
+                      Number(
+                        financialSummary.nextLockedGiftRule.minOrderSubtotalVnd,
+                      ) - financialSummary.subtotal
+                    ).toLocaleString("vi-VN")}
+                    đ tặng {financialSummary.nextLockedGiftRule.giftSkuCode}
+                  </GlassBadge>
+                ) : null}
               </div>
 
               {cartItems.length === 0 ? (
@@ -1170,11 +1334,19 @@ export function InChatPosDrawer({
               </div>
 
               {financialSummary.exceedsDiscountCeiling && (
-                <GlassAlert
-                  variant="warning"
-                  title={`Vượt trần chiết khấu tự quyết (${financialSummary.minVariantMaxDiscount}%)`}
-                  description="Đơn hàng vẫn giữ chỗ tồn kho và tự động chuyển sang trạng thái chờ Quản lý duyệt giảm giá 1 chạm."
-                />
+                <div className="space-y-1.5">
+                  <GlassAlert
+                    variant="warning"
+                    title={`Vượt trần chiết khấu tự quyết (${financialSummary.minVariantMaxDiscount}%)`}
+                    description="Đơn hàng vẫn giữ chỗ tồn kho và tự động chuyển sang trạng thái chờ Quản lý duyệt giảm giá 1 chạm."
+                  />
+                  <Input
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                    placeholder="Nhập lý do xin duyệt giảm giá vượt trần..."
+                    className="h-7 text-xs"
+                  />
+                </div>
               )}
 
               {customerProfile &&
@@ -1420,6 +1592,12 @@ export function InChatPosDrawer({
                         </b>
                       </div>
                       <div>
+                        Chủ tài khoản:{" "}
+                        <b>
+                          {activeCreatedOrder.vietqrPayloadJson.accountName}
+                        </b>
+                      </div>
+                      <div>
                         Số tiền khóa cứng:{" "}
                         <b className="text-primary text-sm">
                           {Number(
@@ -1540,6 +1718,259 @@ export function InChatPosDrawer({
             )}
           </div>
         )}
+
+        {/* MODAL THÊM NHANH NGÀNH HÀNG & QUY TẮC TƯ VẤN ĐỘNG NGAY TRONG IN-CHAT POS */}
+        <GlassModal
+          open={openQuickCategoryModal}
+          onOpenChange={setOpenQuickCategoryModal}
+          title="Tự Cấu Hình Ngành Hàng & Công Cụ Tư Vấn Động (Seller Custom Vertical)"
+          description="Thêm ngành hàng mới của cửa hàng kèm 2 trục thuộc tính biến thể và công thức tư vấn thông số/size động ngay trong POS."
+          size="md"
+          footer={
+            <>
+              <PatternButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                rounded="full"
+                onClick={() => setOpenQuickCategoryModal(false)}
+              >
+                Hủy
+              </PatternButton>
+              <PatternButton
+                type="button"
+                variant="solid"
+                color="primary"
+                size="sm"
+                rounded="full"
+                onClick={async () => {
+                  if (!customCatCode.trim() || !customCatName.trim()) {
+                    toast.error("Vui lòng nhập Mã và Tên ngành hàng!");
+                    return;
+                  }
+                  const fields: ISellerAdvisorFieldSchema[] =
+                    customAdvisorFieldKey.trim()
+                      ? [
+                          {
+                            fieldKey: customAdvisorFieldKey.trim(),
+                            label:
+                              customAdvisorFieldLabel.trim() ||
+                              customAdvisorFieldKey.trim(),
+                            unit: customAdvisorFieldUnit.trim() || undefined,
+                            fieldType: "NUMBER",
+                            defaultValue: customRuleMin,
+                            min: 0,
+                            max: 500,
+                          },
+                        ]
+                      : [];
+                  const rules: ISellerAdvisorRuleRow[] =
+                    customAdvisorFieldKey.trim() && customRuleCode.trim()
+                      ? [
+                          {
+                            ruleId: `RULE_${Date.now()}`,
+                            recommendedResultCode: customRuleCode.trim(),
+                            fitNote: customRuleNote.trim(),
+                            numericRanges: {
+                              [customAdvisorFieldKey.trim()]: {
+                                min: Number(customRuleMin),
+                                max: Number(customRuleMax),
+                              },
+                            },
+                          },
+                        ]
+                      : [];
+
+                  const ok = await upsertSellerCategoryBlueprint({
+                    shopId,
+                    code: customCatCode.trim(),
+                    name: customCatName.trim(),
+                    badgeLabel: customCatBadge.trim() || customCatName.trim(),
+                    iconEmoji: customCatEmoji.trim() || "📦",
+                    defaultUnitName: customCatUnit.trim() || "Sản phẩm",
+                    attributeAxis1Name: customAxis1Name.trim() || "Phân loại 1",
+                    attributeAxis1SampleValues: customAxis1Values
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                    attributeAxis2Name: customAxis2Name.trim() || "Phân loại 2",
+                    attributeAxis2SampleValues: customAxis2Values
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                    enableAdvisorInPos: fields.length > 0,
+                    advisorTitle: `Tư vấn ${customCatName.trim()}`,
+                    advisorFields: fields,
+                    advisorRules: rules,
+                    isActive: true,
+                  });
+                  if (ok) {
+                    setOpenQuickCategoryModal(false);
+                    setCustomCatCode("");
+                    setCustomCatName("");
+                  }
+                }}
+              >
+                Lưu Ngành Hàng Của Shop
+              </PatternButton>
+            </>
+          }
+        >
+          <div className="space-y-2.5 text-xs">
+            <div className="grid grid-cols-4 gap-2">
+              <div>
+                <Label className="text-[11px]">Biểu tượng</Label>
+                <Input
+                  value={customCatEmoji}
+                  onChange={(e) => setCustomCatEmoji(e.target.value)}
+                  className="mt-1 h-8 text-xs text-center"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px]">Mã ngành</Label>
+                <Input
+                  value={customCatCode}
+                  onChange={(e) => setCustomCatCode(e.target.value)}
+                  placeholder="VD: GIAY_DEP"
+                  className="mt-1 h-8 text-xs font-mono"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-[11px]">Tên ngành hàng hiển thị</Label>
+                <Input
+                  value={customCatName}
+                  onChange={(e) => setCustomCatName(e.target.value)}
+                  placeholder="VD: Giày Dép & Sneaker"
+                  className="mt-1 h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[11px]">Nhãn rút gọn trên nút lọc</Label>
+                <Input
+                  value={customCatBadge}
+                  onChange={(e) => setCustomCatBadge(e.target.value)}
+                  placeholder="VD: Giày Sneaker"
+                  className="mt-1 h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px]">Đơn vị tính mặc định</Label>
+                <Input
+                  value={customCatUnit}
+                  onChange={(e) => setCustomCatUnit(e.target.value)}
+                  placeholder="VD: Đôi / Chiếc / Hộp"
+                  className="mt-1 h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[11px]">Tên Trục thuộc tính 1</Label>
+                <Input
+                  value={customAxis1Name}
+                  onChange={(e) => setCustomAxis1Name(e.target.value)}
+                  className="mt-1 h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px]">Giá trị mẫu Trục 1</Label>
+                <Input
+                  value={customAxis1Values}
+                  onChange={(e) => setCustomAxis1Values(e.target.value)}
+                  className="mt-1 h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[11px]">Tên Trục thuộc tính 2</Label>
+                <Input
+                  value={customAxis2Name}
+                  onChange={(e) => setCustomAxis2Name(e.target.value)}
+                  className="mt-1 h-8 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-[11px]">Giá trị mẫu Trục 2</Label>
+                <Input
+                  value={customAxis2Values}
+                  onChange={(e) => setCustomAxis2Values(e.target.value)}
+                  className="mt-1 h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="p-2.5 rounded-xl border border-border/50 bg-muted/20 space-y-2">
+              <div className="font-semibold text-[11px] text-primary">
+                Cấu hình Trường Tư vấn Thông số / Size Động trên POS
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-[10px]">Mã trường (Key)</Label>
+                  <Input
+                    value={customAdvisorFieldKey}
+                    onChange={(e) => setCustomAdvisorFieldKey(e.target.value)}
+                    placeholder="footLengthCm"
+                    className="mt-1 h-7 text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Nhãn hiển thị</Label>
+                  <Input
+                    value={customAdvisorFieldLabel}
+                    onChange={(e) => setCustomAdvisorFieldLabel(e.target.value)}
+                    placeholder="Chiều dài chân"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Đơn vị</Label>
+                  <Input
+                    value={customAdvisorFieldUnit}
+                    onChange={(e) => setCustomAdvisorFieldUnit(e.target.value)}
+                    placeholder="cm"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-[10px]">Kết quả gợi ý</Label>
+                  <Input
+                    value={customRuleCode}
+                    onChange={(e) => setCustomRuleCode(e.target.value)}
+                    placeholder="Size 39"
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Từ (Min)</Label>
+                  <Input
+                    type="number"
+                    value={customRuleMin}
+                    onChange={(e) => setCustomRuleMin(Number(e.target.value))}
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Đến (Max)</Label>
+                  <Input
+                    type="number"
+                    value={customRuleMax}
+                    onChange={(e) => setCustomRuleMax(Number(e.target.value))}
+                    className="mt-1 h-7 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </GlassModal>
       </div>
     </LiquidGlassConfigProvider>
   );

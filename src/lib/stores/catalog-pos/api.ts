@@ -1,12 +1,72 @@
 import apiClient from "@/lib/http/axios-client";
 import type {
   IBundleBomComponent,
+  IProductFreeGiftRule,
+  ISellerAdvisorFieldSchema,
+  ISellerAdvisorRuleRow,
+  ISellerCategoryBlueprint,
+  ISellerVietQrBankConfig,
   InventoryMovementType,
   PosOrderPaymentMethodType,
   PosOrderStatusType,
   ProductIndustryType,
   ProductSerialStatusType,
 } from "@/types/catalog-pos";
+
+export const getShopCatalogPosConfigApi = (shopId: string) =>
+  apiClient.get(`/catalog-pos/${shopId}/config`);
+
+export const updateShopCatalogPosConfigApi = (payload: {
+  shopId: string;
+  categories?: ISellerCategoryBlueprint[];
+  freeGiftRules?: IProductFreeGiftRule[];
+  vietQrBankConfig?: Partial<ISellerVietQrBankConfig>;
+  autoSeedDemoCatalogWhenEmpty?: boolean;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.put(`/catalog-pos/${shopId}/config`, body);
+};
+
+export const upsertSellerCategoryBlueprintApi = (payload: {
+  shopId: string;
+  categoryId?: string;
+  code: string;
+  name: string;
+  badgeLabel?: string;
+  iconEmoji?: string;
+  industryType?: ProductIndustryType;
+  defaultUnitName?: string;
+  attributeAxis1Name?: string;
+  attributeAxis1SampleValues?: string[];
+  attributeAxis2Name?: string;
+  attributeAxis2SampleValues?: string[];
+  requiresSerialImei?: boolean;
+  defaultWarrantyMonths?: number;
+  requiresBatchExpiry?: boolean;
+  defaultShelfLifeMonths?: number;
+  defaultStorageCondition?: string | null;
+  defaultMaxDiscountPercent?: number;
+  enableAdvisorInPos?: boolean;
+  advisorTitle?: string;
+  advisorFields?: ISellerAdvisorFieldSchema[];
+  advisorRules?: ISellerAdvisorRuleRow[];
+  isActive?: boolean;
+  sortOrder?: number;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.post(`/catalog-pos/${shopId}/config/categories`, body);
+};
+
+export const deleteSellerCategoryBlueprintApi = (params: {
+  shopId: string;
+  categoryId: string;
+}) =>
+  apiClient.delete(
+    `/catalog-pos/${params.shopId}/config/categories/${encodeURIComponent(params.categoryId)}`,
+  );
+
+export const seedSampleCatalogApi = (shopId: string) =>
+  apiClient.post(`/catalog-pos/${shopId}/seed-demo`, {});
 
 export const listWarehousesApi = (shopId: string) =>
   apiClient.get(`/catalog-pos/${shopId}/warehouses`);
@@ -34,15 +94,59 @@ export const listCatalogVariantsApi = (params: {
   warehouseId?: string;
   bundleOnly?: boolean;
   industryType?: ProductIndustryType;
+  customCategoryId?: string;
 }) => {
   const { shopId, ...query } = params;
   return apiClient.get(`/catalog-pos/${shopId}/variants`, { params: query });
 };
 
+export const updateProductVariantApi = (payload: {
+  shopId: string;
+  variantId: string;
+  variantName?: string;
+  customCategoryId?: string | null;
+  industryType?: ProductIndustryType;
+  categoryName?: string;
+  brandName?: string | null;
+  unitName?: string;
+  barcode?: string;
+  retailPrice?: number;
+  wholesalePrice?: number;
+  costPrice?: number;
+  maxDiscountPercent?: number;
+  weightGrams?: number;
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
+  isFreeGiftItem?: boolean;
+  requiresSerialImei?: boolean;
+  warrantyMonths?: number;
+  requiresBatchExpiry?: boolean;
+  batchCode?: string | null;
+  expiryDate?: string | null;
+  storageCondition?: string | null;
+  isActive?: boolean;
+}) => {
+  const { shopId, variantId, ...body } = payload;
+  return apiClient.patch(
+    `/catalog-pos/${shopId}/variants/${encodeURIComponent(variantId)}`,
+    body,
+  );
+};
+
+export const deleteProductVariantApi = (params: {
+  shopId: string;
+  variantId: string;
+}) =>
+  apiClient.delete(
+    `/catalog-pos/${params.shopId}/variants/${encodeURIComponent(params.variantId)}`,
+  );
+
 export const createProductWithMatrixApi = (payload: {
   shopId: string;
   code: string;
   name: string;
+  customCategoryId?: string;
   industryType?: ProductIndustryType;
   categoryName?: string;
   brandName?: string;
@@ -61,6 +165,7 @@ export const createProductWithMatrixApi = (payload: {
   lengthCm?: number;
   widthCm?: number;
   heightCm?: number;
+  isFreeGiftItem?: boolean;
   requiresSerialImei?: boolean;
   warrantyMonths?: number;
   requiresBatchExpiry?: boolean;
@@ -80,6 +185,7 @@ export const createBundleBomVariantApi = (payload: {
   shopId: string;
   skuCode: string;
   variantName: string;
+  customCategoryId?: string;
   industryType?: ProductIndustryType;
   retailPrice: number;
   maxDiscountPercent?: number;
@@ -92,7 +198,9 @@ export const createBundleBomVariantApi = (payload: {
 export const recommendApparelSizeApi = (payload: {
   shopId: string;
   productId?: string;
+  customCategoryId?: string;
   industryType?: ProductIndustryType;
+  dynamicInputs?: Record<string, string | number>;
   heightCm?: number;
   weightKg?: number;
   babyAgeMonths?: number;

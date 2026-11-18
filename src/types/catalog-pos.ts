@@ -70,6 +70,125 @@ export type DiscountApprovalStatusType =
   | "APPROVED"
   | "REJECTED";
 
+/**
+ * Cấu hình Trường Nhập Liệu Tư Vấn Động (`ISellerAdvisorFieldSchema`) do Người bán tự định nghĩa
+ */
+export interface ISellerAdvisorFieldOption {
+  value: string;
+  label: string;
+}
+
+export interface ISellerAdvisorFieldSchema {
+  fieldKey: string;
+  label: string;
+  unit?: string;
+  fieldType: "NUMBER" | "SELECT" | "TEXT";
+  placeholder?: string;
+  defaultValue?: number | string;
+  min?: number;
+  max?: number;
+  options?: ISellerAdvisorFieldOption[];
+  nerAutoFillField?: "heightCm" | "weightKg" | null;
+}
+
+/**
+ * Quy tắc Đối chiếu Tư vấn Thông số / Kích cỡ Động (`ISellerAdvisorRuleRow`) do Người bán tự cấu hình
+ */
+export interface ISellerAdvisorRuleRow {
+  ruleId: string;
+  recommendedResultCode: string;
+  fitNote: string;
+  numericRanges?: Record<string, { min: number; max: number }>;
+  exactMatches?: Record<string, string>;
+  linkedSkuKeyword?: string;
+}
+
+/**
+ * Cấu hình Ngành hàng / Danh mục Sản phẩm Động do Người bán tự thiết lập (`ISellerCategoryBlueprint`)
+ */
+export interface ISellerCategoryBlueprint {
+  categoryId: string;
+  code: string;
+  name: string;
+  badgeLabel: string;
+  iconEmoji?: string;
+  industryType: ProductIndustryType;
+  defaultUnitName: string;
+  attributeAxis1Name: string;
+  attributeAxis1SampleValues: string[];
+  attributeAxis2Name: string;
+  attributeAxis2SampleValues: string[];
+  requiresSerialImei: boolean;
+  defaultWarrantyMonths: number;
+  requiresBatchExpiry: boolean;
+  defaultShelfLifeMonths: number;
+  defaultStorageCondition?: string | null;
+  defaultMaxDiscountPercent: number;
+  enableAdvisorInPos: boolean;
+  advisorTitle: string;
+  advisorFields: ISellerAdvisorFieldSchema[];
+  advisorRules: ISellerAdvisorRuleRow[];
+  isActive: boolean;
+  sortOrder: number;
+}
+
+/**
+ * Quy tắc Quà tặng kèm 0đ tự động do Người bán cấu hình (`IProductFreeGiftRule`)
+ */
+export interface IProductFreeGiftRule {
+  ruleId: string;
+  ruleName: string;
+  minOrderSubtotalVnd: number;
+  requiredCategoryId?: string | null;
+  giftVariantId: string;
+  giftSkuCode: string;
+  giftVariantName: string;
+  giftQty: number;
+  isActive: boolean;
+}
+
+/**
+ * Cấu hình Tài khoản Ngân hàng Thụ hưởng VietQR EMVCo của Cửa hàng (`ISellerVietQrBankConfig`)
+ */
+export interface ISellerVietQrBankConfig {
+  bankBin: string;
+  bankShortName: string;
+  accountNumber: string;
+  accountName: string;
+  transferPrefix: string;
+  autoConfirmWebhookEnabled: boolean;
+}
+
+/**
+ * Cấu hình Tổng thể Danh mục Ngành hàng Động, Khuyến mãi Quà tặng kèm & Thanh toán VietQR của Cửa hàng (`IShopCatalogAndPosConfig`)
+ */
+export interface IShopCatalogAndPosConfig {
+  categories: ISellerCategoryBlueprint[];
+  freeGiftRules: IProductFreeGiftRule[];
+  vietQrBankConfig: ISellerVietQrBankConfig;
+  autoSeedDemoCatalogWhenEmpty: boolean;
+  hasInitializedDefaultCatalog?: boolean;
+  updatedAt: string;
+}
+
+export interface ISuggestedVariantAdvisorItem {
+  variantId: string;
+  skuCode: string;
+  variantName: string;
+  retailPrice: number;
+  totalAvailableQty: number;
+  categoryName: string;
+}
+
+export interface IDynamicAdvisorResult {
+  recommendedSizeCode: string;
+  confidenceScore: number;
+  matchedRow: IProductSizeChartRow;
+  adviceMessage: string;
+  categoryName: string;
+  suggestedVariantsInStock: ISuggestedVariantAdvisorItem[];
+}
+
 export interface IWarehouse {
   id: string;
   shopId: string;
@@ -99,6 +218,8 @@ export interface IProductSizeChartRow {
   maxAgeMonths?: number;
   skinTypeRecommendation?: string;
   fitNote?: string;
+  numericRanges?: Record<string, { min: number; max: number }>;
+  exactMatches?: Record<string, string>;
 }
 
 export interface IProductUomConversion {
@@ -133,6 +254,7 @@ export interface IProductVariant {
   id: string;
   shopId: string;
   productId: string;
+  customCategoryId?: string | null;
   industryType?: ProductIndustryType;
   categoryName?: string;
   brandName?: string | null;
