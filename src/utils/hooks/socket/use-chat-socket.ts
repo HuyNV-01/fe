@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/correctness/useExhaustiveDependencies: <explanation> */
 "use client";
 
 import { useEffect } from "react";
@@ -40,8 +41,8 @@ export const useChatSocket = () => {
     updateActiveCall,
     handlePollUpdated,
     handleLinkPreviewReady,
-    setOngoingCallForConv, 
-    markConversationReadOptimistic
+    setOngoingCallForConv,
+    markConversationReadOptimistic,
   } = useChatStore();
   const currentUser = useAuthStore((s) => s.currentAccount);
   const isAuthenticated = !!currentUser?.accessToken;
@@ -128,6 +129,31 @@ export const useChatSocket = () => {
       SOCKET_EVENTS.CHAT.CONVERSATION_SETTINGS_UPDATED,
       (payload) => {
         handleConversationSettingsUpdated(payload);
+      },
+    );
+
+    const cleanConversationUpdated = socketService.on<{
+      conversationId?: string;
+      id?: string;
+      name?: string;
+      avatar?: string | null;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.CHAT.CONVERSATION_UPDATED,
+      (payload) => {
+        const targetId = payload?.conversationId || payload?.id;
+        if (!targetId) return;
+        useChatStore.setState((state) => {
+          const idx = state.conversations.findIndex((c) => c.id === targetId);
+          if (idx !== -1) {
+            if (payload.name) {
+              state.conversations[idx].name = payload.name;
+            }
+            if (payload.avatar) {
+              state.conversations[idx].avatar = payload.avatar;
+            }
+          }
+        });
       },
     );
 
@@ -293,8 +319,6 @@ export const useChatSocket = () => {
       },
     );
 
-    
-
     const cleanHostMuted = socketService.on<{
       callId: string;
       mutedBy: string;
@@ -369,6 +393,7 @@ export const useChatSocket = () => {
       cleanGroupUpdated();
       cleanNicknameUpdated();
       cleanSettingsUpdated();
+      cleanConversationUpdated();
       cleanStatusUpdate();
       cleanRead();
       cleanTyping();

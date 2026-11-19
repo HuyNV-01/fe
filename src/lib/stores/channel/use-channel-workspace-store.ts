@@ -1,3 +1,4 @@
+import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { createPersistedStore } from "@/lib/stores/create-persisted-store";
 import {
   batchConnectChannelsApi,
@@ -26,7 +27,9 @@ import {
   runTokenDoctorHealthCheckApi,
   type SaasAppProfileItem,
   type SaasWebhookBlueprintItem,
+  syncAllShopHistoricalThreeMonthsApi,
   syncAllShopPostsCommentsApi,
+  syncChannelHistoricalThreeMonthsApi,
   syncChannelPostsCommentsApi,
   syncChannelWebhookApi,
   updateChannelIntegrationApi,
@@ -46,7 +49,16 @@ export type {
   SaasWebhookBlueprintItem,
 };
 
+export interface ActiveShopSummary {
+  id: string;
+  shopId: string;
+  shopCode: string;
+  shopName: string;
+  role?: string;
+}
+
 export interface ChannelWorkspaceStoreState {
+  activeShop: ActiveShopSummary | null;
   channels: ConnectedChannelItem[];
   saasBlueprints: SaasWebhookBlueprintItem[];
   saasProfiles: SaasAppProfileItem[];
@@ -63,6 +75,7 @@ export interface ChannelWorkspaceStoreState {
   isLoadingMergedInbox: boolean;
   isLoadingMarketplaceReservations: boolean;
 
+  setActiveShop: (shop: ActiveShopSummary | null) => void;
   fetchShopChannels: (shopId: string) => Promise<void>;
   fetchSaasWebhookConfig: (shopId: string) => Promise<void>;
   fetchSaasAppProfiles: (shopId: string) => Promise<void>;
@@ -207,6 +220,39 @@ export interface ChannelWorkspaceStoreState {
     syncedFromLiveApi: boolean;
     syncedAt: string;
   } | null>;
+  syncChannelHistoricalThreeMonths: (
+    shopId: string,
+    channelId: string,
+    lookbackDays?: number,
+  ) => Promise<{
+    channelId: string;
+    pageName: string;
+    pageShortCode: string;
+    lookbackDays: number;
+    conversationsScanned: number;
+    inboundMessagesSynced: number;
+    outboundEchoMessagesSynced: number;
+    postsScanned: number;
+    adPostsScanned: number;
+    commentsSynced: number;
+    syncedFromLiveApi: boolean;
+    sinceIso: string;
+    syncedAt: string;
+  } | null>;
+  syncAllShopHistoricalThreeMonths: (
+    shopId: string,
+    lookbackDays?: number,
+  ) => Promise<{
+    shopId: string;
+    lookbackDays: number;
+    channelsChecked: number;
+    conversationsScanned: number;
+    inboundMessagesSynced: number;
+    outboundEchoMessagesSynced: number;
+    postsScanned: number;
+    adPostsScanned: number;
+    commentsSynced: number;
+  } | null>;
   syncAllShopPostsComments: (shopId: string) => Promise<{
     shopId: string;
     channelsChecked: number;
@@ -272,6 +318,7 @@ export interface ChannelWorkspaceStoreState {
 export const useChannelWorkspaceStore =
   createPersistedStore<ChannelWorkspaceStoreState>(
     (set, get) => ({
+      activeShop: null,
       channels: [],
       saasBlueprints: [],
       saasProfiles: [],
@@ -288,10 +335,24 @@ export const useChannelWorkspaceStore =
       isLoadingMergedInbox: false,
       isLoadingMarketplaceReservations: false,
 
+      setActiveShop: (shop) => {
+        set((state) => {
+          state.activeShop = shop;
+        });
+      },
+
       fetchShopChannels: async (shopId) => {
         if (!shopId) return;
         set((state) => {
           state.isLoadingChannels = true;
+          if (!state.activeShop || state.activeShop.id !== shopId) {
+            state.activeShop = {
+              id: shopId,
+              shopId,
+              shopCode: state.activeShop?.shopCode || "SHOP",
+              shopName: state.activeShop?.shopName || "Cửa hàng đang chọn",
+            };
+          }
         });
         try {
           const res: any = await listShopChannelsApi(shopId);
@@ -429,6 +490,37 @@ export const useChannelWorkspaceStore =
       syncChannelPostsComments: async (shopId, channelId) => {
         const res: any = await syncChannelPostsCommentsApi(shopId, channelId);
         await get().fetchShopChannels(shopId);
+        return (res?.data ?? res) || null;
+      },
+
+      syncChannelHistoricalThreeMonths: async (
+        shopId,
+        channelId,
+        lookbackDays = 90,
+      ) => {
+        const res: any = await syncChannelHistoricalThreeMonthsApi(
+          shopId,
+          channelId,
+          lookbackDays,
+        );
+        await Promise.all([
+          get().fetchShopChannels(shopId),
+          get().fetchMergedConversations(shopId, { page: 1, limit: 50 }),
+          useChatStore.getState().fetchInbox({ page: 1 }),
+        ]);
+        return (res?.data ?? res) || null;
+      },
+
+      syncAllShopHistoricalThreeMonths: async (shopId, lookbackDays = 90) => {
+        const res: any = await syncAllShopHistoricalThreeMonthsApi(
+          shopId,
+          lookbackDays,
+        );
+        await Promise.all([
+          get().fetchShopChannels(shopId),
+          get().fetchMergedConversations(shopId, { page: 1, limit: 50 }),
+          useChatStore.getState().fetchInbox({ page: 1 }),
+        ]);
         return (res?.data ?? res) || null;
       },
 

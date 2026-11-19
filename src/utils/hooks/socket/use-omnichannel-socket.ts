@@ -8,6 +8,7 @@ import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-works
 import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { useTagStore } from "@/lib/stores/tags/use-tag-store";
 import { useCrmStore } from "@/lib/stores/crm/use-crm-store";
+import { useCatalogPosStore } from "@/lib/stores/catalog-pos/use-catalog-pos-store";
 import { SocketNamespaceEnum } from "@/common/enum";
 import { SOCKET_EVENTS } from "@/constant/socket-events";
 import { tStore } from "@/i18n/translate-store";
@@ -93,6 +94,14 @@ export const useOmnichannelSocket = () => {
   const handleRealtimeCapiEventDispatched = useCrmStore(
     (s) => s.handleRealtimeCapiEventDispatched,
   );
+
+  const fetchCatalogAndStock = useCatalogPosStore(
+    (s) => s.fetchCatalogAndStock,
+  );
+  const checkMergeableDuplicateOrders = useCatalogPosStore(
+    (s) => s.checkMergeableDuplicateOrders,
+  );
+  const fetchPosOrders = useCatalogPosStore((s) => s.fetchPosOrders);
 
   useEffect(() => {
     if (activeShopId) {
@@ -624,6 +633,147 @@ export const useOmnichannelSocket = () => {
       },
     );
 
+    // Sprint 4 (M05 & M06): Lắng nghe 5 sự kiện Realtime POS & Tồn kho nguyên tử Redis Lua
+    const cleanStockReservedUpdated = socketService.on<{
+      shopId: string;
+      warehouseId: string;
+      variantId: string;
+      skuCode: string;
+      availableQty: number;
+      reservedQty?: number;
+      draftCartId: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.POS_OMS.STOCK_RESERVED_UPDATED,
+      (payload) => {
+        const targetShopId = payload?.shopId || activeShopId;
+        if (targetShopId) {
+          void fetchCatalogAndStock({ shopId: targetShopId });
+        }
+      },
+    );
+
+    const cleanDuplicateOrderDetected = socketService.on<{
+      shopId: string;
+      conversationId: string;
+      existingOrderCode: string;
+      existingOrderId: string;
+      customerName: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.POS_OMS.DUPLICATE_ORDER_DETECTED,
+      (payload) => {
+        if (!payload?.conversationId) return;
+        const targetShopId = payload.shopId || activeShopId;
+        if (targetShopId) {
+          void checkMergeableDuplicateOrders({
+            shopId: targetShopId,
+            conversationId: payload.conversationId,
+          });
+        }
+        showInfoToast(
+          `Khách ${payload.customerName || ""} đang có đơn #${payload.existingOrderCode} chưa xuất kho. Có thể gộp đơn 1 chạm để tiết kiệm phí vận chuyển!`,
+          {
+            title: "🔄 Phát hiện đơn trùng chờ gộp",
+          },
+        );
+      },
+    );
+
+    const cleanDiscountApprovalRequested = socketService.on<{
+      shopId: string;
+      conversationId: string;
+      orderId: string;
+      orderCode: string;
+      discountPercent: number;
+      allowedMaxDiscountPercent: number;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.POS_OMS.DISCOUNT_APPROVAL_REQUESTED,
+      (payload) => {
+        if (!payload) return;
+        playNotificationSound();
+        showWarningToast(
+          `Đơn #${payload.orderCode} đề xuất giảm ${payload.discountPercent}% (vượt trần ${payload.allowedMaxDiscountPercent}%).`,
+          {
+            title: "⏳ Yêu cầu duyệt giảm giá vượt trần",
+          },
+        );
+      },
+    );
+
+    const cleanDiscountApprovalResolved = socketService.on<{
+      shopId: string;
+      conversationId: string;
+      orderId: string;
+      orderCode: string;
+      approved: boolean;
+      status: string;
+      discountApprovalStatus: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.POS_OMS.DISCOUNT_APPROVAL_RESOLVED,
+      (payload) => {
+        if (!payload) return;
+        playNotificationSound();
+        const targetShopId = payload.shopId || activeShopId;
+        if (targetShopId) {
+          void fetchPosOrders({
+            shopId: targetShopId,
+            conversationId: payload.conversationId,
+          });
+        }
+        if (payload.approved) {
+          showSuccessToast(
+            `Quản lý đã phê duyệt mức giảm giá của đơn #${payload.orderCode}!`,
+            {
+              title: "✅ Đã duyệt giảm giá 1 chạm",
+            },
+          );
+        } else {
+          showWarningToast(
+            `Quản lý đã từ chối mức giảm giá vượt trần của đơn #${payload.orderCode}.`,
+            {
+              title: "❌ Từ chối giảm giá vượt trần",
+            },
+          );
+        }
+      },
+    );
+
+    const cleanVietQrPaymentConfirmed = socketService.on<{
+      shopId: string;
+      conversationId: string;
+      orderId: string;
+      orderCode: string;
+      paidAmountVnd: number;
+      totalPaidTransferAmount: number;
+      remainingCodAmount: number;
+      paymentStatus: string;
+      bankTransactionId: string;
+      confirmedAt: string;
+    }>(
+      SocketNamespaceEnum.CHAT,
+      SOCKET_EVENTS.POS_OMS.VIETQR_PAYMENT_CONFIRMED,
+      (payload) => {
+        if (!payload) return;
+        playNotificationSound();
+        const targetShopId = payload.shopId || activeShopId;
+        if (targetShopId) {
+          void fetchPosOrders({
+            shopId: targetShopId,
+            conversationId: payload.conversationId,
+          });
+        }
+        showSuccessToast(
+          `Đã nhận chuyển khoản ${Number(payload.paidAmountVnd || 0).toLocaleString("vi-VN")}đ cho đơn #${payload.orderCode} (Mã GD: ${payload.bankTransactionId})!`,
+          {
+            title: "💳 Ting ting! VietQR đã gạch nợ tự động",
+          },
+        );
+      },
+    );
+
     return () => {
       cleanConversationAssigned();
       cleanConversationReclaimed();
@@ -650,6 +800,11 @@ export const useOmnichannelSocket = () => {
       cleanTokenHealthChecked();
       cleanWebhookLogUpdated();
       cleanMarketplaceOrderSynced();
+      cleanStockReservedUpdated();
+      cleanDuplicateOrderDetected();
+      cleanDiscountApprovalRequested();
+      cleanDiscountApprovalResolved();
+      cleanVietQrPaymentConfirmed();
     };
   }, [
     isAuthenticated,
@@ -677,5 +832,8 @@ export const useOmnichannelSocket = () => {
     handleRealtimeMessageTagged,
     handleRealtimeCrmProfileUpdated,
     handleRealtimeCapiEventDispatched,
+    fetchCatalogAndStock,
+    checkMergeableDuplicateOrders,
+    fetchPosOrders,
   ]);
 };

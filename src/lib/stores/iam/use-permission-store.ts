@@ -1,4 +1,5 @@
 import { createPersistedStore } from "@/lib/stores/create-persisted-store";
+import { useChannelWorkspaceStore } from "@/lib/stores/channel/use-channel-workspace-store";
 import { tStore } from "@/i18n/translate-store";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
 import {
@@ -162,10 +163,27 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
           }
         }
 
+        const membershipsList: ShopMembershipSummary[] = data.memberships || [];
+        const matchedMembership = membershipsList.find(
+          (m) => m.shopId === data.activeShopId,
+        );
+
+        useChannelWorkspaceStore.getState().setActiveShop(
+          data.activeShopId
+            ? {
+                id: data.activeShopId,
+                shopId: data.activeShopId,
+                shopCode: matchedMembership?.shopCode || "SHOP",
+                shopName: matchedMembership?.shopName || "Cửa hàng",
+                role: matchedMembership?.role || ctx?.role,
+              }
+            : null,
+        );
+
         set((state) => {
           state.onboardingState = data.onboardingState || "UNBOUND_USER";
           state.activeShopId = data.activeShopId || null;
-          state.memberships = data.memberships || [];
+          state.memberships = membershipsList;
           state.pendingInvitations = data.pendingInvitations || [];
 
           if (ctx && ctx.membershipStatus === "ACTIVE") {
@@ -224,6 +242,16 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
           state.onboardingState = "HAS_ACTIVE_SHOPS";
         }
       });
+      if (ctx.shopId) {
+        const matched = get().memberships.find((m) => m.shopId === ctx.shopId);
+        useChannelWorkspaceStore.getState().setActiveShop({
+          id: ctx.shopId,
+          shopId: ctx.shopId,
+          shopCode: matched?.shopCode || "SHOP",
+          shopName: matched?.shopName || "Cửa hàng",
+          role: ctx.role,
+        });
+      }
       if (typeof window !== "undefined" && ctx.shopId) {
         localStorage.setItem("activeShopId", ctx.shopId);
       }
@@ -370,6 +398,7 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
         localStorage.removeItem("activeShopId");
         localStorage.removeItem("seller-os-permission-storage");
       }
+      useChannelWorkspaceStore.getState().setActiveShop(null);
       set((state) => {
         state.onboardingState = "UNBOUND_USER";
         state.activeShopId = null;

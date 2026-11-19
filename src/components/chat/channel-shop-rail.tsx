@@ -241,9 +241,7 @@ export const ChannelShopRail = ({
             <GlassIconButton
               icon={<Settings2 className="w-4 h-4" />}
               tooltip={t("mergeMode.title")}
-              onClick={() =>
-                router.push(config.routes.private.settingsChannels)
-              }
+              onClick={() => router.push(config.routes.private.settings)}
             />
           </PermissionGate>
         </div>

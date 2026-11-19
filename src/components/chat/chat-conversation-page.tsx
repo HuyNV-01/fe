@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   AlertTriangle,
+  ShoppingBag,
 } from "lucide-react";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import { ChatHeader } from "@/components/chat/chat-header";
@@ -35,11 +36,13 @@ import { ConversationSnoozeAndTimelineSheet } from "@/components/chat/conversati
 import { MaskedVoipCallModal } from "@/components/chat/masked-voip-call-modal";
 import { AdAttributionHeaderCard } from "@/components/crm/ad-attribution-header-card";
 import { Customer360Panel } from "@/components/crm/customer-360-panel";
+import { InChatPosDrawer } from "@/components/pos/in-chat-pos-drawer";
 import {
   LiquidGlassInput,
   GlassAvatar,
   GlassSurfaceCard,
   GlassBadge,
+  GlassModal,
   PatternButton,
   GlassIconButton,
   GlassConfirmDialog,
@@ -161,6 +164,7 @@ export default function ChatConversationPage({
 
   const [isInfoDrawerOpen, setIsInfoDrawerOpen] = useState(false);
   const [isCrm360DrawerOpen, setIsCrm360DrawerOpen] = useState(false);
+  const [isInChatPosDrawerOpen, setIsInChatPosDrawerOpen] = useState(false);
   const [isSearchBarOpen, setIsSearchBarOpen] = useState(false);
   const [inChatSearchQuery, setInChatSearchQuery] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
@@ -178,6 +182,7 @@ export default function ChatConversationPage({
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   const [isBookmarksSheetOpen, setIsBookmarksSheetOpen] = useState(false);
   const [isSnoozeSheetOpen, setIsSnoozeSheetOpen] = useState(false);
+  const [isAbuseReportsModalOpen, setIsAbuseReportsModalOpen] = useState(false);
 
   const { groupMessagesTime } = useDateFormat();
   const conversationId = params?.id || "";
@@ -275,6 +280,18 @@ export default function ChatConversationPage({
     fetchCustomer360ByConversation,
   ]);
 
+  // F06.1: Phím tắt Alt+O mở nhanh ngăn kéo Lên Đơn Hàng Trong Chat (In-Chat POS)
+  useEffect(() => {
+    const handleAltOShortcut = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === "o" || e.key === "O")) {
+        e.preventDefault();
+        setIsInChatPosDrawerOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleAltOShortcut);
+    return () => window.removeEventListener("keydown", handleAltOShortcut);
+  }, []);
+
   // F03.7 & T03: Heartbeat khóa chống đụng độ nhân viên (Collision Lock 25s)
   useEffect(() => {
     if (!conversationId || !effectiveShopId) return;
@@ -362,6 +379,23 @@ export default function ChatConversationPage({
     () => (conversationId ? messages[conversationId] || [] : []),
     [messages, conversationId],
   );
+
+  // Bóc tách thông tin NER mới nhất chỉ từ tin nhắn ĐẾN của Người mua (`INBOUND`), bỏ qua tin nhắn gửi đi từ Page / Pancake v2 / Sale
+  const latestExtractedNer = useMemo(() => {
+    for (let i = rawMessages.length - 1; i >= 0; i--) {
+      const msg = rawMessages[i];
+      const isOutboundOrEcho =
+        msg.direction === "OUTBOUND" ||
+        msg.direction === "INTERNAL_NOTE" ||
+        Boolean(msg.metadata?.isPageEcho) ||
+        msg.senderId === "page_echo" ||
+        msg.senderId === currentUser?.user?.id;
+      if (!isOutboundOrEcho && msg.extractedEntitiesJson) {
+        return msg.extractedEntitiesJson;
+      }
+    }
+    return null;
+  }, [rawMessages, currentUser?.user?.id]);
 
   const pinnedMessages = useMemo(() => {
     const fromMessages = rawMessages.filter(
@@ -492,7 +526,6 @@ export default function ChatConversationPage({
     return () => clearInterval(timer);
   }, [rawMessages, currentConversation?.disappearingTtl, purgeExpiredMessages]);
 
-  // Ánh xạ vị trí đọc tin nhắn mới nhất của từng người đọc trên cả 2 chiều (OUTBOUND & INBOUND)
   const readReceiptsMap = useMemo(() => {
     const map: Record<
       string,
@@ -504,7 +537,12 @@ export default function ChatConversationPage({
     const reversedMessages = [...rawMessages].reverse();
 
     reversedMessages.forEach((msg) => {
-      const isOutbound = msg.senderId === currentUser.user.id;
+      const isOutbound =
+        msg.senderId === currentUser.user.id ||
+        msg.direction === "OUTBOUND" ||
+        msg.direction === "INTERNAL_NOTE" ||
+        Boolean(msg.metadata?.isPageEcho) ||
+        msg.senderId === "page_echo";
       const directionKey = isOutbound ? "OUTBOUND" : "INBOUND";
 
       if (msg.readByUsers && msg.readByUsers.length > 0) {
@@ -546,7 +584,14 @@ export default function ChatConversationPage({
 
       const latestInboundComment = [...rawMessages]
         .reverse()
-        .find((m) => m.senderId !== currentUser?.user?.id);
+        .find(
+          (m) =>
+            m.senderId !== currentUser?.user?.id &&
+            m.direction !== "OUTBOUND" &&
+            m.direction !== "INTERNAL_NOTE" &&
+            !m.metadata?.isPageEcho &&
+            m.senderId !== "page_echo",
+        );
 
       if (
         isCommentThread &&
@@ -739,8 +784,7 @@ export default function ChatConversationPage({
             initiateMaskedVoipCall({
               conversationId,
               customerId: resolvedCustomerId || undefined,
-              customerPhoneMasked:
-                activeCustomerProfile?.phoneMasked || "098***678",
+              customerPhoneMasked: activeCustomerProfile?.phoneMasked || "",
             })
           }
           onOpenSnoozeAndTimeline={() => setIsSnoozeSheetOpen(true)}
@@ -758,7 +802,7 @@ export default function ChatConversationPage({
           onDeleteConversation={() => setIsDeleteConvConfirmOpen(true)}
         />
 
-        {/* Thanh định danh Trang kết nối (Avatar Page + Tên Page) & Chỉ số Uy tín Nhận/Hoàn/Bị báo cáo + Phím tắt Tag */}
+        {/* Thanh định danh Trang kết nối + Phím tắt Tag + Nút mở CRM 360 & In-Chat POS (Alt+O) */}
         <div className="flex items-center justify-between gap-2 px-2 sm:px-3 border-t border-border/30 bg-background/60 flex-wrap">
           <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap py-1">
             <div className="flex-1 min-w-0">
@@ -782,7 +826,19 @@ export default function ChatConversationPage({
           </div>
 
           {effectiveShopId && !isGroupChat && (
-            <div className="py-1 shrink-0">
+            <div className="py-1 shrink-0 flex items-center gap-1.5">
+              <PatternButton
+                type="button"
+                size="sm"
+                rounded="full"
+                variant="solid"
+                color="primary"
+                className="h-7 px-2.5 text-xs"
+                onClick={() => setIsInChatPosDrawerOpen(true)}
+                icon={<ShoppingBag className="w-3.5 h-3.5" />}
+              >
+                Lên đơn POS (Alt+O)
+              </PatternButton>
               <PatternButton
                 type="button"
                 size="sm"
@@ -962,14 +1018,48 @@ export default function ChatConversationPage({
                 </div>
                 <div className="flex flex-col space-y-0.5">
                   {group.messages.map((msg, index) => {
-                    const isMe = msg.senderId === currentUser.user.id;
+                    const isPageEchoOrShopOutbound = Boolean(
+                      !isGroupChat &&
+                        effectiveShopId &&
+                        (msg.direction === "OUTBOUND" ||
+                          msg.direction === "INTERNAL_NOTE" ||
+                          msg.metadata?.isPageEcho ||
+                          msg.senderId === "page_echo"),
+                    );
+                    const isMe =
+                      msg.senderId === currentUser.user.id ||
+                      isPageEchoOrShopOutbound;
 
                     const nextMsg = group.messages[index + 1];
                     const prevMsg = group.messages[index - 1];
+                    const prevIsMe = prevMsg
+                      ? prevMsg.senderId === currentUser.user.id ||
+                        Boolean(
+                          !isGroupChat &&
+                            effectiveShopId &&
+                            (prevMsg.direction === "OUTBOUND" ||
+                              prevMsg.direction === "INTERNAL_NOTE" ||
+                              prevMsg.metadata?.isPageEcho ||
+                              prevMsg.senderId === "page_echo"),
+                        )
+                      : false;
+                    const nextIsMe = nextMsg
+                      ? nextMsg.senderId === currentUser.user.id ||
+                        Boolean(
+                          !isGroupChat &&
+                            effectiveShopId &&
+                            (nextMsg.direction === "OUTBOUND" ||
+                              nextMsg.direction === "INTERNAL_NOTE" ||
+                              nextMsg.metadata?.isPageEcho ||
+                              nextMsg.senderId === "page_echo"),
+                        )
+                      : false;
                     const isContinuous =
-                      prevMsg && prevMsg.senderId === msg.senderId;
+                      prevMsg &&
+                      (isMe ? prevIsMe : prevMsg.senderId === msg.senderId);
                     const isLastInGroup =
-                      !nextMsg || nextMsg.senderId !== msg.senderId;
+                      !nextMsg ||
+                      (isMe ? !nextIsMe : nextMsg.senderId !== msg.senderId);
 
                     return (
                       <div
@@ -987,7 +1077,16 @@ export default function ChatConversationPage({
                           isHighlighted={highlightedMessageId === msg.id}
                           avatarUrl={
                             isMe
-                              ? currentUser.user.avatar || undefined
+                              ? msg.metadata?.isPageEcho ||
+                                msg.senderId === "page_echo"
+                                ? resolvedChannelAvatarUrl ||
+                                  msg.sender?.avatar ||
+                                  currentUser.user.avatar ||
+                                  undefined
+                                : msg.sender?.avatar ||
+                                  currentUser.user.avatar ||
+                                  resolvedChannelAvatarUrl ||
+                                  undefined
                               : msg.sender?.avatar ||
                                 msg.metadata?.externalCustomerAvatar ||
                                 currentConversation?.avatar ||
@@ -997,7 +1096,14 @@ export default function ChatConversationPage({
                           }
                           displayName={
                             isMe
-                              ? t("me")
+                              ? msg.metadata?.isPageEcho ||
+                                msg.senderId === "page_echo"
+                                ? msg.sender?.name ||
+                                  resolvedPageName ||
+                                  t("me")
+                                : msg.senderId === currentUser.user.id
+                                  ? t("me")
+                                  : msg.sender?.name || t("me")
                               : msg.sender?.name ||
                                 msg.metadata?.externalCustomerName ||
                                 resolvedHeaderName
@@ -1252,45 +1358,60 @@ export default function ChatConversationPage({
             </div>
           )}
 
-          {/* Tóm tắt nhanh Chỉ số Nhận / Hoàn / Bị báo cáo của khách ngay trên thanh công cụ chat */}
           {activeCustomerProfile && customerTrustEval && (
-            <button
-              type="button"
-              onClick={() => setIsCrm360DrawerOpen(true)}
-              className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-muted/70 hover:bg-muted border border-border/60 text-[10px] sm:text-[11px] font-semibold cursor-pointer transition-colors whitespace-nowrap max-w-full overflow-x-auto no-scrollbar shrink-0"
-            >
-              {customerTrustEval.band === "HIGH_RISK_RED" ? (
-                <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />
-              ) : customerTrustEval.band === "TRUSTED_GREEN" ? (
-                <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
-              ) : (
-                <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
-              )}
-              {activeCustomerProfile.phoneMasked && (
-                <span className="font-mono shrink-0">
-                  {activeUnmaskedSession?.unmaskedPhone ||
-                    activeCustomerProfile.phoneMasked}
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-muted/70 border border-border/60 text-[10px] sm:text-[11px] font-semibold whitespace-nowrap max-w-full overflow-x-auto no-scrollbar shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsCrm360DrawerOpen(true)}
+                className="inline-flex items-center gap-1 sm:gap-1.5 cursor-pointer hover:opacity-85"
+              >
+                {customerTrustEval.band === "HIGH_RISK_RED" ? (
+                  <ShieldAlert className="w-3 h-3 text-red-500 shrink-0" />
+                ) : customerTrustEval.band === "TRUSTED_GREEN" ? (
+                  <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+                )}
+                {activeCustomerProfile.phoneMasked && (
+                  <span className="font-mono shrink-0">
+                    {activeUnmaskedSession?.unmaskedPhone ||
+                      activeCustomerProfile.phoneMasked}
+                  </span>
+                )}
+                <span className="text-emerald-600 dark:text-emerald-400 shrink-0">
+                  ✓ Nhận: {customerTrustEval.totalDeliveredCount}
                 </span>
-              )}
-              <span className="text-emerald-600 dark:text-emerald-400 shrink-0">
-                ✓ Nhận: {customerTrustEval.totalDeliveredCount}
-              </span>
+                <span className="text-muted-foreground/60 shrink-0">•</span>
+                <span className="text-amber-600 dark:text-amber-400 shrink-0">
+                  ↩ Hoàn: {customerTrustEval.totalReturnedCount} (
+                  {customerTrustEval.returnRatePercent}%)
+                </span>
+              </button>
               <span className="text-muted-foreground/60 shrink-0">•</span>
-              <span className="text-amber-600 dark:text-amber-400 shrink-0">
-                ↩ Hoàn: {customerTrustEval.totalReturnedCount} (
-                {customerTrustEval.returnRatePercent}%)
-              </span>
-              <span className="text-muted-foreground/60 shrink-0">•</span>
-              <span
+              <button
+                type="button"
+                onClick={() => {
+                  if (customerTrustEval.reportedCount > 0) {
+                    setIsAbuseReportsModalOpen(true);
+                  } else {
+                    setIsCrm360DrawerOpen(true);
+                  }
+                }}
                 className={
                   customerTrustEval.reportedCount > 0
-                    ? "text-red-600 dark:text-red-400 font-bold shrink-0"
-                    : "text-muted-foreground shrink-0"
+                    ? "text-red-600 dark:text-red-400 font-bold shrink-0 cursor-pointer underline decoration-dotted hover:opacity-85"
+                    : "text-muted-foreground shrink-0 cursor-pointer"
+                }
+                title={
+                  customerTrustEval.reportedCount > 0
+                    ? "Nhấn để xem danh sách thời gian và nhận xét của từng báo cáo xấu"
+                    : undefined
                 }
               >
                 🚨 Báo xấu: {customerTrustEval.reportedCount}
-              </span>
-            </button>
+                {customerTrustEval.reportedCount > 0 ? " (Chi tiết)" : ""}
+              </button>
+            </div>
           )}
         </div>
 
@@ -1339,6 +1460,30 @@ export default function ChatConversationPage({
         onLeaveGroup={handleLeaveGroup}
       />
 
+      {/* Ngăn kéo Lên Đơn Hàng Nhanh Trong Chat (In-Chat POS — Alt+O — F06.1 – F06.6) */}
+      {effectiveShopId && (
+        <GlassSheet
+          open={isInChatPosDrawerOpen}
+          onOpenChange={setIsInChatPosDrawerOpen}
+          title="Lên Đơn Hàng Nhanh Trong Chat (In-Chat POS — Alt+O)"
+          description="Giữ chỗ nguyên tử Redis Lua (<1ms), tư vấn thông số đa ngành, so sánh ship 4 hãng, gộp/tách đơn & sinh mã VietQR động EMVCo"
+          side="right"
+        >
+          <div className="py-2">
+            <InChatPosDrawer
+              shopId={effectiveShopId}
+              conversationId={conversationId}
+              customerProfile={activeCustomerProfile}
+              fallbackCustomerName={resolvedHeaderName}
+              latestExtractedNer={latestExtractedNer}
+              onSendInvoiceCardToChat={async (markdownCardText) => {
+                await handleSendMessage(markdownCardText);
+              }}
+            />
+          </div>
+        </GlassSheet>
+      )}
+
       {/* Ngăn kéo Hồ sơ Khách hàng CRM 360° ngay trong khung chat (F04.2 - F04.5) */}
       {effectiveShopId && (
         <GlassSheet
@@ -1361,7 +1506,7 @@ export default function ChatConversationPage({
                 initiateMaskedVoipCall({
                   conversationId,
                   customerId: resolvedCustomerId || undefined,
-                  customerPhoneMasked: maskedPhone || "098***678",
+                  customerPhoneMasked: maskedPhone || "",
                 })
               }
             />
@@ -1406,6 +1551,83 @@ export default function ChatConversationPage({
         customerName={resolvedHeaderName}
         customerAvatar={currentConversation?.avatar}
       />
+
+      {/* Popup Danh sách Báo cáo Xấu của Khách hàng sắp xếp theo Thời gian từ Mới nhất đến Cũ nhất */}
+      <GlassModal
+        open={isAbuseReportsModalOpen}
+        onOpenChange={setIsAbuseReportsModalOpen}
+        title={`🚨 Lịch sử Báo cáo Xấu — ${activeCustomerProfile?.fullName || resolvedHeaderName}`}
+        description={`Danh sách chi tiết thời gian và lời nhận xét của từng báo cáo xấu theo thứ tự từ mới nhất đến cũ nhất`}
+        size="md"
+      >
+        <div className="space-y-2.5 py-1 text-xs max-h-96 overflow-y-auto pr-1">
+          {[
+            ...(Array.isArray(customerTrustEval?.reportedReasons)
+              ? customerTrustEval.reportedReasons
+              : []),
+            ...(Array.isArray(activeCustomerProfile?.reportedReasonsJson)
+              ? activeCustomerProfile.reportedReasonsJson
+              : []),
+          ]
+            .filter(
+              (rep, idx, arr) =>
+                rep &&
+                arr.findIndex((r) => r?.reportId === rep.reportId) === idx,
+            )
+            .sort((a, b) => {
+              const tA = Date.parse(a.reportedAt || a.createdAt || "") || 0;
+              const tB = Date.parse(b.reportedAt || b.createdAt || "") || 0;
+              return tB - tA;
+            })
+            .map((rep, idx) => (
+              <div
+                key={rep.reportId || `conv-rep-${idx}`}
+                className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 space-y-1.5"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <GlassBadge
+                      variant={idx === 0 ? "danger" : "warning"}
+                      size="sm"
+                    >
+                      #{idx + 1} {idx === 0 ? "• Mới nhất" : ""}
+                    </GlassBadge>
+                    <GlassBadge variant="secondary" size="sm">
+                      {rep.sourceLabel ||
+                        rep.carrierCode ||
+                        rep.source ||
+                        "Báo cáo Xấu"}
+                    </GlassBadge>
+                    {rep.orderCode && (
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted">
+                        Đơn: #{rep.orderCode}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    🕒{" "}
+                    {rep.reportedAt || rep.createdAt
+                      ? new Date(
+                          rep.reportedAt || rep.createdAt || "",
+                        ).toLocaleString("vi-VN")
+                      : "Chưa rõ thời gian"}
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-foreground leading-relaxed bg-background/80 p-2 rounded-lg border border-border/50">
+                  “{rep.reasonNote || rep.reason}”
+                </p>
+                {rep.reportedByName && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Nguồn ghi nhận:{" "}
+                    <strong className="text-foreground">
+                      {rep.reportedByName}
+                    </strong>
+                  </p>
+                )}
+              </div>
+            ))}
+        </div>
+      </GlassModal>
 
       <GlassConfirmDialog
         open={Boolean(deleteCommentTarget)}

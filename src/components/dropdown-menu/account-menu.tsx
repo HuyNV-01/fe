@@ -15,7 +15,7 @@ import {
 import Logout from "../auth/logout";
 import { useAuthStore } from "@/lib/stores/auth/use-auth-store";
 import config from "@/config";
-import { Contact, MessageSquare, User, UserPlus } from "lucide-react";
+import { Contact, MessageSquare, Settings, User, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export function AccountMenu() {
@@ -81,6 +81,12 @@ export function AccountMenu() {
             icon={<UserPlus className="size-4 text-muted-foreground" />}
           >
             {t("addContact")}
+          </ItemMenu>
+          <ItemMenu
+            route={config.routes.private.settings}
+            icon={<Settings className="size-4 text-muted-foreground" />}
+          >
+            {t("settings")}
           </ItemMenu>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

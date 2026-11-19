@@ -69,7 +69,8 @@
       "directory": "Danh bạ",
       "addFriend": "Kết bạn",
       "openMobileMenu": "Mở menu điều hướng",
-      "mobileMenuTitle": "Menu điều hướng"
+      "mobileMenuTitle": "Menu điều hướng",
+      "settings": "Cài đặt"
     },
     "action": {
       "login": "Đăng nhập",
@@ -84,7 +85,8 @@
       "chat": "Trò chuyện",
       "directory": "Danh bạ bạn bè",
       "addContact": "Thêm liên hệ mới",
-      "logout": "Đăng xuất"
+      "logout": "Đăng xuất",
+      "settings": "Trung tâm cài đặt"
     }
   },
   "Form": {
@@ -1159,7 +1161,8 @@
       "manageMembersBtn": "Quản lý nhân sự & lời mời",
       "manageChannelsBtn": "Kết nối kênh bán & định tuyến",
       "managePermissionsMatrixBtn": "Phân quyền chi tiết & ca trực",
-      "createOrJoinShopBtn": "Tạo mới hoặc nhập mã cửa hàng"
+      "createOrJoinShopBtn": "Tạo mới hoặc nhập mã cửa hàng",
+      "settingsHubBtn": "Trung tâm cài đặt"
     },
     "invitationsSection": {
       "title": "Lời mời làm việc từ cửa hàng",
@@ -2422,8 +2425,16 @@
       "trustLookupRefreshed": "Đã đồng bộ chỉ số Nhận / Hoàn / Bị báo cáo mới nhất từ các nguồn dữ liệu",
       "abuseReportedSuccess": "Đã ghi nhận báo cáo cảnh báo SĐT và cập nhật điểm uy tín khách hàng",
       "orderDeliveredLoyaltyAwarded": "Đã đối soát đơn giao thành công, tự động cộng +{points} điểm thưởng và cập nhật hạng thẻ/RFM",
-      "exportedWithAudit": "Đã xuất danh sách khách hàng (SĐT đã che bảo mật) và ghi vào Sổ cái Kiểm toán HMAC-SHA256"
-    }
+      "exportedWithAudit": "Đã xuất danh sách khách hàng (SĐT đã che bảo mật) và ghi vào Sổ cái Kiểm toán HMAC-SHA256",
+      "permissionDenied": "Bạn chưa được cấp quyền thực hiện thao tác này",
+      "requestTimeout": "Kết nối tra cứu quá thời gian, vui lòng thử lại",
+      "missingCustomerContext": "Thiếu thông tin cửa hàng hoặc hồ sơ khách hàng"
+    },
+    "refreshTrustLookupBtn": "Tra cứu",
+    "overrideTrustScoreBtn": "Chỉnh điểm",
+    "reportAbuseBtn": "Báo xấu",
+    "viewAbuseHistoryShort": "Xem chi tiết",
+    "multiSourceBreakdownTitle": "Đối soát đa nguồn"
   },
   "TaggingSystem": {
     "categories": {
@@ -2542,5 +2553,92 @@
     "recordedCallBadge": "Bản ghi âm cuộc gọi tư vấn bảo mật SĐT",
     "initiateErrorToast": "Không thể thực hiện cuộc gọi lúc này, vui lòng thử lại",
     "completedToast": "Đã kết thúc cuộc gọi và lưu bản ghi âm vào cuộc trò chuyện"
+  },
+  "SettingsHub": {
+    "pageTitle": "Trung tâm cài đặt",
+    "pageSubtitle": "Quản lý nhanh kênh bán hàng, nhân sự, kho và khách hàng",
+    "pageSubtitleWithShop": "Cửa hàng: {shopName}",
+    "searchPlaceholder": "Tìm mục cài đặt...",
+    "openBtn": "Mở cài đặt",
+    "resetFilterBtn": "Xóa bộ lọc",
+    "emptyTitle": "Không tìm thấy mục cài đặt",
+    "emptyDesc": "Thử từ khóa khác hoặc chọn lại nhóm hiển thị.",
+    "tabs": {
+      "all": "Tất cả",
+      "channelsInbox": "Kênh & Chat",
+      "teamSecurity": "Nhân sự & Bảo mật",
+      "catalogPos": "Kho & POS",
+      "crmGrowth": "CRM 360°"
+    },
+    "badges": {
+      "connectedCount": "{count} kênh hoạt động",
+      "tokenWarning": "{count} kênh cần gia hạn"
+    },
+    "items": {
+      "channels": {
+        "title": "Kênh bán hàng",
+        "desc": "Kết nối Facebook, Instagram, Zalo OA, đồng bộ 3 tháng và webhook."
+      },
+      "tags": {
+        "title": "Thẻ phân loại (Tag)",
+        "desc": "Tạo màu thẻ, phím tắt Alt+1..9 và quy tắc tự động gắn thẻ."
+      },
+      "quickReplies": {
+        "title": "Mẫu trả lời nhanh",
+        "desc": "Cấu hình phím tắt /shortcut kèm ảnh và biến tên khách hàng."
+      },
+      "mergedInbox": {
+        "title": "Gộp trang đa kênh",
+        "desc": "Trực nhiều Fanpage và gian hàng trên cùng một màn hình."
+      },
+      "members": {
+        "title": "Nhân sự & Ca trực",
+        "desc": "Duyệt thành viên, mã mời cửa hàng và bàn giao ca trực."
+      },
+      "permissions": {
+        "title": "Phân quyền 4 chiều",
+        "desc": "Kiểm soát 92 quyền chức năng, phạm vi dữ liệu và trần giảm giá."
+      },
+      "securityAudit": {
+        "title": "Nhật ký bảo mật",
+        "desc": "Kiểm tra mở khóa SĐT 15 giây và chuỗi băm HMAC chống sửa log."
+      },
+      "workspaceOnboarding": {
+        "title": "Cửa hàng & Chuyển shop",
+        "desc": "Tạo không gian cửa hàng mới hoặc tham gia bằng mã mời."
+      },
+      "products": {
+        "title": "Sản phẩm & Biến thể",
+        "desc": "Quản lý SKU, bảng tư vấn size, mã vạch và giá bán."
+      },
+      "bundles": {
+        "title": "Combo (Bundle BOM)",
+        "desc": "Thiết lập gói sản phẩm combo và quà tặng kèm tự động."
+      },
+      "inventory": {
+        "title": "Tồn kho đa điểm",
+        "desc": "Theo dõi tồn thực tế, giữ chỗ, khả dụng và hàng lỗi."
+      },
+      "transfers": {
+        "title": "Chuyển kho nội bộ",
+        "desc": "Tạo và đối soát phiếu chuyển hàng 2 bước giữa các kho."
+      },
+      "serialImei": {
+        "title": "Serial / IMEI",
+        "desc": "Quản lý mã định danh sản phẩm và kích hoạt bảo hành."
+      },
+      "posCounter": {
+        "title": "Bán tại quầy (POS)",
+        "desc": "Màn hình thu ngân quét mã vạch, VietQR động và màn hình phụ."
+      },
+      "customersCrm": {
+        "title": "Hồ sơ khách hàng 360°",
+        "desc": "Tra cứu lịch sử nhận/hoàn đơn, điểm uy tín và ví điểm thưởng."
+      },
+      "rfmSegments": {
+        "title": "Phân khúc RFM",
+        "desc": "Tự động phân nhóm khách VIP, thân thiết và nguy cơ rời bỏ."
+      }
+    }
   }
 }

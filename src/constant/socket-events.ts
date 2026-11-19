@@ -99,6 +99,7 @@ export const SOCKET_EVENTS = {
     USER_STATUS: "user_status",
 
     CONVERSATION_SETTINGS_UPDATED: "conversation_settings_updated",
+    CONVERSATION_UPDATED: "conversation_updated",
     NICKNAME_UPDATED: "nickname_updated",
     VOTE_POLL: "vote_poll",
     CLOSE_POLL: "close_poll",

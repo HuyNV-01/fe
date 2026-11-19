@@ -802,7 +802,12 @@ export const useChatStore = createPersistedStore<ChatState>(
     handleIncomingMessage: (message: IMessage) => {
       const { activeConversationId } = get();
       const currentUser = useAuthStore.getState().currentAccount?.user;
-      const isMe = message.senderId === currentUser?.id;
+      const isMe =
+        message.senderId === currentUser?.id ||
+        message.direction === "OUTBOUND" ||
+        message.direction === "INTERNAL_NOTE" ||
+        Boolean(message.metadata?.isPageEcho) ||
+        message.senderId === "page_echo";
       const isTabVisible =
         typeof document === "undefined" ||
         document.visibilityState === "visible";
@@ -872,7 +877,11 @@ export const useChatStore = createPersistedStore<ChatState>(
           updatedConv.lastMessageExpiresAt =
             message.expiresAt || message.metadata?.expiresAt || null;
 
-          if (incomingCustomerAvatar && !updatedConv.avatar) {
+          if (
+            incomingCustomerAvatar &&
+            (!updatedConv.avatar ||
+              updatedConv.avatar.includes("api.dicebear.com"))
+          ) {
             updatedConv.avatar = incomingCustomerAvatar;
           }
           if (
@@ -974,11 +983,11 @@ export const useChatStore = createPersistedStore<ChatState>(
           if (idx !== -1) {
             msgs[idx] = {
               ...msgs[idx],
-              content: message.content,
+              content: message.content ?? msgs[idx].content,
+              sender: message.sender || msgs[idx].sender,
               metadata: {
                 ...(msgs[idx].metadata || {}),
                 ...(message.metadata || {}),
-                isEdited: true,
               },
             };
           }
@@ -987,8 +996,32 @@ export const useChatStore = createPersistedStore<ChatState>(
         const conv = state.conversations.find(
           (c) => c.id === message.conversationId,
         );
-        if (conv && msgs && msgs[msgs.length - 1]?.id === message.id) {
-          conv.lastMessage = message.content;
+        if (conv) {
+          if (
+            msgs &&
+            msgs[msgs.length - 1]?.id === message.id &&
+            message.content
+          ) {
+            conv.lastMessage = message.content;
+          }
+          const freshAvatar =
+            message.metadata?.externalCustomerAvatar || message.sender?.avatar;
+          if (
+            freshAvatar &&
+            !freshAvatar.includes("api.dicebear.com") &&
+            (!conv.avatar || conv.avatar.includes("api.dicebear.com"))
+          ) {
+            conv.avatar = freshAvatar;
+          }
+          const freshName =
+            message.metadata?.externalCustomerName || message.sender?.name;
+          if (
+            freshName &&
+            !freshName.includes("#") &&
+            (!conv.name || conv.name.includes("#"))
+          ) {
+            conv.name = freshName;
+          }
         }
       });
     },
@@ -3064,13 +3097,13 @@ export const useChatStore = createPersistedStore<ChatState>(
         const res: any = await initiateMaskedVoipCallApi({
           conversationId,
           customerId,
-          customerPhoneMasked: customerPhoneMasked || "098***678",
+          customerPhoneMasked: customerPhoneMasked || "",
         });
         const data = res?.data ?? res;
         const session: IMaskedVoipCallSession = {
           callSessionId: data.callSessionId,
           conversationId,
-          maskedPhoneDisplay: data.maskedPhoneDisplay || "098***678",
+          maskedPhoneDisplay: data.maskedPhoneDisplay || "Ẩn số bảo mật",
           sipTrunkProvider: data.sipTrunkProvider,
           status: CallStatusEnum.RINGING,
           startedAt: new Date().toISOString(),

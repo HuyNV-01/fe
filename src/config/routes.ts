@@ -39,6 +39,7 @@ const routes = {
     workforceCommissions: "/workforce/commissions",
     financeCashbook: "/finance/cashbook",
     financePnL: "/finance/pnl-statement",
+    settings: "/settings",
     settingsChannels: "/settings/channels",
     settingsTags: "/settings/tags",
     settingsQuickReplies: "/settings/quick-replies",

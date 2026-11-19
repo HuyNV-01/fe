@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: <explanation> */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -241,6 +243,7 @@ export function Customer360Panel({
   const [isMergeOpen, setIsMergeOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isReportAbuseOpen, setIsReportAbuseOpen] = useState(false);
+  const [isAbuseHistoryPopupOpen, setIsAbuseHistoryPopupOpen] = useState(false);
   const [isCrmConfigOpen, setIsCrmConfigOpen] = useState(false);
   const [isOverrideTrustOpen, setIsOverrideTrustOpen] = useState(false);
   const [isRecordOrderOpen, setIsRecordOrderOpen] = useState(false);
@@ -266,7 +269,7 @@ export function Customer360Panel({
 
   // State cho Modal Ghi nhận Đơn giao thành công & Tích điểm tự động (F11.4)
   const [deliveredOrderCode, setDeliveredOrderCode] = useState("");
-  const [deliveredOrderAmount, setDeliveredOrderAmount] = useState("650000");
+  const [deliveredOrderAmount, setDeliveredOrderAmount] = useState("");
   const [deliveredCarrierCode, setDeliveredCarrierCode] = useState("GHN");
   const [deliveredExtraCredit, setDeliveredExtraCredit] = useState("0");
   const [isSubmittingDeliveredOrder, setIsSubmittingDeliveredOrder] =
@@ -740,15 +743,13 @@ export function Customer360Panel({
             customerId={customer.id}
             phoneMasked={customer.phoneMasked}
             conversationId={conversationId}
-            onMaskedCall={() =>
-              onMaskedVoipCall?.(customer.phoneMasked || "098***678")
-            }
+            onMaskedCall={() => onMaskedVoipCall?.(customer.phoneMasked || "")}
           />
 
-          {/* Bảng Chỉ số Nhận / Hoàn / Bị báo cáo đa nguồn (POS + Cộng đồng Pancake + 3PL GHN/GHTK/VTP/J&T) */}
+          {/* Bảng Chỉ số Nhận / Hoàn / Bị báo cáo đa nguồn (VTP, GHN, GHTK, J&T, Shopee, Pancake v2/POS) */}
           <div className="rounded-2xl border border-border/60 bg-muted/30 p-3 space-y-2.5">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 {trust?.band === "HIGH_RISK_RED" || totalReported > 0 ? (
                   <ShieldAlert className="w-4 h-4 text-red-500 shrink-0" />
                 ) : trust?.band === "TRUSTED_GREEN" ? (
@@ -756,146 +757,274 @@ export function Customer360Panel({
                 ) : (
                   <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
                 )}
-                <span className="text-xs font-bold text-foreground">
-                  {trust?.headline || t("reputationTitle")} (
-                  {trust?.score ?? customer.deliveryTrustScore ?? 75}/100)
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1 flex-wrap">
-                <PatternButton
-                  type="button"
-                  size="sm"
-                  variant="glass"
-                  color="info"
-                  rounded="full"
-                  isLoading={isRefreshingTrust}
-                  className="h-6 px-2 text-[10px]"
-                  icon={<RefreshCw className="w-3 h-3" />}
-                  onClick={handleRefreshTrustFromSources}
+                <TruncatedText
+                  as="span"
+                  className="text-xs font-bold text-foreground"
                 >
-                  {t("refreshTrustLookupBtn")}
-                </PatternButton>
-
-                <PermissionGate can="CRM_TRUST_SCORE_OVERRIDE" mode="hide">
-                  <PatternButton
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    rounded="full"
-                    className="h-6 px-2 text-[10px]"
-                    icon={<Gauge className="w-3 h-3" />}
-                    onClick={() => setIsOverrideTrustOpen(true)}
-                  >
-                    {t("overrideTrustScoreBtn")}
-                  </PatternButton>
-                </PermissionGate>
-
-                <PatternButton
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  color="danger"
-                  rounded="full"
-                  className="h-6 px-2 text-[10px]"
-                  icon={<Flag className="w-3 h-3" />}
-                  onClick={() => setIsReportAbuseOpen(true)}
-                >
-                  {t("reportAbuseBtn")}
-                </PatternButton>
+                  {trust?.headline ||
+                    `${t("reputationTitle")} (${trust?.score ?? customer.deliveryTrustScore ?? 80}/100)`}
+                </TruncatedText>
               </div>
-            </div>
-
-            {/* 3 Ô chỉ số cốt lõi: ĐÃ NHẬN | ĐÃ HOÀN | BỊ BÁO CÁO */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center">
-                <p className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
-                  {t("deliveredCountLabel")}
-                </p>
-                <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                  {totalDelivered} {t("ordersUnit")}
-                </p>
-                <p className="text-[9px] text-muted-foreground">
-                  Shop: {customer.successfulDeliveriesCount || 0} • 3PL:{" "}
-                  {customer.networkDeliveredCount || 0}
-                </p>
-              </div>
-
-              <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center">
-                <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
-                  {t("returnedCountLabel")}
-                </p>
-                <p className="text-sm font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">
-                  {totalReturned} ({returnRatePercent}%)
-                </p>
-                <p className="text-[9px] text-muted-foreground">
-                  Shop: {customer.returnedOrdersCount || 0} • 3PL:{" "}
-                  {customer.networkReturnedCount || 0}
-                </p>
-              </div>
-
-              <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/30 text-center">
-                <p className="text-[10px] font-medium text-red-700 dark:text-red-300">
-                  {t("reportedCountLabel")}
-                </p>
-                <p className="text-sm font-extrabold text-red-600 dark:text-red-400 tabular-nums">
-                  {totalReported} {t("reportsUnit")}
-                </p>
-                <p className="text-[9px] text-muted-foreground">
-                  {totalReported > 0
-                    ? t("reportedWarningSub")
-                    : t("cleanReportSub")}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground pt-0.5 flex-wrap">
-              <span className="inline-flex items-center gap-1 truncate">
-                <Database className="w-3 h-3 text-primary shrink-0" />
-                <span className="truncate">
-                  {t("lookupSourcePrefix")}:{" "}
-                  <strong className="text-foreground">
-                    {trust?.lookupSourceLabel || t("defaultLookupSourceLabel")}
-                  </strong>
-                </span>
-              </span>
               {trust?.requireDepositVietQr && (
-                <GlassBadge variant="danger" size="sm" pulse>
-                  {t("requireVietQrDepositBadge")}
+                <GlassBadge
+                  variant="danger"
+                  size="sm"
+                  pulse
+                  className="shrink-0"
+                >
+                  <TruncatedText className="max-w-28">
+                    {t("requireVietQrDepositBadge")}
+                  </TruncatedText>
                 </GlassBadge>
               )}
             </div>
 
-            {trust?.recommendation && (
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                {trust.recommendation}
-              </p>
-            )}
+            {/* Cụm nút hành động đồng đều kích thước — tránh nút dài nút ngắn */}
+            <div className="grid grid-cols-3 gap-1.5">
+              <PatternButton
+                type="button"
+                size="sm"
+                variant="glass"
+                color="info"
+                rounded="full"
+                fullWidth
+                isLoading={isRefreshingTrust}
+                className="h-7 px-2 text-[11px]"
+                icon={<RefreshCw className="w-3 h-3" />}
+                onClick={handleRefreshTrustFromSources}
+              >
+                {t("refreshTrustLookupBtn")}
+              </PatternButton>
 
-            {/* Hiển thị danh sách lý do bị báo xấu gần nhất nếu có */}
-            {Array.isArray(customer.reportedReasonsJson) &&
-              customer.reportedReasonsJson.length > 0 && (
-                <div className="space-y-1 pt-1 border-t border-border/40">
-                  <p className="text-[10px] font-semibold text-red-600 dark:text-red-400">
-                    {t("recentAbuseReportsHeading")} (
-                    {customer.reportedReasonsJson.length}):
-                  </p>
-                  {customer.reportedReasonsJson.slice(0, 2).map((rep) => (
-                    <div
-                      key={rep.reportId}
-                      className="text-[10px] px-2 py-1 rounded-lg bg-red-500/10 text-red-700 dark:text-red-300 flex items-center justify-between gap-2"
+              <PermissionGate can="CRM_TRUST_SCORE_OVERRIDE" mode="hide">
+                <PatternButton
+                  type="button"
+                  size="sm"
+                  variant="glass"
+                  color="neutral"
+                  rounded="full"
+                  fullWidth
+                  className="h-7 px-2 text-[11px]"
+                  icon={<Gauge className="w-3 h-3" />}
+                  onClick={() => setIsOverrideTrustOpen(true)}
+                >
+                  {t("overrideTrustScoreBtn")}
+                </PatternButton>
+              </PermissionGate>
+
+              <PatternButton
+                type="button"
+                size="sm"
+                variant="outline"
+                color="danger"
+                rounded="full"
+                fullWidth
+                className="h-7 px-2 text-[11px]"
+                icon={<Flag className="w-3 h-3" />}
+                onClick={() => setIsReportAbuseOpen(true)}
+              >
+                {t("reportAbuseBtn")}
+              </PatternButton>
+            </div>
+
+            {/* 3 Ô chỉ số cốt lõi: ĐÃ NHẬN | ĐÃ HOÀN | BỊ BÁO CÁO */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center min-w-0">
+                <TruncatedText
+                  as="p"
+                  className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300"
+                >
+                  {t("deliveredCountLabel")}
+                </TruncatedText>
+                <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  {totalDelivered} {t("ordersUnit")}
+                </p>
+                <TruncatedText
+                  as="p"
+                  className="text-[9px] text-muted-foreground"
+                >
+                  Shop: {customer.successfulDeliveriesCount || 0} • 3PL:{" "}
+                  {customer.networkDeliveredCount || 0}
+                </TruncatedText>
+              </div>
+
+              <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center min-w-0">
+                <TruncatedText
+                  as="p"
+                  className="text-[10px] font-medium text-amber-700 dark:text-amber-300"
+                >
+                  {t("returnedCountLabel")}
+                </TruncatedText>
+                <p className="text-sm font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">
+                  {totalReturned} ({returnRatePercent}%)
+                </p>
+                <TruncatedText
+                  as="p"
+                  className="text-[9px] text-muted-foreground"
+                >
+                  Shop: {customer.returnedOrdersCount || 0} • 3PL:{" "}
+                  {customer.networkReturnedCount || 0}
+                </TruncatedText>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (totalReported > 0) {
+                    setIsAbuseHistoryPopupOpen(true);
+                  } else {
+                    setIsReportAbuseOpen(true);
+                  }
+                }}
+                className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-center cursor-pointer transition-colors min-w-0"
+              >
+                <TruncatedText
+                  as="p"
+                  className="text-[10px] font-medium text-red-700 dark:text-red-300"
+                >
+                  {t("reportedCountLabel")}
+                </TruncatedText>
+                <p className="text-sm font-extrabold text-red-600 dark:text-red-400 tabular-nums underline decoration-dotted">
+                  {totalReported} {t("reportsUnit")}
+                </p>
+                <TruncatedText
+                  as="p"
+                  className="text-[9px] text-muted-foreground"
+                >
+                  {totalReported > 0
+                    ? t("viewAbuseHistoryShort")
+                    : t("cleanReportSub")}
+                </TruncatedText>
+              </button>
+            </div>
+
+            {/* Phân rã đối soát đa nguồn (ViettelPost, GHN, GHTK, J&T, Shopee, Pancake v2/POS) */}
+            {Array.isArray(trust?.sourceBreakdowns) &&
+              trust.sourceBreakdowns.length > 0 && (
+                <div className="pt-1.5 border-t border-border/40 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 min-w-0">
+                      <Database className="w-3 h-3 text-primary shrink-0" />
+                      <TruncatedText className="font-semibold text-foreground">
+                        {t("multiSourceBreakdownTitle")}
+                      </TruncatedText>
+                    </span>
+                    <TruncatedText className="max-w-32 text-[10px]">
+                      {trust.lookupSourceLabel}
+                    </TruncatedText>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {trust.sourceBreakdowns
+                      .filter((src) => src.status !== "NOT_CONFIGURED")
+                      .map((src) => {
+                        const hasActivity =
+                          src.deliveredCount > 0 ||
+                          src.returnedCount > 0 ||
+                          src.reportedCount > 0;
+                        return (
+                          <div
+                            key={src.sourceCode}
+                            className="flex items-center justify-between gap-1.5 px-2 py-1 rounded-lg bg-background/70 border border-border/40 text-[10px] min-w-0"
+                          >
+                            <TruncatedText className="font-medium text-foreground">
+                              {src.shortLabel}
+                            </TruncatedText>
+                            {hasActivity ? (
+                              <span className="shrink-0 tabular-nums font-semibold">
+                                <span className="text-emerald-600">
+                                  {src.deliveredCount}
+                                </span>
+                                <span className="text-muted-foreground">/</span>
+                                <span className="text-amber-600">
+                                  {src.returnedCount}
+                                </span>
+                                {src.reportedCount > 0 && (
+                                  <span className="text-red-600 ml-1">
+                                    • {src.reportedCount}!
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="shrink-0 text-muted-foreground">
+                                —
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+            {trust?.recommendation && (
+              <TruncatedText
+                as="p"
+                lines={2}
+                className="text-[11px] text-muted-foreground leading-relaxed"
+              >
+                {trust.recommendation}
+              </TruncatedText>
+            )}
+            {/* Hiển thị danh sách lý do bị báo xấu gần nhất (sắp xếp Mới nhất -> Cũ nhất) & nút mở Popup xem toàn bộ */}
+            {Array.isArray(
+              trust?.reportedReasons || customer.reportedReasonsJson,
+            ) &&
+              (trust?.reportedReasons || customer.reportedReasonsJson || [])
+                .length > 0 && (
+                <div className="space-y-1.5 pt-1 border-t border-border/40">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold text-red-600 dark:text-red-400">
+                      {t("recentAbuseReportsHeading")} (
+                      {
+                        (
+                          trust?.reportedReasons ||
+                          customer.reportedReasonsJson ||
+                          []
+                        ).length
+                      }
+                      ):
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAbuseHistoryPopupOpen(true)}
+                      className="text-[10px] font-bold text-red-600 dark:text-red-400 hover:underline cursor-pointer"
                     >
-                      <span className="truncate">
-                        • [{rep.reasonCode || rep.source || "REPORT"}]{" "}
-                        {rep.reasonNote || rep.reason}
-                      </span>
-                      {rep.carrierCode && (
-                        <span className="font-mono shrink-0">
-                          {rep.carrierCode}
+                      Xem tất cả theo thời gian →
+                    </button>
+                  </div>
+                  {[
+                    ...(trust?.reportedReasons ||
+                      customer.reportedReasonsJson ||
+                      []),
+                  ]
+                    .sort((a, b) => {
+                      const tA =
+                        Date.parse(a.reportedAt || a.createdAt || "") || 0;
+                      const tB =
+                        Date.parse(b.reportedAt || b.createdAt || "") || 0;
+                      return tB - tA;
+                    })
+                    .slice(0, 2)
+                    .map((rep) => (
+                      <div
+                        key={rep.reportId}
+                        onClick={() => setIsAbuseHistoryPopupOpen(true)}
+                        className="text-[10px] px-2 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/15 text-red-700 dark:text-red-300 flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                      >
+                        <span className="truncate">
+                          • [{rep.reasonCode || rep.source || "REPORT"}]{" "}
+                          {rep.reasonNote || rep.reason}
                         </span>
-                      )}
-                    </div>
-                  ))}
+                        <span className="font-mono text-[9px] shrink-0 opacity-80">
+                          {rep.reportedAt || rep.createdAt
+                            ? new Date(
+                                rep.reportedAt || rep.createdAt || "",
+                              ).toLocaleDateString("vi-VN")
+                            : rep.carrierCode || ""}
+                        </span>
+                      </div>
+                    ))}
                 </div>
               )}
           </div>
@@ -1535,6 +1664,83 @@ export function Customer360Panel({
                 />
               </LiquidGlassInput>
             </div>
+          </div>
+        </GlassModal>
+
+        {/* Popup Xem Toàn Bộ Lịch Sử Báo Cáo Xấu Theo Thứ Tự Thời Gian Từ Mới Nhất Đến Cũ Nhất */}
+        <GlassModal
+          open={isAbuseHistoryPopupOpen}
+          onOpenChange={setIsAbuseHistoryPopupOpen}
+          title={`🚨 Danh sách Báo cáo Xấu (${totalReported} báo cáo) — ${customer.fullName}`}
+          description="Sắp xếp theo thứ tự thời gian từ mới nhất đến cũ nhất kèm lời nhận xét chi tiết và nguồn đối soát"
+          size="md"
+        >
+          <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1 text-xs">
+            {[
+              ...(Array.isArray(trust?.reportedReasons)
+                ? trust.reportedReasons
+                : []),
+              ...(Array.isArray(customer.reportedReasonsJson)
+                ? customer.reportedReasonsJson
+                : []),
+            ]
+              .filter(
+                (rep, idx, arr) =>
+                  rep &&
+                  arr.findIndex((r) => r?.reportId === rep.reportId) === idx,
+              )
+              .sort((a, b) => {
+                const tA = Date.parse(a.reportedAt || a.createdAt || "") || 0;
+                const tB = Date.parse(b.reportedAt || b.createdAt || "") || 0;
+                return tB - tA;
+              })
+              .map((rep, idx) => (
+                <div
+                  key={rep.reportId || `c360-rep-${idx}`}
+                  className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 space-y-1.5"
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <GlassBadge
+                        variant={idx === 0 ? "danger" : "warning"}
+                        size="sm"
+                      >
+                        #{idx + 1} {idx === 0 ? "• Mới nhất" : ""}
+                      </GlassBadge>
+                      <GlassBadge variant="secondary" size="sm">
+                        {rep.sourceLabel ||
+                          rep.carrierCode ||
+                          rep.source ||
+                          "Báo cáo Xấu"}
+                      </GlassBadge>
+                      {rep.orderCode && (
+                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted">
+                          Đơn: #{rep.orderCode}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      🕒{" "}
+                      {rep.reportedAt || rep.createdAt
+                        ? new Date(
+                            rep.reportedAt || rep.createdAt || "",
+                          ).toLocaleString("vi-VN")
+                        : "Chưa rõ thời gian"}
+                    </span>
+                  </div>
+                  <p className="text-xs font-medium text-foreground leading-relaxed bg-background/80 p-2 rounded-lg border border-border/50">
+                    “{rep.reasonNote || rep.reason}”
+                  </p>
+                  {rep.reportedByName && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Nguồn ghi nhận:{" "}
+                      <strong className="text-foreground">
+                        {rep.reportedByName}
+                      </strong>
+                    </p>
+                  )}
+                </div>
+              ))}
           </div>
         </GlassModal>
 

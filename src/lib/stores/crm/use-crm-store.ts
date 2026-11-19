@@ -55,6 +55,26 @@ import { tStore } from "@/i18n/translate-store";
 
 const unmaskExpiryTimers = new Map<string, NodeJS.Timeout>();
 
+function extractCrmErrorMessage(
+  err: any,
+  fallbackKey = "Crm360.toasts.actionFailed",
+): string {
+  const rawMsg = err?.response?.data?.message;
+  if (Array.isArray(rawMsg) && rawMsg.length > 0) {
+    return rawMsg.map((m) => String(m)).join("; ");
+  }
+  if (typeof rawMsg === "string" && rawMsg.trim()) {
+    return rawMsg.trim();
+  }
+  if (err?.response?.status === 403) {
+    return tStore("Crm360.toasts.permissionDenied");
+  }
+  if (err?.code === "ECONNABORTED") {
+    return tStore("Crm360.toasts.requestTimeout");
+  }
+  return tStore(fallbackKey);
+}
+
 interface CrmState {
   administrativeTree: IVnProvinceUnit[];
   shopCrmConfig: ICrmTrustAndIndustryConfig | null;
@@ -534,10 +554,18 @@ export const useCrmStore = createPersistedStore<CrmState>(
       customWebhookUrl,
       conversationId,
     }) => {
+      if (!shopId || !customerId) {
+        toast.error(tStore("Crm360.toasts.missingCustomerContext"));
+        return null;
+      }
       try {
         const res: any = await lookupCustomerTrustFromSourcesApi({
           shopId,
           customerId,
+          conversationId:
+            conversationId && !conversationId.startsWith("detail_")
+              ? conversationId
+              : undefined,
           sources,
           customWebhookUrl,
         });
@@ -556,14 +584,17 @@ export const useCrmStore = createPersistedStore<CrmState>(
               state.activeCustomerDetail.customer = updated;
             }
           });
-          toast.success(tStore("Crm360.toasts.trustLookupRefreshed"));
+          if (updated.lookupWarning) {
+            toast.warning(updated.lookupWarning);
+          } else {
+            toast.success(tStore("Crm360.toasts.trustLookupRefreshed"));
+          }
           return updated;
         }
+        toast.error(tStore("Crm360.toasts.actionFailed"));
         return null;
       } catch (err: any) {
-        toast.error(
-          err?.response?.data?.message || tStore("Crm360.toasts.actionFailed"),
-        );
+        toast.error(extractCrmErrorMessage(err));
         return null;
       }
     },

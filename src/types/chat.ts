@@ -378,6 +378,9 @@ export interface IMessageMetadata {
   pageName?: string;
   channelAvatarUrl?: string | null;
   hasMaskedPhonesInContent?: boolean;
+  isPageEcho?: boolean;
+  echoSourceAppId?: string | null;
+  echoSourceAppLabel?: string | null;
   // Universal Comment Response & Anti-Competitor Shielding (F03.3 & F03.4)
   externalCustomerName?: string;
   externalCustomerAvatar?: string | null;

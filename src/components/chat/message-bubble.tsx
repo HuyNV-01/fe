@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import {
   GlassAvatar,
   GlassBadge,
+  GlassModal,
   LiquidGlassInput,
 } from "@/components/toolkit";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   AlertTriangle,
+  Store,
 } from "lucide-react";
 import { CallStatusEnum, CallTypeEnum, MessageTypeEnum } from "@/common/enum";
 import type {
@@ -82,11 +84,6 @@ import { Progress } from "../ui/progress";
 
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "😡"];
 
-/**
- * Lớp bảo vệ thứ 2 trên Client: Tự động che mọi chuỗi số điện thoại Việt Nam (cả số viết liền và số lách luật có dấu chấm/gạch/cách)
- * thành `098***456` ngay trong nội dung tin nhắn hiển thị trên màn hình chat của người bán.
- * Nếu nhân sự vừa bấm mở khóa SĐT 15 giây hợp lệ (`unmaskedPhone`), tự động hiển thị số gốc trong thời gian hiệu lực 15 giây.
- */
 export function maskPhonesInMessageContentClient(
   rawText: string,
   activeUnmaskedPhone?: string | null,
@@ -257,6 +254,8 @@ export const MessageBubble = memo(
     const [pollModalOptionId, setPollModalOptionId] = useState<string | null>(
       null,
     );
+    const [isAbuseReportsPopupOpen, setIsAbuseReportsPopupOpen] =
+      useState(false);
 
     const memberMap = useMemo(() => {
       const map = new Map<string, IConversationMemberDetail>();
@@ -292,17 +291,28 @@ export const MessageBubble = memo(
       [message.content, unmaskedSession?.unmaskedPhone],
     );
 
+    const isOutboundOrPageEcho = Boolean(
+      isMe ||
+        isInternalNote ||
+        message.direction === "OUTBOUND" ||
+        message.direction === "INTERNAL_NOTE" ||
+        message.metadata?.isPageEcho ||
+        message.senderId === "page_echo",
+    );
+
     const hasPhoneExtracted = Boolean(
-      extractedEntities &&
+      !isOutboundOrPageEcho &&
+        extractedEntities &&
         ((extractedEntities.maskedPhones &&
           extractedEntities.maskedPhones.length > 0) ||
           (extractedEntities.phones && extractedEntities.phones.length > 0)),
     );
 
     const hasAddressExtracted = Boolean(
-      extractedEntities &&
-        (extractedEntities.hasAddressDetected ||
-          extractedEntities.provinceCode ||
+      !isOutboundOrPageEcho &&
+        extractedEntities &&
+        extractedEntities.hasAddressDetected &&
+        (extractedEntities.provinceCode ||
           extractedEntities.districtCode ||
           extractedEntities.wardCode ||
           extractedEntities.addressLine ||
@@ -310,27 +320,70 @@ export const MessageBubble = memo(
     );
 
     const hasExtractedNerEntities = Boolean(
-      hasPhoneExtracted ||
-        hasAddressExtracted ||
-        (extractedEntities?.skuCodes && extractedEntities.skuCodes.length > 0),
+      !isOutboundOrPageEcho &&
+        (hasPhoneExtracted ||
+          hasAddressExtracted ||
+          (extractedEntities?.skuCodes &&
+            extractedEntities.skuCodes.length > 0)),
     );
 
-    // Tổng hợp chỉ số Uy tín Nhận / Hoàn / Bị báo cáo từ `extractedEntities.phoneTrustSummary` hoặc `customerProfile.trustEvaluation`
+    // Danh sách báo cáo xấu của khách hàng đã sắp xếp theo thứ tự thời gian từ Mới nhất đến Cũ nhất
+    const sortedAbuseReports = useMemo(() => {
+      const rawList = [
+        ...(Array.isArray(extractedEntities?.phoneTrustSummary?.reportedReasons)
+          ? extractedEntities.phoneTrustSummary.reportedReasons
+          : []),
+        ...(Array.isArray(customerProfile?.trustEvaluation?.reportedReasons)
+          ? customerProfile.trustEvaluation.reportedReasons
+          : []),
+        ...(Array.isArray(customerProfile?.reportedReasonsJson)
+          ? customerProfile.reportedReasonsJson
+          : []),
+      ];
+      const deduped = new Map<string, any>();
+      rawList.forEach((rep, idx) => {
+        if (!rep) return;
+        const text = String(rep.reasonNote || rep.reason || "").trim();
+        if (!text) return;
+        const id = String(
+          rep.reportId || `rep_${idx}_${rep.reportedAt || rep.createdAt || ""}`,
+        );
+        if (!deduped.has(id)) {
+          deduped.set(id, rep);
+        }
+      });
+      return Array.from(deduped.values()).sort((a, b) => {
+        const tA = Date.parse(a.reportedAt || a.createdAt || "") || 0;
+        const tB = Date.parse(b.reportedAt || b.createdAt || "") || 0;
+        return tB - tA;
+      });
+    }, [extractedEntities, customerProfile]);
+
+    // Tổng hợp chỉ số Uy tín Nhận / Hoàn / Bị báo cáo chỉ khi tin nhắn của Người mua thực sự có chứa SĐT (`hasPhoneExtracted`)
     const resolvedPhoneTrust = useMemo(() => {
+      if (!hasPhoneExtracted) return null;
       if (extractedEntities?.phoneTrustSummary) {
-        return extractedEntities.phoneTrustSummary;
+        return {
+          ...extractedEntities.phoneTrustSummary,
+          reportedCount: Math.max(
+            Number(extractedEntities.phoneTrustSummary.reportedCount || 0),
+            sortedAbuseReports.length,
+          ),
+          reportedReasons: sortedAbuseReports,
+        };
       }
       const trustEval = customerProfile?.trustEvaluation;
-      if (customerProfile && trustEval) {
+      const actualMaskedPhone =
+        extractedEntities?.maskedPhones?.[0] ||
+        extractedEntities?.phones?.[0] ||
+        customerProfile?.phoneMasked ||
+        null;
+      if (customerProfile && trustEval && actualMaskedPhone) {
         return {
           customerId: customerProfile.id,
-          phoneMasked:
-            customerProfile.phoneMasked ||
-            extractedEntities?.maskedPhones?.[0] ||
-            extractedEntities?.phones?.[0] ||
-            "098***678",
+          phoneMasked: actualMaskedPhone,
           carrierName:
-            extractedEntities?.normalizedPhones?.[0]?.carrierName || "Viettel",
+            extractedEntities?.normalizedPhones?.[0]?.carrierName || null,
           score: trustEval.score,
           band: trustEval.band,
           badgeVariant: trustEval.badgeVariant,
@@ -341,7 +394,11 @@ export const MessageBubble = memo(
           totalReturnedCount: trustEval.totalReturnedCount,
           shopReturnedCount: trustEval.shopReturnedCount,
           networkReturnedCount: trustEval.networkReturnedCount,
-          reportedCount: trustEval.reportedCount,
+          reportedCount: Math.max(
+            Number(trustEval.reportedCount || 0),
+            sortedAbuseReports.length,
+          ),
+          reportedReasons: sortedAbuseReports,
           returnRatePercent: trustEval.returnRatePercent,
           requireDepositVietQr: trustEval.requireDepositVietQr,
           lookupSource: trustEval.lookupSource,
@@ -350,9 +407,15 @@ export const MessageBubble = memo(
         };
       }
       return null;
-    }, [extractedEntities, customerProfile]);
+    }, [
+      hasPhoneExtracted,
+      extractedEntities,
+      customerProfile,
+      sortedAbuseReports,
+    ]);
 
     const displayedExtractedPhone = useMemo(() => {
+      if (!hasPhoneExtracted) return null;
       if (unmaskedSession?.unmaskedPhone) {
         return unmaskedSession.unmaskedPhone;
       }
@@ -364,6 +427,7 @@ export const MessageBubble = memo(
       if (!candidate) return null;
       return maskPhonesInMessageContentClient(candidate, null);
     }, [
+      hasPhoneExtracted,
       unmaskedSession?.unmaskedPhone,
       extractedEntities,
       resolvedPhoneTrust?.phoneMasked,
@@ -1147,208 +1211,233 @@ export const MessageBubble = memo(
                   </p>
                 )}
 
-                {/* Thẻ Trích xuất Thực thể Thương mại Tiếng Việt (SĐT đã che + Chỉ số Nhận/Hoàn/Bị báo cáo + Địa chỉ giao hàng 3 cấp + Gợi ý 1 chạm F04.1) */}
-                {!isRecalled && hasExtractedNerEntities && (
-                  <div
-                    className={cn(
-                      "mt-2 pt-2 border-t flex flex-col gap-1.5 rounded-xl p-2 text-[11px]",
-                      isMe && !isInternalNote
-                        ? "border-white/25 bg-black/20 text-white"
-                        : "border-emerald-500/35 bg-emerald-500/10 text-foreground",
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <GlassBadge variant="success" size="sm">
-                        <Sparkles className="w-3 h-3 mr-1 inline shrink-0" />
-                        <span>{t("nerExtractedBadge")}</span>
-                      </GlassBadge>
+                {/* Nhãn nhận diện tin nhắn phản hồi từ Pancake v2 / Meta Business Suite đồng bộ về */}
+                {!isRecalled &&
+                  (message.metadata?.isPageEcho ||
+                    message.senderId === "page_echo") && (
+                    <div className="mt-1.5 pt-1 border-t border-white/20 flex items-center gap-1.5 text-[10px] opacity-90">
+                      <Store className="w-3 h-3 shrink-0" />
+                      <span>
+                        Đồng bộ từ{" "}
+                        {message.metadata?.echoSourceAppLabel ||
+                          "Meta Business Suite / Pancake v2"}
+                      </span>
+                    </div>
+                  )}
 
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {extractedEntities && onApplyNerToProfile && (
+                {/* Thẻ Trích xuất Thực thể Thương mại Tiếng Việt (SĐT đã che + Chỉ số Nhận/Hoàn/Bị báo cáo + Địa chỉ giao hàng 3 cấp + Gợi ý 1 chạm F04.1) */}
+                {!isRecalled &&
+                  !isOutboundOrPageEcho &&
+                  hasExtractedNerEntities && (
+                    <div
+                      className={cn(
+                        "mt-2 pt-2 border-t flex flex-col gap-1.5 rounded-xl p-2 text-[11px]",
+                        isMe && !isInternalNote
+                          ? "border-white/25 bg-black/20 text-white"
+                          : "border-emerald-500/35 bg-emerald-500/10 text-foreground",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <GlassBadge variant="success" size="sm">
+                          <Sparkles className="w-3 h-3 mr-1 inline shrink-0" />
+                          <span>{t("nerExtractedBadge")}</span>
+                        </GlassBadge>
+
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {extractedEntities && onApplyNerToProfile && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onApplyNerToProfile(extractedEntities)
+                              }
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer transition-colors"
+                            >
+                              <Sparkles className="w-2.5 h-2.5" />
+                              <span>{t("applyNerToOrderBtn")}</span>
+                            </button>
+                          )}
+
                           <button
                             type="button"
-                            onClick={() =>
-                              onApplyNerToProfile(extractedEntities)
-                            }
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer transition-colors"
+                            onClick={() => onOpenCrm360Panel?.()}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
                           >
-                            <Sparkles className="w-2.5 h-2.5" />
-                            <span>{t("applyNerToOrderBtn")}</span>
+                            <span>{t("openCrm360QuickBtn")}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
                           </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => onOpenCrm360Panel?.()}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
-                        >
-                          <span>{t("openCrm360QuickBtn")}</span>
-                          <ExternalLink className="w-2.5 h-2.5" />
-                        </button>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Hàng 1: Số điện thoại đã che + Nhà mạng + Chỉ số ĐÃ NHẬN / ĐÃ HOÀN / BỊ BÁO CÁO */}
-                    {displayedExtractedPhone && (
-                      <div className="flex flex-col gap-1 pt-0.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold bg-background/90 text-foreground border border-border/60">
-                            <Phone className="w-3 h-3 text-emerald-500 shrink-0" />
-                            <span>{displayedExtractedPhone}</span>
-                          </span>
+                      {/* Hàng 1: Số điện thoại đã che + Nhà mạng + Chỉ số ĐÃ NHẬN / ĐÃ HOÀN / BỊ BÁO CÁO */}
+                      {displayedExtractedPhone && (
+                        <div className="flex flex-col gap-1 pt-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold bg-background/90 text-foreground border border-border/60">
+                              <Phone className="w-3 h-3 text-emerald-500 shrink-0" />
+                              <span>{displayedExtractedPhone}</span>
+                            </span>
 
-                          {extractedEntities?.normalizedPhones?.[0]
-                            ?.carrierName && (
-                            <GlassBadge variant="info" size="sm">
-                              {
-                                extractedEntities.normalizedPhones[0]
-                                  .carrierName
-                              }
-                            </GlassBadge>
-                          )}
+                            {extractedEntities?.normalizedPhones?.[0]
+                              ?.carrierName && (
+                              <GlassBadge variant="info" size="sm">
+                                {
+                                  extractedEntities.normalizedPhones[0]
+                                    .carrierName
+                                }
+                              </GlassBadge>
+                            )}
 
+                            {resolvedPhoneTrust && (
+                              <GlassBadge
+                                variant={resolvedPhoneTrust.badgeVariant}
+                                size="sm"
+                              >
+                                {resolvedPhoneTrust.band === "HIGH_RISK_RED" ? (
+                                  <ShieldAlert className="w-2.5 h-2.5 mr-0.5 inline" />
+                                ) : resolvedPhoneTrust.band ===
+                                  "TRUSTED_GREEN" ? (
+                                  <ShieldCheck className="w-2.5 h-2.5 mr-0.5 inline" />
+                                ) : (
+                                  <AlertTriangle className="w-2.5 h-2.5 mr-0.5 inline" />
+                                )}
+                                {t("trustScoreShort", {
+                                  score: resolvedPhoneTrust.score,
+                                })}
+                              </GlassBadge>
+                            )}
+                          </div>
+
+                          {/* Hiển thị trực tiếp chỉ số Nhận / Hoàn / Bị báo cáo ngay khi khách nhắn SĐT */}
                           {resolvedPhoneTrust && (
+                            <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-semibold pt-0.5">
+                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                                ✓ {t("deliveredShort")}:{" "}
+                                {resolvedPhoneTrust.totalDeliveredCount}{" "}
+                                {t("ordersUnit")}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                ↩ {t("returnedShort")}:{" "}
+                                {resolvedPhoneTrust.totalReturnedCount} (
+                                {resolvedPhoneTrust.returnRatePercent}%)
+                              </span>
+                              {resolvedPhoneTrust.reportedCount > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsAbuseReportsPopupOpen(true);
+                                  }}
+                                  title="Nhấn để xem chi tiết thời gian và lời nhận xét của từng báo cáo xấu"
+                                  className="px-2 py-0.5 rounded-md border bg-red-500/20 hover:bg-red-500/30 text-red-700 dark:text-red-300 border-red-500/40 font-bold cursor-pointer transition-colors inline-flex items-center gap-1 underline decoration-dotted"
+                                >
+                                  <span>
+                                    🚨 {t("reportedShort")}:{" "}
+                                    {resolvedPhoneTrust.reportedCount}{" "}
+                                    {t("timesUnit")} (Xem chi tiết)
+                                  </span>
+                                </button>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded-md border bg-muted/80 text-muted-foreground border-border/50">
+                                  🚨 {t("reportedShort")}: 0 {t("timesUnit")}
+                                </span>
+                              )}
+                              <span className="text-[9px] text-muted-foreground">
+                                ({resolvedPhoneTrust.lookupSourceLabel})
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Hàng 2: Địa chỉ giao hàng bóc tách tự động (Số nhà/Đường + Phường/Xã + Quận/Huyện + Tỉnh/Thành + Mã GHN/GHTK) */}
+                      {displayedExtractedAddress && (
+                        <div className="flex items-start gap-1.5 pt-0.5 text-[11px]">
+                          <MapPin className="w-3.5 h-3.5 text-sky-500 shrink-0 mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <span className="font-semibold break-words">
+                              {displayedExtractedAddress}
+                            </span>
+                            {extractedEntities?.carrierCodes?.ghnDistrictId && (
+                              <span className="ml-1.5 font-mono text-[9px] opacity-75">
+                                [GHN #
+                                {extractedEntities.carrierCodes.ghnDistrictId}]
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hàng 3: Thông tin Sản phẩm SKU, Kích cỡ, Màu sắc, Số lượng, Chiều cao/Cân nặng & Khung giờ giao */}
+                      {Boolean(
+                        (extractedEntities?.skuCodes &&
+                          extractedEntities.skuCodes.length > 0) ||
+                          (extractedEntities?.sizes &&
+                            extractedEntities.sizes.length > 0) ||
+                          (extractedEntities?.colors &&
+                            extractedEntities.colors.length > 0) ||
+                          (extractedEntities?.quantities &&
+                            extractedEntities.quantities.length > 0) ||
+                          extractedEntities?.heightCm ||
+                          extractedEntities?.weightKg ||
+                          extractedEntities?.deliveryTimeNote,
+                      ) && (
+                        <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                          {extractedEntities?.skuCodes?.map((sku) => (
+                            <GlassBadge key={sku} variant="primary" size="sm">
+                              SKU: {sku}
+                            </GlassBadge>
+                          ))}
+                          {extractedEntities?.quantities?.map((qty) => (
                             <GlassBadge
-                              variant={resolvedPhoneTrust.badgeVariant}
+                              key={`qty-${qty}`}
+                              variant="info"
                               size="sm"
                             >
-                              {resolvedPhoneTrust.band === "HIGH_RISK_RED" ? (
-                                <ShieldAlert className="w-2.5 h-2.5 mr-0.5 inline" />
-                              ) : resolvedPhoneTrust.band ===
-                                "TRUSTED_GREEN" ? (
-                                <ShieldCheck className="w-2.5 h-2.5 mr-0.5 inline" />
-                              ) : (
-                                <AlertTriangle className="w-2.5 h-2.5 mr-0.5 inline" />
-                              )}
-                              {t("trustScoreShort", {
-                                score: resolvedPhoneTrust.score,
-                              })}
+                              SL: x{qty}
+                            </GlassBadge>
+                          ))}
+                          {extractedEntities?.sizes?.map((sz) => (
+                            <GlassBadge
+                              key={`sz-${sz}`}
+                              variant="secondary"
+                              size="sm"
+                            >
+                              Size: {sz}
+                            </GlassBadge>
+                          ))}
+                          {extractedEntities?.colors?.map((col) => (
+                            <GlassBadge
+                              key={`col-${col}`}
+                              variant="secondary"
+                              size="sm"
+                            >
+                              Màu: {col}
+                            </GlassBadge>
+                          ))}
+                          {(extractedEntities?.heightCm ||
+                            extractedEntities?.weightKg) && (
+                            <GlassBadge variant="secondary" size="sm">
+                              {[
+                                extractedEntities?.heightCm
+                                  ? `${extractedEntities.heightCm}cm`
+                                  : null,
+                                extractedEntities?.weightKg
+                                  ? `${extractedEntities.weightKg}kg`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" • ")}
+                            </GlassBadge>
+                          )}
+                          {extractedEntities?.deliveryTimeNote && (
+                            <GlassBadge variant="warning" size="sm">
+                              {extractedEntities.deliveryTimeNote}
                             </GlassBadge>
                           )}
                         </div>
-
-                        {/* Hiển thị trực tiếp chỉ số Nhận / Hoàn / Bị báo cáo ngay khi khách nhắn SĐT */}
-                        {resolvedPhoneTrust && (
-                          <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-semibold pt-0.5">
-                            <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                              ✓ {t("deliveredShort")}:{" "}
-                              {resolvedPhoneTrust.totalDeliveredCount}{" "}
-                              {t("ordersUnit")}
-                            </span>
-                            <span className="px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                              ↩ {t("returnedShort")}:{" "}
-                              {resolvedPhoneTrust.totalReturnedCount} (
-                              {resolvedPhoneTrust.returnRatePercent}%)
-                            </span>
-                            <span
-                              className={cn(
-                                "px-1.5 py-0.5 rounded-md border",
-                                resolvedPhoneTrust.reportedCount > 0
-                                  ? "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/40 font-bold"
-                                  : "bg-muted/80 text-muted-foreground border-border/50",
-                              )}
-                            >
-                              🚨 {t("reportedShort")}:{" "}
-                              {resolvedPhoneTrust.reportedCount}{" "}
-                              {t("timesUnit")}
-                            </span>
-                            <span className="text-[9px] text-muted-foreground">
-                              ({resolvedPhoneTrust.lookupSourceLabel})
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Hàng 2: Địa chỉ giao hàng bóc tách tự động (Số nhà/Đường + Phường/Xã + Quận/Huyện + Tỉnh/Thành + Mã GHN/GHTK) */}
-                    {displayedExtractedAddress && (
-                      <div className="flex items-start gap-1.5 pt-0.5 text-[11px]">
-                        <MapPin className="w-3.5 h-3.5 text-sky-500 shrink-0 mt-0.5" />
-                        <div className="min-w-0 flex-1">
-                          <span className="font-semibold break-words">
-                            {displayedExtractedAddress}
-                          </span>
-                          {extractedEntities?.carrierCodes?.ghnDistrictId && (
-                            <span className="ml-1.5 font-mono text-[9px] opacity-75">
-                              [GHN #
-                              {extractedEntities.carrierCodes.ghnDistrictId}]
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Hàng 3: Thông tin Sản phẩm SKU, Kích cỡ, Màu sắc, Số lượng, Chiều cao/Cân nặng & Khung giờ giao */}
-                    {Boolean(
-                      (extractedEntities?.skuCodes &&
-                        extractedEntities.skuCodes.length > 0) ||
-                        (extractedEntities?.sizes &&
-                          extractedEntities.sizes.length > 0) ||
-                        (extractedEntities?.colors &&
-                          extractedEntities.colors.length > 0) ||
-                        (extractedEntities?.quantities &&
-                          extractedEntities.quantities.length > 0) ||
-                        extractedEntities?.heightCm ||
-                        extractedEntities?.weightKg ||
-                        extractedEntities?.deliveryTimeNote,
-                    ) && (
-                      <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                        {extractedEntities?.skuCodes?.map((sku) => (
-                          <GlassBadge key={sku} variant="primary" size="sm">
-                            SKU: {sku}
-                          </GlassBadge>
-                        ))}
-                        {extractedEntities?.quantities?.map((qty) => (
-                          <GlassBadge
-                            key={`qty-${qty}`}
-                            variant="info"
-                            size="sm"
-                          >
-                            SL: x{qty}
-                          </GlassBadge>
-                        ))}
-                        {extractedEntities?.sizes?.map((sz) => (
-                          <GlassBadge
-                            key={`sz-${sz}`}
-                            variant="secondary"
-                            size="sm"
-                          >
-                            Size: {sz}
-                          </GlassBadge>
-                        ))}
-                        {extractedEntities?.colors?.map((col) => (
-                          <GlassBadge
-                            key={`col-${col}`}
-                            variant="secondary"
-                            size="sm"
-                          >
-                            Màu: {col}
-                          </GlassBadge>
-                        ))}
-                        {(extractedEntities?.heightCm ||
-                          extractedEntities?.weightKg) && (
-                          <GlassBadge variant="secondary" size="sm">
-                            {[
-                              extractedEntities?.heightCm
-                                ? `${extractedEntities.heightCm}cm`
-                                : null,
-                              extractedEntities?.weightKg
-                                ? `${extractedEntities.weightKg}kg`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" • ")}
-                          </GlassBadge>
-                        )}
-                        {extractedEntities?.deliveryTimeNote && (
-                          <GlassBadge variant="warning" size="sm">
-                            {extractedEntities.deliveryTimeNote}
-                          </GlassBadge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
 
                 {/* Bản dịch tự động đa ngôn ngữ 2 chiều (F03.11) */}
                 {translation?.translatedText && (
@@ -1815,6 +1904,103 @@ export const MessageBubble = memo(
           images={imageGallery}
           initialIndex={lightboxIndex ?? 0}
         />
+
+        {/* Popup hiển thị Danh sách Chi tiết Thời gian & Lời nhận xét của từng Báo cáo Xấu (Sắp xếp từ Mới nhất đến Cũ nhất) */}
+        <GlassModal
+          open={isAbuseReportsPopupOpen}
+          onOpenChange={setIsAbuseReportsPopupOpen}
+          title={`🚨 Lịch sử Báo cáo Xấu (${resolvedPhoneTrust?.reportedCount || sortedAbuseReports.length} báo cáo)`}
+          description={`Danh sách chi tiết thời gian, nguồn ghi nhận và lời nhận xét của từng báo cáo xấu đối với SĐT ${displayedExtractedPhone || resolvedPhoneTrust?.phoneMasked || ""} (theo thứ tự từ mới nhất đến cũ nhất)`}
+          size="md"
+        >
+          <div className="space-y-3 py-1 text-xs">
+            {resolvedPhoneTrust && (
+              <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-red-500 shrink-0" />
+                  <span className="font-bold text-red-700 dark:text-red-300">
+                    Điểm uy tín: {resolvedPhoneTrust.score}/100
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] font-semibold">
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    ✓ Đã nhận: {resolvedPhoneTrust.totalDeliveredCount}
+                  </span>
+                  <span>•</span>
+                  <span className="text-amber-600 dark:text-amber-400">
+                    ↩ Đã hoàn: {resolvedPhoneTrust.totalReturnedCount} (
+                    {resolvedPhoneTrust.returnRatePercent}%)
+                  </span>
+                  <span>•</span>
+                  <span className="text-red-600 dark:text-red-400 font-bold">
+                    🚨 Báo xấu: {resolvedPhoneTrust.reportedCount}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+              {sortedAbuseReports.length > 0 ? (
+                sortedAbuseReports.map((rep, idx) => {
+                  const repDateStr = rep.reportedAt || rep.createdAt;
+                  const formattedTime = repDateStr
+                    ? toFullDateTime(repDateStr)
+                    : "Chưa rõ thời gian";
+                  return (
+                    <div
+                      key={rep.reportId || `abuse-${idx}`}
+                      className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <GlassBadge
+                            variant={idx === 0 ? "danger" : "warning"}
+                            size="sm"
+                          >
+                            #{idx + 1} {idx === 0 ? "• Mới nhất" : ""}
+                          </GlassBadge>
+                          <GlassBadge variant="secondary" size="sm">
+                            {rep.sourceLabel ||
+                              rep.carrierCode ||
+                              rep.source ||
+                              "Cảnh báo Giao hàng"}
+                          </GlassBadge>
+                          {rep.orderCode && (
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted">
+                              Đơn: #{rep.orderCode}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-mono text-muted-foreground">
+                          🕒 {formattedTime}
+                        </span>
+                      </div>
+
+                      <p className="text-xs font-medium text-foreground leading-relaxed bg-background/80 p-2 rounded-lg border border-border/50">
+                        “{rep.reasonNote || rep.reason}”
+                      </p>
+
+                      {rep.reportedByName && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Nguồn ghi nhận:{" "}
+                          <strong className="text-foreground">
+                            {rep.reportedByName}
+                          </strong>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-4 rounded-xl border border-border/60 text-center text-muted-foreground">
+                  Khách hàng bị ghi nhận{" "}
+                  {resolvedPhoneTrust?.reportedCount || 1} cảnh báo rủi ro hoàn
+                  đơn/bom hàng trên hệ thống đối soát.
+                </div>
+              )}
+            </div>
+          </div>
+        </GlassModal>
 
         {pollInfo && (
           <PollVotersModal
