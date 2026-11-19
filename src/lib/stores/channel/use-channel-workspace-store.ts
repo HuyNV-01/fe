@@ -1,3 +1,4 @@
+import { useChatStore } from "@/lib/stores/chat/use-chat-store";
 import { createPersistedStore } from "@/lib/stores/create-persisted-store";
 import {
   batchConnectChannelsApi,
@@ -502,7 +503,11 @@ export const useChannelWorkspaceStore =
           channelId,
           lookbackDays,
         );
-        await get().fetchShopChannels(shopId);
+        await Promise.all([
+          get().fetchShopChannels(shopId),
+          get().fetchMergedConversations(shopId, { page: 1, limit: 50 }),
+          useChatStore.getState().fetchInbox({ page: 1 }),
+        ]);
         return (res?.data ?? res) || null;
       },
 
@@ -511,7 +516,11 @@ export const useChannelWorkspaceStore =
           shopId,
           lookbackDays,
         );
-        await get().fetchShopChannels(shopId);
+        await Promise.all([
+          get().fetchShopChannels(shopId),
+          get().fetchMergedConversations(shopId, { page: 1, limit: 50 }),
+          useChatStore.getState().fetchInbox({ page: 1 }),
+        ]);
         return (res?.data ?? res) || null;
       },
 

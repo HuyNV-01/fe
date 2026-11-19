@@ -252,6 +252,8 @@ export const updateCustomerProfileApi = (payload: {
 export const lookupCustomerTrustFromSourcesApi = (payload: {
   shopId: string;
   customerId: string;
+  conversationId?: string;
+  rawPhone?: string;
   sources?: PhoneTrustLookupSourceType[];
   customWebhookUrl?: string;
 }) => {
@@ -259,6 +261,7 @@ export const lookupCustomerTrustFromSourcesApi = (payload: {
   return apiClient.post(
     `/crm/${shopId}/customers/${customerId}/lookup-trust`,
     body,
+    { timeout: 25_000 },
   );
 };
 

@@ -111,8 +111,38 @@ export interface ICustomerAbuseReportItem {
   reportedByName?: string;
   reportedByUserId?: string;
   reportedByShopId?: string;
+  severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  isCarrierVerified?: boolean;
   reportedAt?: string;
   createdAt?: string;
+}
+
+export type DeliverySourceCodeType =
+  | "INTERNAL_SHOP_POS"
+  | "PANCAKE_COMMUNITY"
+  | "CARRIER_3PL_VTP"
+  | "CARRIER_3PL_GHN"
+  | "CARRIER_3PL_GHTK"
+  | "CARRIER_3PL_JT"
+  | "MARKETPLACE_SHOPEE"
+  | "CUSTOM_WEBHOOK_PROVIDER";
+
+export interface IDeliverySourceBreakdownItem {
+  sourceCode: DeliverySourceCodeType;
+  sourceName: string;
+  shortLabel: string;
+  deliveredCount: number;
+  returnedCount: number;
+  reportedCount: number;
+  successRatePercent: number;
+  confidenceWeight: number;
+  status:
+    | "LIVE_VERIFIED"
+    | "COMMUNITY_SYNCED"
+    | "LOCAL_LEDGER"
+    | "NO_RECORD"
+    | "NOT_CONFIGURED";
+  lastUpdatedAt: string | null;
 }
 
 export interface ICustomerCustomAttributeItem {
@@ -412,6 +442,7 @@ export interface IDeliveryTrustEvaluation {
   lookupSourceLabel: string;
   latestReportReason?: string | null;
   reportedReasons?: ICustomerAbuseReportItem[];
+  sourceBreakdowns?: IDeliverySourceBreakdownItem[];
   checkedAt?: string | null;
   lastLookupAt?: string | null;
 }
@@ -476,6 +507,7 @@ export interface ICustomerProfile {
   reportedReasonsJson?: ICustomerAbuseReportItem[] | null;
   trustLookupSource?: PhoneTrustLookupSourceType;
   lastTrustLookupAt?: string | null;
+  lookupWarning?: string | null;
   deliveryTrustScore: number;
   isBlacklisted: boolean;
   blacklistReason?: string | null;

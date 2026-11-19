@@ -694,6 +694,7 @@ export const GlassAvatar = ({
         <AvatarImage
           src={src || undefined}
           alt={name}
+          referrerPolicy="no-referrer"
           className="object-cover"
         />
         <AvatarFallback

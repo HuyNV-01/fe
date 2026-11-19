@@ -51,6 +51,13 @@ const buttonVariants = cva(
         xl: "rounded-2xl",
         full: "rounded-full",
       },
+      uniformWidth: {
+        none: "",
+        xs: "w-24 max-w-24",
+        sm: "w-32 max-w-32",
+        md: "w-40 max-w-40",
+        lg: "w-48 max-w-48",
+      },
       fullWidth: {
         true: "w-full",
       },
@@ -173,6 +180,7 @@ const buttonVariants = cva(
       size: "md",
       color: "primary",
       rounded: "md",
+      uniformWidth: "none",
       fullWidth: false,
     },
   },
@@ -201,6 +209,7 @@ const PatternButton = React.forwardRef<HTMLButtonElement, PatternButtonProps>(
       size,
       color,
       rounded,
+      uniformWidth,
       fullWidth,
       asChild = false,
       isLoading = false,
@@ -248,7 +257,14 @@ const PatternButton = React.forwardRef<HTMLButtonElement, PatternButtonProps>(
         ref={ref}
         disabled={isLoading || disabled}
         className={cn(
-          buttonVariants({ variant, size, color, rounded, fullWidth }),
+          buttonVariants({
+            variant,
+            size,
+            color,
+            rounded,
+            uniformWidth,
+            fullWidth,
+          }),
           size === "icon" ? "justify-center" : "",
           className,
         )}

@@ -8,6 +8,7 @@ import {
   PlusCircle,
   Users,
   Clock,
+  Settings,
   Share2,
   ShieldCheck,
 } from "lucide-react";
@@ -156,6 +157,13 @@ export const ShopWorkspaceSwitcher = () => {
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
+          <ItemMenu
+            route={config.routes.private.settings}
+            icon={<Settings className="size-4 text-primary" />}
+          >
+            <TruncatedText>{t("switcher.settingsHubBtn")}</TruncatedText>
+          </ItemMenu>
+
           {hasPermission("CHANNEL_INTEGRATION_CONNECT") && (
             <ItemMenu
               route={config.routes.private.settingsChannels}

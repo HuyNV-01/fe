@@ -465,6 +465,7 @@ export const simulateOmnichannelWebhookApi = async (
   );
 };
 
+// Override timeout 180 giây (3 phút) vì đồng bộ 90 ngày cần phân trang sâu qua Meta Graph API
 export const syncChannelHistoricalThreeMonthsApi = async (
   shopId: string,
   channelId: string,
@@ -472,6 +473,8 @@ export const syncChannelHistoricalThreeMonthsApi = async (
 ) => {
   return apiClient.post(
     `/channels/${shopId}/${channelId}/sync-historical-3m?lookbackDays=${lookbackDays}`,
+    {},
+    { timeout: 180_000 },
   );
 };
 
@@ -481,5 +484,7 @@ export const syncAllShopHistoricalThreeMonthsApi = async (
 ) => {
   return apiClient.post(
     `/channels/${shopId}/sync-all-historical-3m?lookbackDays=${lookbackDays}`,
+    {},
+    { timeout: 180_000 },
   );
 };
