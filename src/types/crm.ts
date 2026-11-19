@@ -104,8 +104,10 @@ export interface ICustomerAbuseReportItem {
     | string;
   reasonNote?: string;
   source?: string;
+  sourceLabel?: string;
   carrierCode?: string | null;
   orderCode?: string | null;
+  trackingNumber?: string | null;
   reportedByName?: string;
   reportedByUserId?: string;
   reportedByShopId?: string;
@@ -136,8 +138,10 @@ export interface IExtractedPhoneTrustSummary {
   reportedCount: number;
   returnRatePercent: number;
   requireDepositVietQr: boolean;
-  lookupSource: PhoneTrustLookupSourceType;
+  lookupSource: PhoneTrustLookupSourceType | string;
   lookupSourceLabel: string;
+  latestReportReason?: string | null;
+  reportedReasons?: ICustomerAbuseReportItem[];
   lastLookupAt: string;
 }
 
@@ -394,6 +398,7 @@ export interface IDeliveryTrustEvaluation {
   headline: string;
   recommendation: string;
   requireDepositVietQr: boolean;
+  isBlacklisted?: boolean;
   successRatePercent: number;
   returnRatePercent: number;
   totalDeliveredCount: number;
@@ -403,8 +408,11 @@ export interface IDeliveryTrustEvaluation {
   shopReturnedCount: number;
   networkReturnedCount: number;
   reportedCount: number;
-  lookupSource: PhoneTrustLookupSourceType;
+  lookupSource: PhoneTrustLookupSourceType | string;
   lookupSourceLabel: string;
+  latestReportReason?: string | null;
+  reportedReasons?: ICustomerAbuseReportItem[];
+  checkedAt?: string | null;
   lastLookupAt?: string | null;
 }
 

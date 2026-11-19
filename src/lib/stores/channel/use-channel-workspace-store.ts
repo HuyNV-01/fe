@@ -26,7 +26,9 @@ import {
   runTokenDoctorHealthCheckApi,
   type SaasAppProfileItem,
   type SaasWebhookBlueprintItem,
+  syncAllShopHistoricalThreeMonthsApi,
   syncAllShopPostsCommentsApi,
+  syncChannelHistoricalThreeMonthsApi,
   syncChannelPostsCommentsApi,
   syncChannelWebhookApi,
   updateChannelIntegrationApi,
@@ -216,6 +218,39 @@ export interface ChannelWorkspaceStoreState {
     newCommentsSynced: number;
     syncedFromLiveApi: boolean;
     syncedAt: string;
+  } | null>;
+  syncChannelHistoricalThreeMonths: (
+    shopId: string,
+    channelId: string,
+    lookbackDays?: number,
+  ) => Promise<{
+    channelId: string;
+    pageName: string;
+    pageShortCode: string;
+    lookbackDays: number;
+    conversationsScanned: number;
+    inboundMessagesSynced: number;
+    outboundEchoMessagesSynced: number;
+    postsScanned: number;
+    adPostsScanned: number;
+    commentsSynced: number;
+    syncedFromLiveApi: boolean;
+    sinceIso: string;
+    syncedAt: string;
+  } | null>;
+  syncAllShopHistoricalThreeMonths: (
+    shopId: string,
+    lookbackDays?: number,
+  ) => Promise<{
+    shopId: string;
+    lookbackDays: number;
+    channelsChecked: number;
+    conversationsScanned: number;
+    inboundMessagesSynced: number;
+    outboundEchoMessagesSynced: number;
+    postsScanned: number;
+    adPostsScanned: number;
+    commentsSynced: number;
   } | null>;
   syncAllShopPostsComments: (shopId: string) => Promise<{
     shopId: string;
@@ -453,6 +488,29 @@ export const useChannelWorkspaceStore =
 
       syncChannelPostsComments: async (shopId, channelId) => {
         const res: any = await syncChannelPostsCommentsApi(shopId, channelId);
+        await get().fetchShopChannels(shopId);
+        return (res?.data ?? res) || null;
+      },
+
+      syncChannelHistoricalThreeMonths: async (
+        shopId,
+        channelId,
+        lookbackDays = 90,
+      ) => {
+        const res: any = await syncChannelHistoricalThreeMonthsApi(
+          shopId,
+          channelId,
+          lookbackDays,
+        );
+        await get().fetchShopChannels(shopId);
+        return (res?.data ?? res) || null;
+      },
+
+      syncAllShopHistoricalThreeMonths: async (shopId, lookbackDays = 90) => {
+        const res: any = await syncAllShopHistoricalThreeMonthsApi(
+          shopId,
+          lookbackDays,
+        );
         await get().fetchShopChannels(shopId);
         return (res?.data ?? res) || null;
       },

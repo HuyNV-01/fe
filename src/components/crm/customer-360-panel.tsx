@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: <explanation> */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -241,6 +243,7 @@ export function Customer360Panel({
   const [isMergeOpen, setIsMergeOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isReportAbuseOpen, setIsReportAbuseOpen] = useState(false);
+  const [isAbuseHistoryPopupOpen, setIsAbuseHistoryPopupOpen] = useState(false);
   const [isCrmConfigOpen, setIsCrmConfigOpen] = useState(false);
   const [isOverrideTrustOpen, setIsOverrideTrustOpen] = useState(false);
   const [isRecordOrderOpen, setIsRecordOrderOpen] = useState(false);
@@ -266,7 +269,7 @@ export function Customer360Panel({
 
   // State cho Modal Ghi nhận Đơn giao thành công & Tích điểm tự động (F11.4)
   const [deliveredOrderCode, setDeliveredOrderCode] = useState("");
-  const [deliveredOrderAmount, setDeliveredOrderAmount] = useState("650000");
+  const [deliveredOrderAmount, setDeliveredOrderAmount] = useState("");
   const [deliveredCarrierCode, setDeliveredCarrierCode] = useState("GHN");
   const [deliveredExtraCredit, setDeliveredExtraCredit] = useState("0");
   const [isSubmittingDeliveredOrder, setIsSubmittingDeliveredOrder] =
@@ -740,9 +743,7 @@ export function Customer360Panel({
             customerId={customer.id}
             phoneMasked={customer.phoneMasked}
             conversationId={conversationId}
-            onMaskedCall={() =>
-              onMaskedVoipCall?.(customer.phoneMasked || "098***678")
-            }
+            onMaskedCall={() => onMaskedVoipCall?.(customer.phoneMasked || "")}
           />
 
           {/* Bảng Chỉ số Nhận / Hoàn / Bị báo cáo đa nguồn (POS + Cộng đồng Pancake + 3PL GHN/GHTK/VTP/J&T) */}
@@ -834,19 +835,34 @@ export function Customer360Panel({
                 </p>
               </div>
 
-              <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/30 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  if (totalReported > 0) {
+                    setIsAbuseHistoryPopupOpen(true);
+                  } else {
+                    setIsReportAbuseOpen(true);
+                  }
+                }}
+                className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-center cursor-pointer transition-colors"
+                title={
+                  totalReported > 0
+                    ? "Nhấn để xem danh sách chi tiết thời gian và nhận xét của từng báo cáo xấu"
+                    : "Nhấn để tạo báo cáo xấu mới"
+                }
+              >
                 <p className="text-[10px] font-medium text-red-700 dark:text-red-300">
                   {t("reportedCountLabel")}
                 </p>
-                <p className="text-sm font-extrabold text-red-600 dark:text-red-400 tabular-nums">
+                <p className="text-sm font-extrabold text-red-600 dark:text-red-400 tabular-nums underline decoration-dotted">
                   {totalReported} {t("reportsUnit")}
                 </p>
                 <p className="text-[9px] text-muted-foreground">
                   {totalReported > 0
-                    ? t("reportedWarningSub")
+                    ? "🔍 Xem danh sách chi tiết"
                     : t("cleanReportSub")}
                 </p>
-              </div>
+              </button>
             </div>
 
             <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground pt-0.5 flex-wrap">
@@ -872,30 +888,65 @@ export function Customer360Panel({
               </p>
             )}
 
-            {/* Hiển thị danh sách lý do bị báo xấu gần nhất nếu có */}
-            {Array.isArray(customer.reportedReasonsJson) &&
-              customer.reportedReasonsJson.length > 0 && (
-                <div className="space-y-1 pt-1 border-t border-border/40">
-                  <p className="text-[10px] font-semibold text-red-600 dark:text-red-400">
-                    {t("recentAbuseReportsHeading")} (
-                    {customer.reportedReasonsJson.length}):
-                  </p>
-                  {customer.reportedReasonsJson.slice(0, 2).map((rep) => (
-                    <div
-                      key={rep.reportId}
-                      className="text-[10px] px-2 py-1 rounded-lg bg-red-500/10 text-red-700 dark:text-red-300 flex items-center justify-between gap-2"
+            {/* Hiển thị danh sách lý do bị báo xấu gần nhất (sắp xếp Mới nhất -> Cũ nhất) & nút mở Popup xem toàn bộ */}
+            {Array.isArray(
+              trust?.reportedReasons || customer.reportedReasonsJson,
+            ) &&
+              (trust?.reportedReasons || customer.reportedReasonsJson || [])
+                .length > 0 && (
+                <div className="space-y-1.5 pt-1 border-t border-border/40">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold text-red-600 dark:text-red-400">
+                      {t("recentAbuseReportsHeading")} (
+                      {
+                        (
+                          trust?.reportedReasons ||
+                          customer.reportedReasonsJson ||
+                          []
+                        ).length
+                      }
+                      ):
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAbuseHistoryPopupOpen(true)}
+                      className="text-[10px] font-bold text-red-600 dark:text-red-400 hover:underline cursor-pointer"
                     >
-                      <span className="truncate">
-                        • [{rep.reasonCode || rep.source || "REPORT"}]{" "}
-                        {rep.reasonNote || rep.reason}
-                      </span>
-                      {rep.carrierCode && (
-                        <span className="font-mono shrink-0">
-                          {rep.carrierCode}
+                      Xem tất cả theo thời gian →
+                    </button>
+                  </div>
+                  {[
+                    ...(trust?.reportedReasons ||
+                      customer.reportedReasonsJson ||
+                      []),
+                  ]
+                    .sort((a, b) => {
+                      const tA =
+                        Date.parse(a.reportedAt || a.createdAt || "") || 0;
+                      const tB =
+                        Date.parse(b.reportedAt || b.createdAt || "") || 0;
+                      return tB - tA;
+                    })
+                    .slice(0, 2)
+                    .map((rep) => (
+                      <div
+                        key={rep.reportId}
+                        onClick={() => setIsAbuseHistoryPopupOpen(true)}
+                        className="text-[10px] px-2 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/15 text-red-700 dark:text-red-300 flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                      >
+                        <span className="truncate">
+                          • [{rep.reasonCode || rep.source || "REPORT"}]{" "}
+                          {rep.reasonNote || rep.reason}
                         </span>
-                      )}
-                    </div>
-                  ))}
+                        <span className="font-mono text-[9px] shrink-0 opacity-80">
+                          {rep.reportedAt || rep.createdAt
+                            ? new Date(
+                                rep.reportedAt || rep.createdAt || "",
+                              ).toLocaleDateString("vi-VN")
+                            : rep.carrierCode || ""}
+                        </span>
+                      </div>
+                    ))}
                 </div>
               )}
           </div>
@@ -1535,6 +1586,83 @@ export function Customer360Panel({
                 />
               </LiquidGlassInput>
             </div>
+          </div>
+        </GlassModal>
+
+        {/* Popup Xem Toàn Bộ Lịch Sử Báo Cáo Xấu Theo Thứ Tự Thời Gian Từ Mới Nhất Đến Cũ Nhất */}
+        <GlassModal
+          open={isAbuseHistoryPopupOpen}
+          onOpenChange={setIsAbuseHistoryPopupOpen}
+          title={`🚨 Danh sách Báo cáo Xấu (${totalReported} báo cáo) — ${customer.fullName}`}
+          description="Sắp xếp theo thứ tự thời gian từ mới nhất đến cũ nhất kèm lời nhận xét chi tiết và nguồn đối soát"
+          size="md"
+        >
+          <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1 text-xs">
+            {[
+              ...(Array.isArray(trust?.reportedReasons)
+                ? trust.reportedReasons
+                : []),
+              ...(Array.isArray(customer.reportedReasonsJson)
+                ? customer.reportedReasonsJson
+                : []),
+            ]
+              .filter(
+                (rep, idx, arr) =>
+                  rep &&
+                  arr.findIndex((r) => r?.reportId === rep.reportId) === idx,
+              )
+              .sort((a, b) => {
+                const tA = Date.parse(a.reportedAt || a.createdAt || "") || 0;
+                const tB = Date.parse(b.reportedAt || b.createdAt || "") || 0;
+                return tB - tA;
+              })
+              .map((rep, idx) => (
+                <div
+                  key={rep.reportId || `c360-rep-${idx}`}
+                  className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 space-y-1.5"
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <GlassBadge
+                        variant={idx === 0 ? "danger" : "warning"}
+                        size="sm"
+                      >
+                        #{idx + 1} {idx === 0 ? "• Mới nhất" : ""}
+                      </GlassBadge>
+                      <GlassBadge variant="secondary" size="sm">
+                        {rep.sourceLabel ||
+                          rep.carrierCode ||
+                          rep.source ||
+                          "Báo cáo Xấu"}
+                      </GlassBadge>
+                      {rep.orderCode && (
+                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted">
+                          Đơn: #{rep.orderCode}
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      🕒{" "}
+                      {rep.reportedAt || rep.createdAt
+                        ? new Date(
+                            rep.reportedAt || rep.createdAt || "",
+                          ).toLocaleString("vi-VN")
+                        : "Chưa rõ thời gian"}
+                    </span>
+                  </div>
+                  <p className="text-xs font-medium text-foreground leading-relaxed bg-background/80 p-2 rounded-lg border border-border/50">
+                    “{rep.reasonNote || rep.reason}”
+                  </p>
+                  {rep.reportedByName && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Nguồn ghi nhận:{" "}
+                      <strong className="text-foreground">
+                        {rep.reportedByName}
+                      </strong>
+                    </p>
+                  )}
+                </div>
+              ))}
           </div>
         </GlassModal>
 

@@ -464,3 +464,22 @@ export const simulateOmnichannelWebhookApi = async (
     payload,
   );
 };
+
+export const syncChannelHistoricalThreeMonthsApi = async (
+  shopId: string,
+  channelId: string,
+  lookbackDays = 90,
+) => {
+  return apiClient.post(
+    `/channels/${shopId}/${channelId}/sync-historical-3m?lookbackDays=${lookbackDays}`,
+  );
+};
+
+export const syncAllShopHistoricalThreeMonthsApi = async (
+  shopId: string,
+  lookbackDays = 90,
+) => {
+  return apiClient.post(
+    `/channels/${shopId}/sync-all-historical-3m?lookbackDays=${lookbackDays}`,
+  );
+};

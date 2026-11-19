@@ -124,31 +124,29 @@ export function ProductsAndInventoryWorkspace({
     useState<ProductIndustryType>("FASHION_APPAREL");
   const [prodCode, setProdCode] = useState("");
   const [prodName, setProdName] = useState("");
-  const [categoryName, setCategoryName] = useState("Thời trang & Phụ kiện");
-  const [brandName, setBrandName] = useState("Thương hiệu riêng");
-  const [unitName, setUnitName] = useState("Chiếc");
-  const [axis1Name, setAxis1Name] = useState("Màu sắc");
-  const [axis1ValuesInput, setAxis1ValuesInput] = useState("Trắng, Đen, Kem");
-  const [axis2Name, setAxis2Name] = useState("Kích cỡ (Size)");
-  const [axis2ValuesInput, setAxis2ValuesInput] = useState("S, M, L");
-  const [retailPriceInput, setRetailPriceInput] = useState(390000);
-  const [wholesalePriceInput, setWholesalePriceInput] = useState(320000);
-  const [costPriceInput, setCostPriceInput] = useState(195000);
-  const [maxDiscountInput, setMaxDiscountInput] = useState(15);
-  const [weightGramsInput, setWeightGramsInput] = useState(350);
-  const [lengthCmInput, setLengthCmInput] = useState(25);
-  const [widthCmInput, setWidthCmInput] = useState(20);
-  const [heightCmInput, setHeightCmInput] = useState(6);
-  const [initStockInput, setInitStockInput] = useState(30);
+  const [categoryName, setCategoryName] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const [unitName, setUnitName] = useState("");
+  const [axis1Name, setAxis1Name] = useState("");
+  const [axis1ValuesInput, setAxis1ValuesInput] = useState("");
+  const [axis2Name, setAxis2Name] = useState("");
+  const [axis2ValuesInput, setAxis2ValuesInput] = useState("");
+  const [retailPriceInput, setRetailPriceInput] = useState(0);
+  const [wholesalePriceInput, setWholesalePriceInput] = useState(0);
+  const [costPriceInput, setCostPriceInput] = useState(0);
+  const [maxDiscountInput, setMaxDiscountInput] = useState(0);
+  const [weightGramsInput, setWeightGramsInput] = useState(0);
+  const [lengthCmInput, setLengthCmInput] = useState(0);
+  const [widthCmInput, setWidthCmInput] = useState(0);
+  const [heightCmInput, setHeightCmInput] = useState(0);
+  const [initStockInput, setInitStockInput] = useState(0);
   const [isFreeGiftItemInput, setIsFreeGiftItemInput] = useState(false);
   const [requiresSerialImei, setRequiresSerialImei] = useState(false);
-  const [warrantyMonthsInput, setWarrantyMonthsInput] = useState(12);
+  const [warrantyMonthsInput, setWarrantyMonthsInput] = useState(0);
   const [requiresBatchExpiry, setRequiresBatchExpiry] = useState(false);
-  const [batchCodeInput, setBatchCodeInput] = useState("LOT-2026-11A");
-  const [expiryDateInput, setExpiryDateInput] = useState("2028-11-15");
-  const [storageConditionInput, setStorageConditionInput] = useState(
-    "Bảo quản nơi khô thoáng < 25°C",
-  );
+  const [batchCodeInput, setBatchCodeInput] = useState("");
+  const [expiryDateInput, setExpiryDateInput] = useState("");
+  const [storageConditionInput, setStorageConditionInput] = useState("");
 
   // 1B. State Modal Chỉnh sửa Biến thể SKU (`editingVariant`)
   const [editingVariant, setEditingVariant] = useState<IProductVariant | null>(
@@ -170,7 +168,7 @@ export function ProductsAndInventoryWorkspace({
   const [openCreateBundleModal, setOpenCreateBundleModal] = useState(false);
   const [bundleSkuCode, setBundleSkuCode] = useState("");
   const [bundleName, setBundleName] = useState("");
-  const [bundleRetailPrice, setBundleRetailPrice] = useState(590000);
+  const [bundleRetailPrice, setBundleRetailPrice] = useState(0);
   const [bundleMaxDiscount, setBundleMaxDiscount] = useState(10);
   const [bundleComponents, setBundleComponents] = useState<
     IBundleBomComponent[]
@@ -204,12 +202,10 @@ export function ProductsAndInventoryWorkspace({
   const [openSerialModal, setOpenSerialModal] = useState(false);
   const [serialWhId, setSerialWhId] = useState("");
   const [serialVariantId, setSerialVariantId] = useState("");
-  const [serialNumbersBulkText, setSerialNumbersBulkText] = useState(
-    "SN-PRO-2026101, SN-PRO-2026102",
-  );
+  const [serialNumbersBulkText, setSerialNumbersBulkText] = useState("");
   const [serialWarrantyMonths, setSerialWarrantyMonths] = useState(12);
   const [bindSerialNumberInput, setBindSerialNumberInput] = useState("");
-  const [bindOrderCodeInput, setBindOrderCodeInput] = useState("ORD-2026-001");
+  const [bindOrderCodeInput, setBindOrderCodeInput] = useState("");
 
   // 6. State Quản lý Ngành hàng Động, Tư vấn Thông số, Quà tặng & Ngân hàng VietQR (Tab SETTINGS)
   const [openUpsertCategoryModal, setOpenUpsertCategoryModal] = useState(false);
@@ -246,22 +242,17 @@ export function ProductsAndInventoryWorkspace({
   >([]);
 
   // State thêm mới Quy tắc Quà tặng kèm 0đ
-  const [newGiftRuleName, setNewGiftRuleName] = useState(
-    "Tặng quà 0đ cho đơn từ 500k",
-  );
+  const [newGiftRuleName, setNewGiftRuleName] = useState("");
   const [newGiftMinSubtotal, setNewGiftMinSubtotal] = useState(500000);
   const [newGiftVariantId, setNewGiftVariantId] = useState("");
   const [newGiftQty, setNewGiftQty] = useState(1);
 
   // State cấu hình Tài khoản Ngân hàng VietQR
-  const [bankBinInput, setBankBinInput] = useState("970422");
-  const [bankShortNameInput, setBankShortNameInput] = useState("MBBank");
-  const [bankAccountNumberInput, setBankAccountNumberInput] =
-    useState("0988123456888");
-  const [bankAccountNameInput, setBankAccountNameInput] = useState(
-    "CONG TY TNHH PANCAKE SELLER OS",
-  );
-  const [bankPrefixInput, setBankPrefixInput] = useState("SEVQR ORD");
+  const [bankBinInput, setBankBinInput] = useState("");
+  const [bankShortNameInput, setBankShortNameInput] = useState("");
+  const [bankAccountNumberInput, setBankAccountNumberInput] = useState("");
+  const [bankAccountNameInput, setBankAccountNameInput] = useState("");
+  const [bankPrefixInput, setBankPrefixInput] = useState("");
 
   useEffect(() => {
     if (tabFromUrl) {
@@ -287,17 +278,13 @@ export function ProductsAndInventoryWorkspace({
 
   useEffect(() => {
     if (catalogConfig?.vietQrBankConfig) {
-      setBankBinInput(catalogConfig.vietQrBankConfig.bankBin || "970422");
-      setBankShortNameInput(
-        catalogConfig.vietQrBankConfig.bankShortName || "MBBank",
-      );
+      setBankBinInput(catalogConfig.vietQrBankConfig.bankBin || "");
+      setBankShortNameInput(catalogConfig.vietQrBankConfig.bankShortName || "");
       setBankAccountNumberInput(
         catalogConfig.vietQrBankConfig.accountNumber || "",
       );
       setBankAccountNameInput(catalogConfig.vietQrBankConfig.accountName || "");
-      setBankPrefixInput(
-        catalogConfig.vietQrBankConfig.transferPrefix || "SEVQR ORD",
-      );
+      setBankPrefixInput(catalogConfig.vietQrBankConfig.transferPrefix || "");
     }
     if (sellerCategories.length > 0 && !selectedCustomCategoryId) {
       handleSelectSellerCategoryForProduct(sellerCategories[0]);
@@ -1573,7 +1560,7 @@ export function ProductsAndInventoryWorkspace({
               <Input
                 value={prodCode}
                 onChange={(e) => setProdCode(e.target.value)}
-                placeholder="VD: GIAY-JD1 / SRM-B5 / AO-A12"
+                placeholder="Nhập mã sản phẩm do cửa hàng tự định nghĩa"
                 className="mt-1"
               />
             </div>

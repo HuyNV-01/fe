@@ -163,6 +163,12 @@ export default function OmnichannelSettingsPage() {
   const syncChannelPostsComments = useChannelWorkspaceStore(
     (s) => s.syncChannelPostsComments,
   );
+  const syncChannelHistoricalThreeMonths = useChannelWorkspaceStore(
+    (s) => s.syncChannelHistoricalThreeMonths,
+  );
+  const syncAllShopHistoricalThreeMonths = useChannelWorkspaceStore(
+    (s) => s.syncAllShopHistoricalThreeMonths,
+  );
   const updateChannelIntegration = useChannelWorkspaceStore(
     (s) => s.updateChannelIntegration,
   );
@@ -276,6 +282,8 @@ export default function OmnichannelSettingsPage() {
   const [syncingCommentsChannelId, setSyncingCommentsChannelId] = useState<
     string | null
   >(null);
+  const [syncingHistorical3mChannelId, setSyncingHistorical3mChannelId] =
+    useState<string | null>(null);
   const [simulatingChannelId, setSimulatingChannelId] = useState<string | null>(
     null,
   );
@@ -888,6 +896,29 @@ export default function OmnichannelSettingsPage() {
     }
   };
 
+  const handleSyncChannelHistorical3Months = async (
+    ch: ConnectedChannelItem,
+  ) => {
+    if (!activeShopId) return;
+    setSyncingHistorical3mChannelId(ch.id);
+    try {
+      const res = await syncChannelHistoricalThreeMonths(
+        activeShopId,
+        ch.id,
+        90,
+      );
+      if (res) {
+        showSuccessToast(
+          `Đã đồng bộ 3 tháng gần nhất (${ch.pageName}): ${res.conversationsScanned} hội thoại, +${res.inboundMessagesSynced} tin khách gửi, +${res.outboundEchoMessagesSynced} tin Page gửi, ${res.postsScanned} bài viết (${res.adPostsScanned} bài Ads), +${res.commentsSynced} bình luận!`,
+        );
+      }
+    } catch (err: any) {
+      showErrorToast(err?.response?.data?.message || "Failed");
+    } finally {
+      setSyncingHistorical3mChannelId(null);
+    }
+  };
+
   const handleRunTokenDoctor = async () => {
     if (!activeShopId) return;
     setIsRunningDoctor(true);
@@ -1338,21 +1369,41 @@ export default function OmnichannelSettingsPage() {
 
                       {(ch.channelType === "FACEBOOK_PAGE" ||
                         ch.channelType === "INSTAGRAM") && (
-                        <PatternButton
-                          type="button"
-                          variant="glass"
-                          color="info"
-                          size="sm"
-                          rounded="full"
-                          isLoading={syncingCommentsChannelId === ch.id}
-                          onClick={() => handleSyncChannelPostsComments(ch)}
-                          icon={<RefreshCw className="w-3.5 h-3.5" />}
-                          iconPosition="left"
-                        >
-                          <TruncatedText>
-                            {t("syncPostsCommentsBtn")}
-                          </TruncatedText>
-                        </PatternButton>
+                        <>
+                          <PatternButton
+                            type="button"
+                            variant="glass"
+                            color="info"
+                            size="sm"
+                            rounded="full"
+                            isLoading={syncingCommentsChannelId === ch.id}
+                            onClick={() => handleSyncChannelPostsComments(ch)}
+                            icon={<RefreshCw className="w-3.5 h-3.5" />}
+                            iconPosition="left"
+                          >
+                            <TruncatedText>
+                              {t("syncPostsCommentsBtn")}
+                            </TruncatedText>
+                          </PatternButton>
+
+                          <PatternButton
+                            type="button"
+                            variant="glass"
+                            color="primary"
+                            size="sm"
+                            rounded="full"
+                            isLoading={syncingHistorical3mChannelId === ch.id}
+                            onClick={() =>
+                              handleSyncChannelHistorical3Months(ch)
+                            }
+                            icon={<RefreshCw className="w-3.5 h-3.5" />}
+                            iconPosition="left"
+                          >
+                            <TruncatedText>
+                              Đồng bộ 3 tháng (Tin nhắn & Bình luận)
+                            </TruncatedText>
+                          </PatternButton>
+                        </>
                       )}
 
                       <PatternButton
