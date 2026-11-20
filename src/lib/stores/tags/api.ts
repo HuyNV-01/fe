@@ -157,6 +157,7 @@ export const interpolateQuickReplyTemplateApi = async (
   shopId: string,
   templateId: string,
   payload: {
+    conversationId?: string;
     customerName?: string;
     salutation?: string;
     agentName?: string;

@@ -2526,6 +2526,9 @@
       "updatedSuccess": "Đã cập nhật mẫu câu trả lời nhanh",
       "deletedSuccess": "Đã xóa mẫu câu trả lời nhanh",
       "actionFailed": "Không thể lưu mẫu câu trả lời nhanh"
+    },
+    "categories": {
+      "all": "Tất cả"
     }
   },
   "MaskedVoip": {
@@ -2695,17 +2698,21 @@
       "reprintModalDesc": "Bản in lại sẽ tự động đóng dấu chìm BẢN IN LẠI LẦN N để chống đóng trùng kiện."
     },
     "packingPage": {
-      "title": "Bàn Đóng Gói Quét Barcode Chống Nhầm Hàng (T09)",
-      "subtitle": "Vận hành Zero-Mouse: Quét mã đơn -> Quét từng SKU -> Cân điện tử Web Serial -> In nhiệt A6/K80 < 500ms.",
-      "connectScale": "Kết nối cân điện tử",
-      "scanOrderPlaceholder": "Quét mã đơn hàng hoặc mã vận đơn để bắt đầu đóng gói...",
-      "scanSkuPlaceholder": "Quét mã vạch SKU hoặc Serial/IMEI sản phẩm trong đơn...",
-      "loadOrderBtn": "Nạp đơn",
-      "verifySkuBtn": "Kiểm đếm SKU",
-      "waitingOrderTitle": "Sẵn sàng quét mã đơn hàng",
-      "waitingOrderDesc": "Sử dụng súng bắn mã vạch USB/Bluetooth hoặc nhập tay mã đơn / mã vận đơn ở thanh phía trên.",
-      "weightAndPrintTitle": "Cân thực tế, Cam Check & In nhiệt",
-      "completeAndPrintBtn": "Chốt đóng gói & In phiếu nhiệt"
+      "scaleConnected": "Cân đã kết nối",
+      "scaleTitle": "Cân điện tử",
+      "scanErrorTitle": "CẢNH BÁO SAI HÀNG",
+      "scanSuccessTitle": "XÁC NHẬN MÃ VẠCH",
+      "noTrackingYet": "Chưa có mã vận đơn",
+      "scanProgressLabel": "Tiến độ quét kiểm đếm SKU",
+      "actualWeightLabel": "Trọng lượng cân thực tế (gram) — chống đội cước ĐVVC",
+      "packingVideoLabel": "Link Video Cam Check (tuỳ chọn)",
+      "thermalFormatLabel": "Khổ giấy in nhiệt",
+      "options": {
+        "hideProductNames": "Che tên sản phẩm nhạy cảm",
+        "showCodAmount": "Hiển thị tiền thu hộ COD",
+        "showBarcodeSvg": "In mã vạch SVG Code-128 quét súng",
+        "copies": "Số liên in"
+      }
     },
     "rescuePage": {
       "title": "Trung Tâm Cứu Đơn Giao Thất Bại & Watchdog SLA",
@@ -2723,6 +2730,16 @@
     "reconciliationPage": {
       "title": "Đối Soát COD & Phát Hiện Đội Cước Cân Nặng (T10)",
       "subtitle": "Khớp sao kê CSV/Excel từ GHN/GHTK/VTP/J&T trong < 2 giây, phát hiện thiếu COD và kê khống cân nặng."
+    },
+    "thermalFormats": {
+      "A7_74X105": "Nhiệt A7 (74 × 105mm)",
+      "A6_100X150": "Nhiệt A6 chuẩn sàn (100 × 150mm)",
+      "K80_80X80": "Nhiệt K80 vuông (80 × 80mm)",
+      "K80_80X100": "Nhiệt K80 dài (80 × 100mm)",
+      "K58_58X80": "Nhiệt mini K58 (58 × 80mm)",
+      "LABEL_75X100": "Tem nhiệt 75 × 100mm (J&T / VTP)",
+      "A5_148X210": "Khổ A5 (148 × 210mm)",
+      "A4_210X297": "Khổ A4 hóa đơn (210 × 297mm)"
     }
   }
 }

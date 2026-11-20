@@ -7,18 +7,23 @@ export interface StoredKeyPairInfo {
   algorithm: "ECDH-P256";
 }
 
-export function sanitizeMediaUrl(url?: string | null): string {
-  if (!url) return "";
+export function sanitizeMediaUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
   const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
   if (
     trimmed.startsWith("http://") ||
     trimmed.startsWith("https://") ||
     trimmed.startsWith("/") ||
-    trimmed.startsWith("blob:")
+    trimmed.startsWith("blob:") ||
+    trimmed.startsWith("data:image/")
   ) {
     return trimmed;
   }
-  return "";
+  return undefined;
 }
 
 export function formatFileSize(bytes?: number): string {
@@ -39,7 +44,10 @@ export async function downloadMediaFile(
   if (!safeUrl) return false;
 
   try {
-    const response = await fetch(safeUrl, { mode: "cors", credentials: "omit" });
+    const response = await fetch(safeUrl, {
+      mode: "cors",
+      credentials: "omit",
+    });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);
@@ -112,7 +120,10 @@ export async function getOrCreateDeviceE2EEKey(): Promise<StoredKeyPairInfo | nu
   }
 }
 
-import type { AttachmentE2EEMeta, AttachmentE2EEWrappedKey } from "@/types/chat";
+import type {
+  AttachmentE2EEMeta,
+  AttachmentE2EEWrappedKey,
+} from "@/types/chat";
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -286,7 +297,10 @@ export async function decryptAttachmentBlobE2EE(params: {
     ["decrypt"],
   );
 
-  const response = await fetch(sanitizeMediaUrl(params.encryptedUrl), {
+  const safeEncryptedUrl = sanitizeMediaUrl(params.encryptedUrl);
+  if (!safeEncryptedUrl) return null;
+
+  const response = await fetch(safeEncryptedUrl, {
     mode: "cors",
     credentials: "omit",
   });

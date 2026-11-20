@@ -123,6 +123,7 @@ interface TagStoreState {
     shopId: string,
     templateId: string,
     vars: {
+      conversationId?: string;
       customerName?: string;
       salutation?: string;
       agentName?: string;
@@ -131,6 +132,12 @@ interface TagStoreState {
     },
   ) => Promise<{
     interpolatedContent: string;
+    interpolatedSequence?: Array<{
+      order: number;
+      content: string;
+      delayMs: number;
+    }>;
+    autoAssignTagIds?: string[];
     template: IQuickReplyTemplate;
   } | null>;
 

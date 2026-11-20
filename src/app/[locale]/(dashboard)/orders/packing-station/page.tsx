@@ -3,7 +3,14 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Barcode, CheckCircle2, Printer, Scale, Video } from "lucide-react";
+import {
+  Barcode,
+  CheckCircle2,
+  Printer,
+  RotateCcw,
+  Scale,
+  Video,
+} from "lucide-react";
 import {
   ContentSelect,
   GlassAlert,
@@ -14,6 +21,7 @@ import {
   ItemSelect,
   LiquidGlassInput,
   PatternButton,
+  Switch,
   TriggerSelect,
 } from "@/components/toolkit";
 import { Progress } from "@/components/ui/progress";
@@ -21,11 +29,61 @@ import { Select } from "@/components/ui/select";
 import { OmsStatusBadge, OmsSubNavBar } from "@/components/oms/oms-status-meta";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
 import { useOmsFulfillmentStore } from "@/lib/stores/oms/use-oms-fulfillment-store";
-import type { ThermalLabelFormatType } from "@/types/oms";
+import type {
+  IThermalPrintTemplateOptions,
+  ThermalLabelFormatType,
+} from "@/types/oms";
 import {
   useElectronicScaleReader,
   useHardwareBarcodeScanner,
 } from "@/utils/hooks/use-hardware-barcode-scanner";
+
+const THERMAL_FORMAT_OPTIONS: Array<{
+  value: ThermalLabelFormatType;
+  labelKey: string;
+  fallback: string;
+}> = [
+  {
+    value: "A7_74X105",
+    labelKey: "thermalFormats.A7_74X105",
+    fallback: "Nhiệt A7 (74 × 105mm)",
+  },
+  {
+    value: "A6_100X150",
+    labelKey: "thermalFormats.A6_100X150",
+    fallback: "Nhiệt A6 chuẩn sàn (100 × 150mm)",
+  },
+  {
+    value: "K80_80X80",
+    labelKey: "thermalFormats.K80_80X80",
+    fallback: "Nhiệt K80 vuông (80 × 80mm)",
+  },
+  {
+    value: "K80_80X100",
+    labelKey: "thermalFormats.K80_80X100",
+    fallback: "Nhiệt K80 dài (80 × 100mm)",
+  },
+  {
+    value: "K58_58X80",
+    labelKey: "thermalFormats.K58_58X80",
+    fallback: "Nhiệt mini K58 (58 × 80mm)",
+  },
+  {
+    value: "LABEL_75X100",
+    labelKey: "thermalFormats.LABEL_75X100",
+    fallback: "Tem nhiệt 75 × 100mm (J&T / VTP)",
+  },
+  {
+    value: "A5_148X210",
+    labelKey: "thermalFormats.A5_148X210",
+    fallback: "Khổ A5 (148 × 210mm)",
+  },
+  {
+    value: "A4_210X297",
+    labelKey: "thermalFormats.A4_210X297",
+    fallback: "Khổ A4 hóa đơn (210 × 297mm)",
+  },
+];
 
 export default function PackingStationPage() {
   const t = useTranslations("OmsFulfillment");
@@ -50,6 +108,16 @@ export default function PackingStationPage() {
   const [packingVideoUrl, setPackingVideoUrl] = useState("");
   const [labelFormat, setLabelFormat] =
     useState<ThermalLabelFormatType>("A6_100X150");
+  const [templateOptions, setTemplateOptions] =
+    useState<IThermalPrintTemplateOptions>({
+      hideProductNames: false,
+      hideItemPrices: false,
+      showCodAmount: true,
+      showOrderNote: true,
+      showWarehouseInfo: true,
+      showBarcodeSvg: true,
+      copies: 1,
+    });
 
   const {
     isConnected,
@@ -77,7 +145,6 @@ export default function PackingStationPage() {
     }
   }, [packingOrder, isConnected]);
 
-  // Zero-Mouse HID Barcode Scanner: nếu chưa có đơn thì quét nạp đơn, nếu đã có đơn thì quét kiểm đếm SKU
   useHardwareBarcodeScanner({
     enabled: Boolean(activeShopId),
     onScan: (code) => {
@@ -117,8 +184,13 @@ export default function PackingStationPage() {
       actualPackedWeightGrams: Math.max(10, Number(weightGrams || 500)),
       packingVideoUrl: packingVideoUrl.trim() || undefined,
       labelFormat,
-    });
+      templateOptions,
+    } as any);
   };
+
+  const activeFormatOption =
+    THERMAL_FORMAT_OPTIONS.find((o) => o.value === labelFormat) ||
+    THERMAL_FORMAT_OPTIONS[1];
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6 space-y-4">
@@ -135,7 +207,7 @@ export default function PackingStationPage() {
           >
             <Scale className="w-3.5 h-3.5 mr-1.5" />
             {isConnected
-              ? `Cân đã kết nối (${liveWeightGrams ?? 0}g)`
+              ? `${t("packingPage.scaleConnected")} (${liveWeightGrams ?? 0}g)`
               : t("packingPage.connectScale")}
           </PatternButton>
         }
@@ -146,7 +218,7 @@ export default function PackingStationPage() {
       {scaleError && (
         <GlassAlert
           variant="warning"
-          title="Cân điện tử"
+          title={t("packingPage.scaleTitle")}
           description={scaleError}
         />
       )}
@@ -156,8 +228,8 @@ export default function PackingStationPage() {
           variant={lastScanAlert.type === "danger" ? "danger" : "success"}
           title={
             lastScanAlert.type === "danger"
-              ? "CẢNH BÁO SAI HÀNG"
-              : "XÁC NHẬN MÃ VẠCH"
+              ? t("packingPage.scanErrorTitle")
+              : t("packingPage.scanSuccessTitle")
           }
           description={lastScanAlert.message}
         />
@@ -209,7 +281,8 @@ export default function PackingStationPage() {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {packingOrder.carrierCode} •{" "}
-                    {packingOrder.trackingNumber || "Chưa có mã vận đơn"}
+                    {packingOrder.trackingNumber ||
+                      t("packingPage.noTrackingYet")}
                   </div>
                 </div>
                 <OmsStatusBadge status={packingOrder.status} />
@@ -219,10 +292,10 @@ export default function PackingStationPage() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-semibold">
-                  <span>Tiến độ quét kiểm đếm SKU</span>
+                  <span>{t("packingPage.scanProgressLabel")}</span>
                   <span>
                     {packingProgress?.scannedUnits || 0} /{" "}
-                    {packingProgress?.requiredUnits || 0} SP (
+                    {packingProgress?.requiredUnits || 0} (
                     {packingProgress?.percent || 0}%)
                   </span>
                 </div>
@@ -275,7 +348,7 @@ export default function PackingStationPage() {
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
-                  Trọng lượng cân thực tế (gram) — chống đội cước ĐVVC
+                  {t("packingPage.actualWeightLabel")}
                 </label>
                 <LiquidGlassInput className="mt-1">
                   <input
@@ -289,8 +362,8 @@ export default function PackingStationPage() {
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <Video className="w-3.5 h-3.5" /> Link Video Cam Check (tuỳ
-                  chọn)
+                  <Video className="w-3.5 h-3.5" />{" "}
+                  {t("packingPage.packingVideoLabel")}
                 </label>
                 <LiquidGlassInput className="mt-1">
                   <input
@@ -304,7 +377,7 @@ export default function PackingStationPage() {
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground">
-                  Khổ giấy in nhiệt
+                  {t("packingPage.thermalFormatLabel")}
                 </label>
                 <div className="mt-1">
                   <Select
@@ -314,20 +387,78 @@ export default function PackingStationPage() {
                     }
                   >
                     <TriggerSelect>
-                      <span>{labelFormat}</span>
+                      <span className="truncate">
+                        {activeFormatOption.fallback}
+                      </span>
                     </TriggerSelect>
                     <ContentSelect>
-                      <ItemSelect value="A6_100X150">
-                        Nhiệt A6 (100x150mm)
-                      </ItemSelect>
-                      <ItemSelect value="K80_80X80">
-                        Nhiệt K80 (80x80mm)
-                      </ItemSelect>
-                      <ItemSelect value="A5_148X210">
-                        Khổ A5 (148x210mm)
-                      </ItemSelect>
+                      {THERMAL_FORMAT_OPTIONS.map((opt) => (
+                        <ItemSelect key={opt.value} value={opt.value}>
+                          {opt.fallback}
+                        </ItemSelect>
+                      ))}
                     </ContentSelect>
                   </Select>
+                </div>
+              </div>
+
+              <div className="pt-1 space-y-2 border-t border-border/40">
+                <div className="flex items-center justify-between text-xs">
+                  <span>{t("packingPage.options.hideProductNames")}</span>
+                  <Switch
+                    checked={Boolean(templateOptions.hideProductNames)}
+                    onCheckedChange={(checked) =>
+                      setTemplateOptions((prev) => ({
+                        ...prev,
+                        hideProductNames: checked,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span>{t("packingPage.options.showCodAmount")}</span>
+                  <Switch
+                    checked={templateOptions.showCodAmount !== false}
+                    onCheckedChange={(checked) =>
+                      setTemplateOptions((prev) => ({
+                        ...prev,
+                        showCodAmount: checked,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span>{t("packingPage.options.showBarcodeSvg")}</span>
+                  <Switch
+                    checked={templateOptions.showBarcodeSvg !== false}
+                    onCheckedChange={(checked) =>
+                      setTemplateOptions((prev) => ({
+                        ...prev,
+                        showBarcodeSvg: checked,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs gap-2">
+                  <span>{t("packingPage.options.copies")}</span>
+                  <LiquidGlassInput className="w-20">
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={templateOptions.copies || 1}
+                      onChange={(e) =>
+                        setTemplateOptions((prev) => ({
+                          ...prev,
+                          copies: Math.max(
+                            1,
+                            Math.min(5, Number(e.target.value || 1)),
+                          ),
+                        }))
+                      }
+                      className="w-full bg-transparent px-2 py-1 text-xs font-bold text-center outline-none"
+                    />
+                  </LiquidGlassInput>
                 </div>
               </div>
 

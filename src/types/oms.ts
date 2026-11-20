@@ -53,7 +53,25 @@ export type CodReconciliationDiscrepancyType =
   | "RETURN_FEE_ERROR"
   | "UNIDENTIFIED_TRACKING";
 
-export type ThermalLabelFormatType = "A6_100X150" | "K80_80X80" | "A5_148X210";
+export type ThermalLabelFormatType =
+  | "A7_74X105"
+  | "A6_100X150"
+  | "K80_80X80"
+  | "K80_80X100"
+  | "K58_58X80"
+  | "LABEL_75X100"
+  | "A5_148X210"
+  | "A4_210X297";
+
+export interface IThermalPrintTemplateOptions {
+  hideProductNames?: boolean;
+  hideItemPrices?: boolean;
+  showCodAmount?: boolean;
+  showOrderNote?: boolean;
+  showWarehouseInfo?: boolean;
+  showBarcodeSvg?: boolean;
+  copies?: number;
+}
 
 export interface IOmsOrderLineItem extends IPosOrderLineItem {
   packedScannedQty?: number;

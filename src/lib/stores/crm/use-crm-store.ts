@@ -1114,7 +1114,6 @@ export const useCrmStore = createPersistedStore<CrmState>(
   {
     partialize: (state) =>
       ({
-        administrativeTree: state.administrativeTree,
         shopCrmConfig: state.shopCrmConfig,
       }) as any,
   },

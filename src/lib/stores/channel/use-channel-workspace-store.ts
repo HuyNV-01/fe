@@ -372,6 +372,11 @@ export const useChannelWorkspaceStore =
               }
             }
           });
+        } catch (err: any) {
+          console.warn(
+            "[ChannelWorkspaceStore] Tạm chưa tải được danh sách kênh:",
+            err?.response?.status || err?.message,
+          );
         } finally {
           set((state) => {
             state.isLoadingChannels = false;
