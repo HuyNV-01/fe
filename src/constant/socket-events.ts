@@ -57,6 +57,10 @@ export const SELLER_OS_SOCKET_EVENTS = {
     VIETQR_PAYMENT_CONFIRMED: "pos:vietqr_payment_confirmed",
     CARRIER_WEBHOOK_STATUS_CHANGED: "oms:carrier_webhook_status_changed",
     FAILED_DELIVERY_RESCUE_ALERT: "oms:failed_delivery_rescue_alert",
+    ORDER_PACKED_PRINTED: "oms:order_packed_printed",
+    SLA_BREACH_ALERT: "oms:sla_breach_alert",
+    RMA_EXCHANGE_CREATED: "oms:rma_exchange_created",
+    COD_BATCH_RECONCILED: "oms:cod_batch_reconciled",
   },
   LIVESTREAM: {
     COMMENT_HARVESTED: "live:comment_harvested",

@@ -2640,5 +2640,89 @@
         "desc": "Tự động phân nhóm khách VIP, thân thiết và nguy cơ rời bỏ."
       }
     }
+  },
+  "OmsFulfillment": {
+    "common": {
+      "refresh": "Làm mới",
+      "loading": "Đang tải dữ liệu vận hành...",
+      "detail": "Chi tiết",
+      "cancel": "Hủy bỏ",
+      "save": "Lưu thay đổi"
+    },
+    "tabs": {
+      "all": "Tất cả",
+      "confirmed": "Đã chốt",
+      "waitingPacking": "Chờ đóng gói",
+      "packed": "Đã đóng gói",
+      "inTransit": "Đang giao",
+      "failedRescue": "🚨 Cứu đơn",
+      "deliveredUnreconciled": "Chờ đối soát COD",
+      "reconciled": "Đã đối soát",
+      "returning": "Đang hoàn",
+      "returnedRestocked": "Đã kiểm hoàn",
+      "cancelled": "Đã hủy"
+    },
+    "table": {
+      "orderCode": "Mã đơn / Kho",
+      "customer": "Khách hàng",
+      "carrierTracking": "3PL & Vận đơn",
+      "status": "Trạng thái",
+      "codAmount": "Thu hộ COD",
+      "printed": "In phiếu",
+      "actions": "Thao tác"
+    },
+    "ordersPage": {
+      "title": "Quản lý Vận đơn & Máy trạng thái OMS 14 bước",
+      "subtitle": "Kiểm soát toàn trình từ chốt đơn, đẩy 3PL, đóng gói Barcode đến đối soát COD thực nhận.",
+      "dispatchBatchBtn": "Đẩy 3PL ({count} đơn)",
+      "searchPlaceholder": "Tìm mã đơn hàng, mã vận đơn, tên hoặc SĐT khách...",
+      "allCarriers": "Tất cả hãng vận chuyển",
+      "emptyTitle": "Chưa có vận đơn nào phù hợp",
+      "emptyDesc": "Thay đổi bộ lọc trạng thái hoặc tạo đơn mới từ In-Chat POS."
+    },
+    "detailPage": {
+      "reprintBtn": "In lại phiếu",
+      "modifyBtn": "Sửa đơn hàng",
+      "lockAlertTitle": "Đơn hàng đã khóa chỉnh sửa theo chính sách lockOrderAfterPrint",
+      "lockAlertDesc": "Chỉ quản lý có quyền OMS_CONFIRMED_ORDER_MODIFY mới được sửa và mọi thay đổi đều được ghi nhật ký Before <-> After kèm chuỗi băm HMAC.",
+      "itemsAndStatusTitle": "Sản phẩm & Chuyển trạng thái OMS",
+      "financialSummary": "Tóm tắt Tài chính & Cân nặng",
+      "revisionHistoryTitle": "Nhật ký sửa đơn Before <-> After",
+      "carrierTimelineTitle": "Hành trình vận chuyển 3PL",
+      "modifyModalTitle": "Chỉnh sửa đơn hàng đã xác nhận",
+      "modifyModalDesc": "Hệ thống tự động lưu ảnh chụp trước/sau và ghi Sổ cái Kiểm toán Bảo mật.",
+      "reprintModalTitle": "Xác nhận in lại phiếu giao hàng",
+      "reprintModalDesc": "Bản in lại sẽ tự động đóng dấu chìm BẢN IN LẠI LẦN N để chống đóng trùng kiện."
+    },
+    "packingPage": {
+      "title": "Bàn Đóng Gói Quét Barcode Chống Nhầm Hàng (T09)",
+      "subtitle": "Vận hành Zero-Mouse: Quét mã đơn -> Quét từng SKU -> Cân điện tử Web Serial -> In nhiệt A6/K80 < 500ms.",
+      "connectScale": "Kết nối cân điện tử",
+      "scanOrderPlaceholder": "Quét mã đơn hàng hoặc mã vận đơn để bắt đầu đóng gói...",
+      "scanSkuPlaceholder": "Quét mã vạch SKU hoặc Serial/IMEI sản phẩm trong đơn...",
+      "loadOrderBtn": "Nạp đơn",
+      "verifySkuBtn": "Kiểm đếm SKU",
+      "waitingOrderTitle": "Sẵn sàng quét mã đơn hàng",
+      "waitingOrderDesc": "Sử dụng súng bắn mã vạch USB/Bluetooth hoặc nhập tay mã đơn / mã vận đơn ở thanh phía trên.",
+      "weightAndPrintTitle": "Cân thực tế, Cam Check & In nhiệt",
+      "completeAndPrintBtn": "Chốt đóng gói & In phiếu nhiệt"
+    },
+    "rescuePage": {
+      "title": "Trung Tâm Cứu Đơn Giao Thất Bại & Watchdog SLA",
+      "subtitle": "Phát hiện tức thì bưu tá giao thất bại, gửi lệnh giục phát lại / đổi địa chỉ 3PL và xử lý đơn ngâm quá hạn.",
+      "scanSlaBtn": "Quét SLA ngay"
+    },
+    "returnPage": {
+      "title": "Đồng Kiểm Nhận Hàng Hoàn Bằng Barcode",
+      "subtitle": "Chỉ cộng lại tồn kho bán sau khi quét mã vận đơn và kiểm đếm thực tế tình trạng hàng hoàn."
+    },
+    "rmaPage": {
+      "title": "Đổi Hàng 2 Chiều (RMA) & Trả Hàng Một Phần",
+      "subtitle": "Giao hàng mới — Thu hồi hàng cũ trong 1 chuyến bưu tá, tự động giữ chỗ Redis Lua và tính chênh lệch COD."
+    },
+    "reconciliationPage": {
+      "title": "Đối Soát COD & Phát Hiện Đội Cước Cân Nặng (T10)",
+      "subtitle": "Khớp sao kê CSV/Excel từ GHN/GHTK/VTP/J&T trong < 2 giây, phát hiện thiếu COD và kê khống cân nặng."
+    }
   }
 }
