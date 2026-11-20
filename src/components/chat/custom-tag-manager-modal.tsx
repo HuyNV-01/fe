@@ -1,15 +1,15 @@
 /** biome-ignore-all lint/a11y/noLabelWithoutControl: <explanation> */
 "use client";
 
-import React, { useState } from "react";
-import { Plus, Trash2, Pencil, Sparkles, Tag } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Pencil, Plus, Sparkles, Tag, Trash2, Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import {
-  GlassModal,
-  GlassSurfaceCard,
   GlassBadge,
   GlassIconButton,
+  GlassModal,
+  GlassSurfaceCard,
   PatternButton,
   Switch,
 } from "@/components/toolkit";
@@ -17,8 +17,10 @@ import { useTagStore } from "@/lib/stores/tags/use-tag-store";
 import type {
   IAutoTagRuleConfig,
   ICustomTag,
+  ITagWorkflowActionItem,
   TagApplicableScopeType,
   TagCategoryType,
+  TagWorkflowActionType,
 } from "@/types/chat";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +60,17 @@ const AUTO_TRIGGERS: Array<IAutoTagRuleConfig["triggerEvent"] | "NONE"> = [
   "VIETQR_PAID",
   "CARRIER_DELIVERY_FAILED",
   "KEYWORD_MATCH",
+  "CUSTOM_EVENT",
+];
+
+const TAG_APPLY_ACTION_TYPES: TagWorkflowActionType[] = [
+  "SEND_QUICK_REPLY",
+  "ADD_INTERNAL_NOTE",
+  "SET_SNOOZE",
+  "ADD_LOYALTY_POINTS",
+  "UPDATE_CUSTOMER_TIER",
+  "CALL_WEBHOOK",
+  "EMIT_SOCKET_ALERT",
 ];
 
 export interface CustomTagManagerModalProps {
@@ -73,12 +86,17 @@ export const CustomTagManagerModal = ({
 }: CustomTagManagerModalProps) => {
   const t = useTranslations("TaggingSystem");
   const tags = useTagStore((s) => s.tags);
+  const tagEvents = useTagStore((s) => s.tagEvents);
+  const quickReplies = useTagStore((s) => s.quickReplyTemplates);
+  const fetchTagEvents = useTagStore((s) => s.fetchTagEvents);
+  const fetchQuickReplies = useTagStore((s) => s.fetchQuickReplies);
   const createTag = useTagStore((s) => s.createTag);
   const updateTag = useTagStore((s) => s.updateTag);
   const deleteTag = useTagStore((s) => s.deleteTag);
 
   const [editingTag, setEditingTag] = useState<ICustomTag | null>(null);
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [colorHex, setColorHex] = useState(OKLCH_PRESETS[0].hex);
   const [colorOklch, setColorOklch] = useState(OKLCH_PRESETS[0].oklch);
   const [category, setCategory] = useState<TagCategoryType>(
@@ -93,10 +111,22 @@ export const CustomTagManagerModal = ({
     IAutoTagRuleConfig["triggerEvent"] | "NONE"
   >("NONE");
   const [autoKeywords, setAutoKeywords] = useState("");
+  const [autoCustomEventKey, setAutoCustomEventKey] = useState("");
+  const [linkedEventKeys, setLinkedEventKeys] = useState<string[]>([]);
+  const [onApplyActions, setOnApplyActions] = useState<
+    ITagWorkflowActionItem[]
+  >([]);
+
+  useEffect(() => {
+    if (!open || !shopId) return;
+    fetchTagEvents(shopId);
+    fetchQuickReplies(shopId);
+  }, [open, shopId, fetchTagEvents, fetchQuickReplies]);
 
   const resetForm = () => {
     setEditingTag(null);
     setName("");
+    setDescription("");
     setColorHex(OKLCH_PRESETS[0].hex);
     setColorOklch(OKLCH_PRESETS[0].oklch);
     setCategory("CONSULTATION_STATUS");
@@ -105,11 +135,15 @@ export const CustomTagManagerModal = ({
     setShortcutKey("");
     setAutoTrigger("NONE");
     setAutoKeywords("");
+    setAutoCustomEventKey("");
+    setLinkedEventKeys([]);
+    setOnApplyActions([]);
   };
 
   const handleStartEdit = (tag: ICustomTag) => {
     setEditingTag(tag);
     setName(tag.name);
+    setDescription(tag.description || "");
     setColorHex(tag.colorHex);
     setColorOklch(tag.colorOklch);
     setCategory(tag.category);
@@ -122,6 +156,9 @@ export const CustomTagManagerModal = ({
     setShortcutKey(tag.shortcutKey || "");
     setAutoTrigger(tag.autoRuleConfigJson?.triggerEvent || "NONE");
     setAutoKeywords((tag.autoRuleConfigJson?.keywords || []).join(", "));
+    setAutoCustomEventKey(tag.autoRuleConfigJson?.customEventKey || "");
+    setLinkedEventKeys(tag.linkedEventKeysJson || []);
+    setOnApplyActions(tag.onApplyActionsJson || []);
   };
 
   const toggleScope = (scope: TagApplicableScopeType) => {
@@ -134,6 +171,42 @@ export const CustomTagManagerModal = ({
     );
   };
 
+  const toggleLinkedEvent = (eventKey: string) => {
+    setLinkedEventKeys((prev) =>
+      prev.includes(eventKey)
+        ? prev.filter((k) => k !== eventKey)
+        : [...prev, eventKey],
+    );
+  };
+
+  const handleAddOnApplyAction = (actionType: TagWorkflowActionType) => {
+    setOnApplyActions((prev) => [
+      ...prev,
+      {
+        id: `tag_act_${Date.now()}_${prev.length}`,
+        actionType,
+        isEnabled: true,
+        snoozeMinutes: actionType === "SET_SNOOZE" ? 60 : undefined,
+        loyaltyPointsDelta:
+          actionType === "ADD_LOYALTY_POINTS" ? 10 : undefined,
+        customerTier: actionType === "UPDATE_CUSTOMER_TIER" ? "VIP" : undefined,
+      },
+    ]);
+  };
+
+  const handleUpdateOnApplyAction = (
+    id: string,
+    patch: Partial<ITagWorkflowActionItem>,
+  ) => {
+    setOnApplyActions((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
+  };
+
+  const handleRemoveOnApplyAction = (id: string) => {
+    setOnApplyActions((prev) => prev.filter((item) => item.id !== id));
+  };
+
   const handleSave = async () => {
     if (!name.trim() || !shopId) return;
 
@@ -142,6 +215,10 @@ export const CustomTagManagerModal = ({
         ? null
         : {
             triggerEvent: autoTrigger,
+            customEventKey:
+              autoTrigger === "CUSTOM_EVENT"
+                ? autoCustomEventKey.trim() || undefined
+                : undefined,
             keywords:
               autoTrigger === "KEYWORD_MATCH"
                 ? autoKeywords
@@ -151,28 +228,24 @@ export const CustomTagManagerModal = ({
                 : undefined,
           };
 
+    const payload = {
+      name: name.trim(),
+      description: description.trim() || null,
+      colorHex,
+      colorOklch,
+      category,
+      isMutuallyExclusiveGroup: isMutuallyExclusive,
+      applicableScopesJson: selectedScopes,
+      shortcutKey: shortcutKey.trim() || null,
+      autoRuleConfigJson,
+      linkedEventKeysJson: linkedEventKeys,
+      onApplyActionsJson: onApplyActions,
+    };
+
     if (editingTag) {
-      await updateTag(shopId, editingTag.id, {
-        name: name.trim(),
-        colorHex,
-        colorOklch,
-        category,
-        isMutuallyExclusiveGroup: isMutuallyExclusive,
-        applicableScopesJson: selectedScopes,
-        shortcutKey: shortcutKey.trim() || null,
-        autoRuleConfigJson,
-      });
+      await updateTag(shopId, editingTag.id, payload);
     } else {
-      await createTag(shopId, {
-        name: name.trim(),
-        colorHex,
-        colorOklch,
-        category,
-        isMutuallyExclusiveGroup: isMutuallyExclusive,
-        applicableScopesJson: selectedScopes,
-        shortcutKey: shortcutKey.trim() || null,
-        autoRuleConfigJson,
-      });
+      await createTag(shopId, payload);
     }
 
     resetForm();
@@ -234,6 +307,18 @@ export const CustomTagManagerModal = ({
                 className="h-9 text-xs font-mono"
               />
             </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold">
+              {t("managerModal.descriptionLabel")}
+            </label>
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t("managerModal.descriptionPlaceholder")}
+              className="h-9 text-xs"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -330,6 +415,7 @@ export const CustomTagManagerModal = ({
             />
           </div>
 
+          {/* Chiều 1: Sự kiện xảy ra -> Tự động gắn Tag */}
           <div className="space-y-2 pt-1 border-t border-border/40">
             <div className="flex items-center gap-1.5 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -361,6 +447,204 @@ export const CustomTagManagerModal = ({
                 className="h-8 text-xs"
               />
             )}
+
+            {autoTrigger === "CUSTOM_EVENT" && (
+              <select
+                value={autoCustomEventKey}
+                onChange={(e) => setAutoCustomEventKey(e.target.value)}
+                className="w-full h-8 rounded-lg border border-border/60 bg-background px-2 text-xs"
+              >
+                <option value="">
+                  {t("managerModal.selectCustomEventPlaceholder")}
+                </option>
+                {tagEvents.map((evt) => (
+                  <option key={evt.id} value={evt.eventKey}>
+                    {evt.name} ({evt.eventKey})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Chiều 2: Ấn gắn Tag -> Kích hoạt Sự kiện tùy chỉnh đã cấu hình */}
+          <div className="space-y-2 pt-2 border-t border-border/40">
+            <div className="flex items-center gap-1.5 text-xs font-semibold">
+              <Zap className="w-3.5 h-3.5 text-primary" />
+              <span>{t("managerModal.linkedEventsOnApplyLabel")}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {tagEvents
+                .filter((e) => e.direction !== "EVENT_TO_TAG")
+                .map((evt) => {
+                  const active = linkedEventKeys.includes(evt.eventKey);
+                  return (
+                    <button
+                      key={evt.id}
+                      type="button"
+                      onClick={() => toggleLinkedEvent(evt.eventKey)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-full text-[11px] border transition-all cursor-pointer",
+                        active
+                          ? "border-primary bg-primary/15 text-primary font-semibold"
+                          : "border-border/60 text-muted-foreground",
+                      )}
+                    >
+                      ⚡ {evt.name}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+
+          {/* Hành động trực tiếp khi ấn gắn Tag */}
+          <div className="space-y-2 pt-2 border-t border-border/40">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs font-semibold">
+                {t("managerModal.directActionsOnApplyLabel")}
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {TAG_APPLY_ACTION_TYPES.map((actType) => (
+                  <button
+                    key={actType}
+                    type="button"
+                    onClick={() => handleAddOnApplyAction(actType)}
+                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+                  >
+                    + {t(`events.actionTypes.${actType}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {onApplyActions.map((act) => (
+              <div
+                key={act.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg border border-border/60 bg-background/70"
+              >
+                <GlassBadge variant="info" size="sm">
+                  {t(`events.actionTypes.${act.actionType}`)}
+                </GlassBadge>
+
+                {act.actionType === "SEND_QUICK_REPLY" && (
+                  <select
+                    value={act.quickReplyTemplateId || ""}
+                    onChange={(e) =>
+                      handleUpdateOnApplyAction(act.id, {
+                        quickReplyTemplateId: e.target.value,
+                      })
+                    }
+                    className="flex-1 h-8 rounded-lg border border-border/60 bg-background px-2 text-xs"
+                  >
+                    <option value="">
+                      {t("events.selectQuickReplyPlaceholder")}
+                    </option>
+                    {quickReplies.map((qr) => (
+                      <option key={qr.id} value={qr.id}>
+                        /{qr.shortcut} — {qr.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {act.actionType === "ADD_INTERNAL_NOTE" && (
+                  <Input
+                    value={act.internalNoteText || ""}
+                    onChange={(e) =>
+                      handleUpdateOnApplyAction(act.id, {
+                        internalNoteText: e.target.value,
+                      })
+                    }
+                    placeholder={t("events.internalNotePlaceholder")}
+                    className="flex-1 h-8 text-xs"
+                  />
+                )}
+
+                {act.actionType === "SET_SNOOZE" && (
+                  <Input
+                    type="number"
+                    min={5}
+                    value={act.snoozeMinutes || 60}
+                    onChange={(e) =>
+                      handleUpdateOnApplyAction(act.id, {
+                        snoozeMinutes: Number(e.target.value),
+                      })
+                    }
+                    className="w-28 h-8 text-xs"
+                  />
+                )}
+
+                {act.actionType === "ADD_LOYALTY_POINTS" && (
+                  <Input
+                    type="number"
+                    value={act.loyaltyPointsDelta || 10}
+                    onChange={(e) =>
+                      handleUpdateOnApplyAction(act.id, {
+                        loyaltyPointsDelta: Number(e.target.value),
+                      })
+                    }
+                    className="w-28 h-8 text-xs"
+                  />
+                )}
+
+                {act.actionType === "UPDATE_CUSTOMER_TIER" && (
+                  <select
+                    value={act.customerTier || "VIP"}
+                    onChange={(e) =>
+                      handleUpdateOnApplyAction(act.id, {
+                        customerTier: e.target.value as
+                          | "NEW"
+                          | "SILVER"
+                          | "GOLD"
+                          | "VIP"
+                          | "BLACKLIST",
+                      })
+                    }
+                    className="h-8 rounded-lg border border-border/60 bg-background px-2 text-xs"
+                  >
+                    <option value="NEW">NEW</option>
+                    <option value="SILVER">SILVER</option>
+                    <option value="GOLD">GOLD</option>
+                    <option value="VIP">VIP</option>
+                    <option value="BLACKLIST">BLACKLIST</option>
+                  </select>
+                )}
+
+                {act.actionType === "CALL_WEBHOOK" && (
+                  <Input
+                    value={act.webhookUrl || ""}
+                    onChange={(e) =>
+                      handleUpdateOnApplyAction(act.id, {
+                        webhookUrl: e.target.value,
+                      })
+                    }
+                    placeholder="https://hooks.example.com/tag-trigger"
+                    className="flex-1 h-8 text-xs font-mono"
+                  />
+                )}
+
+                {act.actionType === "EMIT_SOCKET_ALERT" && (
+                  <Input
+                    value={act.alertMessage || ""}
+                    onChange={(e) =>
+                      handleUpdateOnApplyAction(act.id, {
+                        alertMessage: e.target.value,
+                      })
+                    }
+                    placeholder={t("events.alertMessagePlaceholder")}
+                    className="flex-1 h-8 text-xs"
+                  />
+                )}
+
+                <GlassIconButton
+                  size="sm"
+                  variant="ghost"
+                  color="danger"
+                  className="h-7 w-7 text-destructive shrink-0"
+                  icon={<Trash2 className="w-3.5 h-3.5" />}
+                  onClick={() => handleRemoveOnApplyAction(act.id)}
+                />
+              </div>
+            ))}
           </div>
 
           <div className="flex justify-end pt-1">
@@ -385,61 +669,74 @@ export const CustomTagManagerModal = ({
             {t("managerModal.existingTagsHeading", { count: tags.length })}
           </h4>
           <div className="space-y-1.5">
-            {tags.map((tag) => (
-              <div
-                key={tag.id}
-                className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-border/50 bg-background/60"
-              >
-                <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
-                  <span
-                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold text-white"
-                    style={{
-                      backgroundColor: tag.colorOklch || tag.colorHex,
-                    }}
-                  >
-                    <Tag className="w-3 h-3" />
-                    <span>{tag.name}</span>
-                  </span>
-                  <GlassBadge variant="secondary" size="sm">
-                    {t(`categories.${tag.category}`)}
-                  </GlassBadge>
-                  {tag.shortcutKey && (
-                    <GlassBadge variant="info" size="sm">
-                      Alt+{tag.shortcutKey}
+            {tags.map((tag) => {
+              const triggerCount =
+                (tag.linkedEventKeysJson || []).length +
+                (tag.onApplyActionsJson || []).length;
+              return (
+                <div
+                  key={tag.id}
+                  className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-border/50 bg-background/60"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold text-white"
+                      style={{
+                        backgroundColor: tag.colorOklch || tag.colorHex,
+                      }}
+                    >
+                      <Tag className="w-3 h-3" />
+                      <span>{tag.name}</span>
+                    </span>
+                    <GlassBadge variant="secondary" size="sm">
+                      {t(`categories.${tag.category}`)}
                     </GlassBadge>
-                  )}
-                  {tag.isMutuallyExclusiveGroup && (
-                    <GlassBadge variant="warning" size="sm">
-                      {t("managerModal.exclusiveBadge")}
-                    </GlassBadge>
-                  )}
-                  {tag.autoRuleConfigJson?.triggerEvent && (
-                    <GlassBadge variant="success" size="sm">
-                      <Sparkles className="w-2.5 h-2.5 mr-1 inline" />
-                      {t(`autoTriggers.${tag.autoRuleConfigJson.triggerEvent}`)}
-                    </GlassBadge>
-                  )}
-                </div>
+                    {tag.shortcutKey && (
+                      <GlassBadge variant="info" size="sm">
+                        Alt+{tag.shortcutKey}
+                      </GlassBadge>
+                    )}
+                    {tag.isMutuallyExclusiveGroup && (
+                      <GlassBadge variant="warning" size="sm">
+                        {t("managerModal.exclusiveBadge")}
+                      </GlassBadge>
+                    )}
+                    {tag.autoRuleConfigJson?.triggerEvent && (
+                      <GlassBadge variant="success" size="sm">
+                        <Sparkles className="w-2.5 h-2.5 mr-1 inline" />
+                        {t(
+                          `autoTriggers.${tag.autoRuleConfigJson.triggerEvent}`,
+                        )}
+                      </GlassBadge>
+                    )}
+                    {triggerCount > 0 && (
+                      <GlassBadge variant="primary" size="sm">
+                        <Zap className="w-2.5 h-2.5 mr-1 inline" />
+                        {t("events.tagTriggersCount", { count: triggerCount })}
+                      </GlassBadge>
+                    )}
+                  </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <GlassIconButton
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    icon={<Pencil className="w-3.5 h-3.5" />}
-                    onClick={() => handleStartEdit(tag)}
-                  />
-                  <GlassIconButton
-                    size="sm"
-                    variant="ghost"
-                    color="danger"
-                    className="h-7 w-7 text-destructive"
-                    icon={<Trash2 className="w-3.5 h-3.5" />}
-                    onClick={() => deleteTag(shopId, tag.id)}
-                  />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <GlassIconButton
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7"
+                      icon={<Pencil className="w-3.5 h-3.5" />}
+                      onClick={() => handleStartEdit(tag)}
+                    />
+                    <GlassIconButton
+                      size="sm"
+                      variant="ghost"
+                      color="danger"
+                      className="h-7 w-7 text-destructive"
+                      icon={<Trash2 className="w-3.5 h-3.5" />}
+                      onClick={() => deleteTag(shopId, tag.id)}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

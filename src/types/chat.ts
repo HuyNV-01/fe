@@ -38,7 +38,9 @@ export interface IAutoTagRuleConfig {
     | "POS_ORDER_CONFIRMED"
     | "VIETQR_PAID"
     | "CARRIER_DELIVERY_FAILED"
-    | "KEYWORD_MATCH";
+    | "KEYWORD_MATCH"
+    | "CUSTOM_EVENT";
+  customEventKey?: string;
   keywords?: string[];
   removeTagIdsOnApply?: string[];
 }
@@ -88,14 +90,17 @@ export interface IQuickReplyTemplate {
   shortcut: string;
   title: string;
   category: string;
+  scope?: QuickReplyScopeType;
+  ownerUserId?: string | null;
+  allowedChannelIdsJson?: string[] | null;
+  usageContextJson?: IQuickReplyUsageContext | null;
   contentTemplate: string;
-  attachmentsJson?: Array<{
-    fileId?: string;
-    url: string;
-    fileName: string;
-    mimeType?: string;
-  }> | null;
+  messageSequenceJson?: IQuickReplySequenceStep[] | null;
+  attachmentsJson?: IQuickReplyAttachmentItem[] | null;
   productCardsJson?: IQuickReplyProductCard[] | null;
+  autoAssignTagIdsJson?: string[] | null;
+  customVariableDefaultsJson?: Record<string, string> | null;
+  isPinned?: boolean;
   sortOrder: number;
   usageCount: number;
   isActive: boolean;
@@ -739,4 +744,181 @@ export interface MessageAttachmentMeta {
   width?: number;
   height?: number;
   e2ee?: AttachmentE2EEMeta;
+}
+
+export type QuickReplyScopeType = "SHOP" | "CHANNEL" | "PERSONAL";
+export type QuickReplyMediaType = "IMAGE" | "VIDEO" | "FILE";
+export type QuickReplyInteractionType =
+  | "INBOX"
+  | "COMMENT"
+  | "LIVESTREAM"
+  | "MARKETPLACE";
+export type QuickReplyToneStyle =
+  | "FRIENDLY"
+  | "PROFESSIONAL"
+  | "URGENT"
+  | "VIP_CARE"
+  | "CUSTOM";
+export type QuickReplyVariableSourceType =
+  | "STATIC_TEXT"
+  | "DYNAMIC_EXPRESSION"
+  | "PROMPT_ON_USE";
+
+export interface IQuickReplyAttachmentItem {
+  fileId?: string;
+  url: string;
+  fileName: string;
+  mimeType?: string;
+  mediaType?: QuickReplyMediaType;
+  thumbnailUrl?: string | null;
+  durationSeconds?: number | null;
+  sizeBytes?: number | null;
+  caption?: string | null;
+}
+
+export interface IQuickReplyUsageContext {
+  interactionTypes?: QuickReplyInteractionType[];
+  channelTypes?: string[];
+  toneStyle?: QuickReplyToneStyle;
+  contextTags?: string[];
+  applicableTagIds?: string[];
+  customerTiers?: Array<"NEW" | "SILVER" | "GOLD" | "VIP" | "BLACKLIST">;
+  note?: string | null;
+}
+
+export interface IQuickReplySequenceStep {
+  order: number;
+  contentTemplate: string;
+  delayMs?: number;
+  attachments?: IQuickReplyAttachmentItem[];
+}
+
+export interface IQuickReplyVariableItem {
+  id: string | null;
+  key: string;
+  label: string;
+  description: string | null;
+  sample: string;
+  defaultValue: string | null;
+  sourceType: "SYSTEM" | QuickReplyVariableSourceType;
+  dynamicPath: string | null;
+  isSystem: boolean;
+}
+
+export interface IQuickReplyVariablesCatalog {
+  systemVariables: IQuickReplyVariableItem[];
+  customVariables: IQuickReplyVariableItem[];
+  allVariables: IQuickReplyVariableItem[];
+  allowedDynamicPaths: Array<{ path: string; label: string; sample: string }>;
+}
+
+export type TagWorkflowActionType =
+  | "SEND_QUICK_REPLY"
+  | "ASSIGN_AGENT_OR_TEAM"
+  | "SET_SNOOZE"
+  | "UPDATE_CUSTOMER_TIER"
+  | "ADD_LOYALTY_POINTS"
+  | "ADD_INTERNAL_NOTE"
+  | "AUTO_ADD_OR_REMOVE_TAGS"
+  | "CALL_WEBHOOK"
+  | "TRIGGER_CUSTOM_EVENT"
+  | "EMIT_SOCKET_ALERT";
+
+export interface ITagWorkflowActionItem {
+  id: string;
+  actionType: TagWorkflowActionType;
+  isEnabled: boolean;
+  delaySeconds?: number;
+  quickReplyTemplateId?: string;
+  targetAgentUserId?: string;
+  targetTeamCode?: string;
+  snoozeMinutes?: number;
+  snoozeNote?: string;
+  customerTier?: "NEW" | "SILVER" | "GOLD" | "VIP" | "BLACKLIST";
+  loyaltyPointsDelta?: number;
+  internalNoteText?: string;
+  addTagIds?: string[];
+  removeTagIds?: string[];
+  webhookUrl?: string;
+  webhookSecret?: string;
+  customEventKey?: string;
+  customEventPayload?: Record<string, unknown>;
+  alertMessage?: string;
+}
+
+export interface ITagWorkflowExecutionCondition {
+  channelTypes?: string[];
+  interactionTypes?: QuickReplyInteractionType[];
+  onlyWhenCustomerHasPhone?: boolean;
+  cooldownMinutesPerConversation?: number;
+}
+
+export interface ICustomTag {
+  id: string;
+  shopId: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  colorHex: string;
+  colorOklch: string;
+  category: TagCategoryType;
+  isMutuallyExclusiveGroup: boolean;
+  applicableScopesJson: TagApplicableScopeType[];
+  shortcutKey?: string | null;
+  sortOrder: number;
+  autoRuleConfigJson?: IAutoTagRuleConfig | null;
+  linkedEventKeysJson?: string[] | null;
+  onApplyActionsJson?: ITagWorkflowActionItem[] | null;
+  onRemoveActionsJson?: ITagWorkflowActionItem[] | null;
+  executionConditionJson?: ITagWorkflowExecutionCondition | null;
+  automationExecutionCount?: number;
+  isActive: boolean;
+}
+
+export type TagEventCategoryType =
+  | "SYSTEM_BUILT_IN"
+  | "INBOUND_MESSAGE"
+  | "ORDER_COMMERCE"
+  | "PAYMENT_FINANCE"
+  | "CUSTOMER_LIFECYCLE"
+  | "EXTERNAL_WEBHOOK"
+  | "CUSTOM_MANUAL";
+
+export type TagEventDirectionType =
+  | "EVENT_TO_TAG"
+  | "TAG_TO_EVENT"
+  | "BIDIRECTIONAL";
+
+export interface ITagEventMatchConditions {
+  keywords?: string[];
+  keywordMatchMode?: "ANY" | "ALL" | "REGEX";
+  channelTypes?: string[];
+  interactionTypes?: QuickReplyInteractionType[];
+  minOrderAmount?: number | null;
+  onlyWhenCustomerHasPhone?: boolean;
+}
+
+export interface ITagEventTagBinding {
+  tagId: string;
+  operation: "ADD" | "REMOVE";
+  priority?: number;
+}
+
+export interface ITagEventDefinition {
+  id: string;
+  shopId: string;
+  eventKey: string;
+  name: string;
+  description?: string | null;
+  category: TagEventCategoryType;
+  direction: TagEventDirectionType;
+  isSystemEvent: boolean;
+  systemEventTopic?: string | null;
+  matchConditionsJson?: ITagEventMatchConditions | null;
+  linkedTagBindingsJson?: ITagEventTagBinding[] | null;
+  outboundActionsJson?: ITagWorkflowActionItem[] | null;
+  cooldownSeconds: number;
+  triggerCount: number;
+  lastTriggeredAt?: string | null;
+  isActive: boolean;
 }

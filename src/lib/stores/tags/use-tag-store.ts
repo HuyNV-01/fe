@@ -4,6 +4,11 @@ import {
   createShopTagApi,
   updateShopTagApi,
   deleteShopTagApi,
+  getTagEventsApi,
+  createTagEventApi,
+  updateTagEventApi,
+  deleteTagEventApi,
+  fireTagEventApi,
   toggleConversationTagApi,
   bulkAssignConversationTagsApi,
   toggleMessageBookmarkTagApi,
@@ -13,15 +18,35 @@ import {
   updateQuickReplyTemplateApi,
   deleteQuickReplyTemplateApi,
   interpolateQuickReplyTemplateApi,
+  getQuickReplyVariablesApi,
+  createQuickReplyVariableApi,
+  updateQuickReplyVariableApi,
+  deleteQuickReplyVariableApi,
+  uploadQuickReplyMediaApi,
 } from "./api";
 import type {
   IAutoTagRuleConfig,
   ICustomTag,
   IMessageBookmarkItem,
+  IQuickReplyAttachmentItem,
   IQuickReplyProductCard,
+  IQuickReplySequenceStep,
   IQuickReplyTemplate,
+  IQuickReplyUsageContext,
+  IQuickReplyVariablesCatalog,
+  ITagEventDefinition,
+  ITagEventMatchConditions,
+  ITagEventTagBinding,
+  ITagWorkflowActionItem,
+  ITagWorkflowExecutionCondition,
+  QuickReplyInteractionType,
+  QuickReplyScopeType,
+  QuickReplyToneStyle,
+  QuickReplyVariableSourceType,
   TagApplicableScopeType,
   TagCategoryType,
+  TagEventCategoryType,
+  TagEventDirectionType,
 } from "@/types/chat";
 import { useChatStore } from "../chat/use-chat-store";
 import { tStore } from "@/i18n/translate-store";
@@ -29,11 +54,15 @@ import { showErrorToast, showSuccessToast } from "@/utils/toast";
 
 interface TagStoreState {
   tags: ICustomTag[];
+  tagEvents: ITagEventDefinition[];
   bookmarkedMessagesByConv: Record<string, IMessageBookmarkItem[]>;
   quickReplyTemplates: IQuickReplyTemplate[];
+  quickReplyVariablesCatalog: IQuickReplyVariablesCatalog | null;
   isLoadingTags: boolean;
+  isLoadingTagEvents: boolean;
   isLoadingBookmarks: boolean;
   isLoadingQuickReplies: boolean;
+  isLoadingQuickReplyVariables: boolean;
 
   fetchShopTags: (shopId: string) => Promise<void>;
   createTag: (
@@ -41,6 +70,7 @@ interface TagStoreState {
     payload: {
       name: string;
       slug?: string;
+      description?: string | null;
       colorHex?: string;
       colorOklch?: string;
       category?: TagCategoryType;
@@ -49,6 +79,10 @@ interface TagStoreState {
       shortcutKey?: string | null;
       sortOrder?: number;
       autoRuleConfigJson?: IAutoTagRuleConfig | null;
+      linkedEventKeysJson?: string[] | null;
+      onApplyActionsJson?: ITagWorkflowActionItem[] | null;
+      onRemoveActionsJson?: ITagWorkflowActionItem[] | null;
+      executionConditionJson?: ITagWorkflowExecutionCondition | null;
     },
   ) => Promise<ICustomTag | null>;
   updateTag: (
@@ -56,6 +90,7 @@ interface TagStoreState {
     tagId: string,
     payload: {
       name?: string;
+      description?: string | null;
       colorHex?: string;
       colorOklch?: string;
       category?: TagCategoryType;
@@ -64,10 +99,57 @@ interface TagStoreState {
       shortcutKey?: string | null;
       sortOrder?: number;
       autoRuleConfigJson?: IAutoTagRuleConfig | null;
+      linkedEventKeysJson?: string[] | null;
+      onApplyActionsJson?: ITagWorkflowActionItem[] | null;
+      onRemoveActionsJson?: ITagWorkflowActionItem[] | null;
+      executionConditionJson?: ITagWorkflowExecutionCondition | null;
       isActive?: boolean;
     },
   ) => Promise<boolean>;
   deleteTag: (shopId: string, tagId: string) => Promise<boolean>;
+
+  fetchTagEvents: (shopId: string) => Promise<void>;
+  createTagEvent: (
+    shopId: string,
+    payload: {
+      eventKey: string;
+      name: string;
+      description?: string | null;
+      category?: TagEventCategoryType;
+      direction?: TagEventDirectionType;
+      systemEventTopic?: string | null;
+      matchConditionsJson?: ITagEventMatchConditions | null;
+      linkedTagBindingsJson?: ITagEventTagBinding[] | null;
+      outboundActionsJson?: ITagWorkflowActionItem[] | null;
+      cooldownSeconds?: number;
+    },
+  ) => Promise<ITagEventDefinition | null>;
+  updateTagEvent: (
+    shopId: string,
+    eventId: string,
+    payload: {
+      name?: string;
+      description?: string | null;
+      category?: TagEventCategoryType;
+      direction?: TagEventDirectionType;
+      systemEventTopic?: string | null;
+      matchConditionsJson?: ITagEventMatchConditions | null;
+      linkedTagBindingsJson?: ITagEventTagBinding[] | null;
+      outboundActionsJson?: ITagWorkflowActionItem[] | null;
+      cooldownSeconds?: number;
+      isActive?: boolean;
+    },
+  ) => Promise<boolean>;
+  deleteTagEvent: (shopId: string, eventId: string) => Promise<boolean>;
+  fireTagEvent: (
+    shopId: string,
+    eventId: string,
+    payload: {
+      conversationId: string;
+      messageContent?: string;
+      payload?: Record<string, unknown>;
+    },
+  ) => Promise<boolean>;
 
   toggleConversationTag: (payload: {
     shopId: string;
@@ -95,15 +177,37 @@ interface TagStoreState {
     tagId?: string,
   ) => Promise<void>;
 
-  fetchQuickReplies: (shopId: string, search?: string) => Promise<void>;
+  fetchQuickReplies: (
+    shopId: string,
+    params?:
+      | string
+      | {
+          search?: string;
+          category?: string;
+          channelId?: string;
+          channelType?: string;
+          interactionType?: QuickReplyInteractionType;
+          toneStyle?: QuickReplyToneStyle;
+          activeTagIds?: string[];
+        },
+  ) => Promise<void>;
   createQuickReply: (
     shopId: string,
     payload: {
       shortcut: string;
       title: string;
       category?: string;
+      scope?: QuickReplyScopeType;
+      allowedChannelIdsJson?: string[] | null;
+      usageContextJson?: IQuickReplyUsageContext | null;
       contentTemplate: string;
+      messageSequenceJson?: IQuickReplySequenceStep[] | null;
+      attachmentsJson?: IQuickReplyAttachmentItem[];
       productCardsJson?: IQuickReplyProductCard[];
+      autoAssignTagIdsJson?: string[] | null;
+      customVariableDefaultsJson?: Record<string, string> | null;
+      isPinned?: boolean;
+      sortOrder?: number;
     },
   ) => Promise<boolean>;
   updateQuickReply: (
@@ -113,8 +217,17 @@ interface TagStoreState {
       shortcut?: string;
       title?: string;
       category?: string;
+      scope?: QuickReplyScopeType;
+      allowedChannelIdsJson?: string[] | null;
+      usageContextJson?: IQuickReplyUsageContext | null;
       contentTemplate?: string;
+      messageSequenceJson?: IQuickReplySequenceStep[] | null;
+      attachmentsJson?: IQuickReplyAttachmentItem[];
       productCardsJson?: IQuickReplyProductCard[];
+      autoAssignTagIdsJson?: string[] | null;
+      customVariableDefaultsJson?: Record<string, string> | null;
+      isPinned?: boolean;
+      sortOrder?: number;
       isActive?: boolean;
     },
   ) => Promise<boolean>;
@@ -129,6 +242,7 @@ interface TagStoreState {
       agentName?: string;
       pageName?: string;
       trackingLink?: string;
+      customOverrides?: Record<string, string>;
     },
   ) => Promise<{
     interpolatedContent: string;
@@ -136,10 +250,50 @@ interface TagStoreState {
       order: number;
       content: string;
       delayMs: number;
+      attachments?: IQuickReplyAttachmentItem[];
     }>;
+    attachments?: IQuickReplyAttachmentItem[];
     autoAssignTagIds?: string[];
+    resolvedVariables?: Record<string, string>;
     template: IQuickReplyTemplate;
   } | null>;
+
+  fetchQuickReplyVariables: (shopId: string) => Promise<void>;
+  createQuickReplyVariable: (
+    shopId: string,
+    payload: {
+      variableKey: string;
+      label: string;
+      description?: string | null;
+      sourceType?: QuickReplyVariableSourceType;
+      defaultValue?: string | null;
+      sampleValue?: string | null;
+      dynamicPath?: string | null;
+      sortOrder?: number;
+    },
+  ) => Promise<boolean>;
+  updateQuickReplyVariable: (
+    shopId: string,
+    variableId: string,
+    payload: {
+      variableKey?: string;
+      label?: string;
+      description?: string | null;
+      sourceType?: QuickReplyVariableSourceType;
+      defaultValue?: string | null;
+      sampleValue?: string | null;
+      dynamicPath?: string | null;
+      sortOrder?: number;
+      isActive?: boolean;
+    },
+  ) => Promise<boolean>;
+  deleteQuickReplyVariable: (
+    shopId: string,
+    variableId: string,
+  ) => Promise<boolean>;
+  uploadQuickReplyMedia: (
+    files: File[],
+  ) => Promise<IQuickReplyAttachmentItem[]>;
 
   handleRealtimeConversationTagsUpdated: (payload: {
     conversationId: string;
@@ -157,11 +311,15 @@ interface TagStoreState {
 export const useTagStore = createPersistedStore<TagStoreState>(
   (set, get) => ({
     tags: [],
+    tagEvents: [],
     bookmarkedMessagesByConv: {},
     quickReplyTemplates: [],
+    quickReplyVariablesCatalog: null,
     isLoadingTags: false,
+    isLoadingTagEvents: false,
     isLoadingBookmarks: false,
     isLoadingQuickReplies: false,
+    isLoadingQuickReplyVariables: false,
 
     fetchShopTags: async (shopId) => {
       if (!shopId) return;
@@ -214,6 +372,73 @@ export const useTagStore = createPersistedStore<TagStoreState>(
         return true;
       } catch {
         showErrorToast(tStore("TaggingSystem.toast.actionFailed"));
+        return false;
+      }
+    },
+
+    fetchTagEvents: async (shopId) => {
+      if (!shopId) return;
+      set({ isLoadingTagEvents: true });
+      try {
+        const res: any = await getTagEventsApi(shopId);
+        const list: ITagEventDefinition[] = Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+            ? res
+            : [];
+        set({ tagEvents: list, isLoadingTagEvents: false });
+      } catch {
+        set({ isLoadingTagEvents: false });
+      }
+    },
+
+    createTagEvent: async (shopId, payload) => {
+      try {
+        const res: any = await createTagEventApi(shopId, payload);
+        const created: ITagEventDefinition = res?.data ?? res;
+        await get().fetchTagEvents(shopId);
+        showSuccessToast(tStore("TaggingSystem.events.toast.createdSuccess"));
+        return created;
+      } catch {
+        showErrorToast(tStore("TaggingSystem.events.toast.actionFailed"));
+        return null;
+      }
+    },
+
+    updateTagEvent: async (shopId, eventId, payload) => {
+      try {
+        await updateTagEventApi(shopId, eventId, payload);
+        await get().fetchTagEvents(shopId);
+        showSuccessToast(tStore("TaggingSystem.events.toast.updatedSuccess"));
+        return true;
+      } catch {
+        showErrorToast(tStore("TaggingSystem.events.toast.actionFailed"));
+        return false;
+      }
+    },
+
+    deleteTagEvent: async (shopId, eventId) => {
+      try {
+        await deleteTagEventApi(shopId, eventId);
+        set((state) => {
+          state.tagEvents = state.tagEvents.filter((e) => e.id !== eventId);
+        });
+        showSuccessToast(tStore("TaggingSystem.events.toast.deletedSuccess"));
+        return true;
+      } catch {
+        showErrorToast(tStore("TaggingSystem.events.toast.actionFailed"));
+        return false;
+      }
+    },
+
+    fireTagEvent: async (shopId, eventId, payload) => {
+      try {
+        await fireTagEventApi(shopId, eventId, payload);
+        await get().fetchTagEvents(shopId);
+        showSuccessToast(tStore("TaggingSystem.events.toast.firedSuccess"));
+        return true;
+      } catch {
+        showErrorToast(tStore("TaggingSystem.events.toast.actionFailed"));
         return false;
       }
     },
@@ -328,11 +553,16 @@ export const useTagStore = createPersistedStore<TagStoreState>(
       }
     },
 
-    fetchQuickReplies: async (shopId, search) => {
+    fetchQuickReplies: async (shopId, params) => {
       if (!shopId) return;
       set({ isLoadingQuickReplies: true });
       try {
-        const res: any = await getQuickReplyTemplatesApi(shopId, search);
+        const normalizedParams =
+          typeof params === "string" ? { search: params } : params;
+        const res: any = await getQuickReplyTemplatesApi(
+          shopId,
+          normalizedParams,
+        );
         const list: IQuickReplyTemplate[] = Array.isArray(res?.data)
           ? res.data
           : Array.isArray(res)
@@ -394,6 +624,86 @@ export const useTagStore = createPersistedStore<TagStoreState>(
         return res?.data ?? res;
       } catch {
         return null;
+      }
+    },
+
+    fetchQuickReplyVariables: async (shopId) => {
+      if (!shopId) return;
+      set({ isLoadingQuickReplyVariables: true });
+      try {
+        const res: any = await getQuickReplyVariablesApi(shopId);
+        const data: IQuickReplyVariablesCatalog = res?.data ?? res;
+        set({
+          quickReplyVariablesCatalog: data,
+          isLoadingQuickReplyVariables: false,
+        });
+      } catch {
+        set({ isLoadingQuickReplyVariables: false });
+      }
+    },
+
+    createQuickReplyVariable: async (shopId, payload) => {
+      try {
+        await createQuickReplyVariableApi(shopId, payload);
+        await get().fetchQuickReplyVariables(shopId);
+        showSuccessToast(tStore("QuickReplies.variables.toast.createdSuccess"));
+        return true;
+      } catch {
+        showErrorToast(tStore("QuickReplies.variables.toast.actionFailed"));
+        return false;
+      }
+    },
+
+    updateQuickReplyVariable: async (shopId, variableId, payload) => {
+      try {
+        await updateQuickReplyVariableApi(shopId, variableId, payload);
+        await get().fetchQuickReplyVariables(shopId);
+        showSuccessToast(tStore("QuickReplies.variables.toast.updatedSuccess"));
+        return true;
+      } catch {
+        showErrorToast(tStore("QuickReplies.variables.toast.actionFailed"));
+        return false;
+      }
+    },
+
+    deleteQuickReplyVariable: async (shopId, variableId) => {
+      try {
+        await deleteQuickReplyVariableApi(shopId, variableId);
+        await get().fetchQuickReplyVariables(shopId);
+        showSuccessToast(tStore("QuickReplies.variables.toast.deletedSuccess"));
+        return true;
+      } catch {
+        showErrorToast(tStore("QuickReplies.variables.toast.actionFailed"));
+        return false;
+      }
+    },
+
+    uploadQuickReplyMedia: async (files) => {
+      if (!files.length) return [];
+      try {
+        const res: any = await uploadQuickReplyMediaApi(files);
+        const uploadedList = Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+            ? res
+            : [];
+        return uploadedList.map((item: any): IQuickReplyAttachmentItem => {
+          const mime = String(item.mimeType || item.mimetype || "");
+          const isVideo = mime.startsWith("video/");
+          const isImage = mime.startsWith("image/");
+          return {
+            fileId: item.id || item.fileId,
+            url: item.url || item.publicUrl || item.downloadUrl || "",
+            fileName: item.originalName || item.fileName || "media",
+            mimeType: mime,
+            mediaType: isVideo ? "VIDEO" : isImage ? "IMAGE" : "FILE",
+            thumbnailUrl: item.thumbnailUrl || null,
+            sizeBytes: item.size ? Number(item.size) : null,
+          };
+        });
+      } catch {
+        showErrorToast(tStore("QuickReplies.toast.uploadFailed"));
+        return [];
       }
     },
 
