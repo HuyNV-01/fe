@@ -1,9 +1,10 @@
-/** biome-ignore-all lint/correctness/useExhaustiveDependencies: <explanation> */
+/** biome-ignore-all lint/correctness/useExhaustiveDependencies: sync form when modal opens */
 "use client";
 
 import { useEffect, useState } from "react";
 import {
   ContentSelect,
+  GlassAlert,
   GlassModal,
   GlassSurfaceCard,
   ItemSelect,
@@ -20,7 +21,7 @@ import type {
   PhoneTrustLookupSourceType,
   ShopBusinessCategoryType,
 } from "@/types/crm";
-import { Database, Save, SlidersHorizontal } from "lucide-react";
+import { Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 export interface CrmTrustConfigModalProps {
@@ -39,19 +40,18 @@ export function CrmTrustConfigModal({
   onSaved,
 }: CrmTrustConfigModalProps) {
   const t = useTranslations("Crm360.panel");
-  const { updateShopCrmConfig, backfillShopTrustLedger } = useCrmStore();
+  const { updateShopCrmConfig } = useCrmStore();
 
   const [businessCategory, setBusinessCategory] =
     useState<ShopBusinessCategoryType>("GENERAL_MULTI_CATEGORY");
   const [showApparel, setShowApparel] = useState(false);
   const [enableCommunity, setEnableCommunity] = useState(true);
+  const [consortiumSharing, setConsortiumSharing] = useState(true);
   const [enablePublicWebRisk, setEnablePublicWebRisk] = useState(true);
   const [enableCarrier3pl, setEnableCarrier3pl] = useState(true);
   const [autoMaskPhone, setAutoMaskPhone] = useState(true);
   const [autoExtractNer, setAutoExtractNer] = useState(true);
-
   const [isSaving, setIsSaving] = useState(false);
-  const [isBackfilling, setIsBackfilling] = useState(false);
 
   useEffect(() => {
     if (!shopCrmConfig) return;
@@ -64,6 +64,7 @@ export function CrmTrustConfigModal({
           true,
       ),
     );
+    setConsortiumSharing(shopCrmConfig.consortiumSharingEnabled !== false);
     setEnablePublicWebRisk(shopCrmConfig.enablePublicWebRiskLookup !== false);
     setEnableCarrier3pl(
       Boolean(
@@ -100,6 +101,7 @@ export function CrmTrustConfigModal({
       showApparelMeasurementsInProfile:
         businessCategory === "FASHION_APPAREL" ? true : showApparel,
       enableCommunityTrustLookup: enableCommunity,
+      consortiumSharingEnabled: consortiumSharing,
       enablePublicWebRiskLookup: enablePublicWebRisk,
       enableCarrier3plTrustLookup: enableCarrier3pl,
       enabledLookupSources: enabledSources,
@@ -114,12 +116,6 @@ export function CrmTrustConfigModal({
     }
   };
 
-  const handleBackfill = async () => {
-    setIsBackfilling(true);
-    await backfillShopTrustLedger(shopId);
-    setIsBackfilling(false);
-  };
-
   return (
     <GlassModal
       open={open}
@@ -128,48 +124,40 @@ export function CrmTrustConfigModal({
       description={t("crmConfigModal.description")}
       size="md"
       footer={
-        <div className="flex items-center justify-between w-full gap-2">
+        <div className="flex items-center justify-end w-full gap-2">
           <PatternButton
             type="button"
             size="sm"
-            variant="glass"
-            color="info"
+            variant="ghost"
             rounded="full"
-            isLoading={isBackfilling}
-            icon={<Database className="w-3.5 h-3.5" />}
-            onClick={handleBackfill}
+            onClick={() => onOpenChange(false)}
           >
-            {t("crmConfigModal.backfillLegacyOrdersBtn")}
+            {t("crmConfigModal.cancelBtn")}
           </PatternButton>
-
-          <div className="flex items-center gap-2">
-            <PatternButton
-              type="button"
-              size="sm"
-              variant="ghost"
-              rounded="full"
-              onClick={() => onOpenChange(false)}
-            >
-              {t("crmConfigModal.cancelBtn")}
-            </PatternButton>
-            <PatternButton
-              type="button"
-              size="sm"
-              variant="solid"
-              color="primary"
-              rounded="full"
-              isLoading={isSaving}
-              icon={<Save className="w-3.5 h-3.5" />}
-              onClick={handleSave}
-            >
-              {t("crmConfigModal.saveBtn")}
-            </PatternButton>
-          </div>
+          <PatternButton
+            type="button"
+            size="sm"
+            variant="solid"
+            color="primary"
+            rounded="full"
+            isLoading={isSaving}
+            icon={<Save className="w-3.5 h-3.5" />}
+            onClick={handleSave}
+          >
+            {t("crmConfigModal.saveBtn")}
+          </PatternButton>
         </div>
       }
     >
       <ScrollArea className="max-h-[440px] pr-2">
         <div className="space-y-3.5 py-1">
+          <GlassAlert
+            variant="info"
+            title={t("crmConfigModal.zeroConfigBannerTitle")}
+            description={t("crmConfigModal.zeroConfigBannerDesc")}
+            icon={<ShieldCheck className="w-4 h-4 text-sky-500" />}
+          />
+
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold inline-flex items-center gap-1.5">
               <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
@@ -219,13 +207,6 @@ export function CrmTrustConfigModal({
               {t("crmConfigModal.lookupSourcesHeading")}
             </p>
             <div className="flex items-center justify-between gap-3">
-              <span>{t("crmConfigModal.enablePublicWebRiskToggle")}</span>
-              <Switch
-                checked={enablePublicWebRisk}
-                onCheckedChange={setEnablePublicWebRisk}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3">
               <span>{t("crmConfigModal.enableCommunitySource")}</span>
               <Switch
                 checked={enableCommunity}
@@ -233,10 +214,24 @@ export function CrmTrustConfigModal({
               />
             </div>
             <div className="flex items-center justify-between gap-3">
+              <span>{t("crmConfigModal.consortiumSharingToggle")}</span>
+              <Switch
+                checked={consortiumSharing}
+                onCheckedChange={setConsortiumSharing}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
               <span>{t("crmConfigModal.enableCarrier3plSource")}</span>
               <Switch
                 checked={enableCarrier3pl}
                 onCheckedChange={setEnableCarrier3pl}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span>{t("crmConfigModal.enablePublicWebRiskToggle")}</span>
+              <Switch
+                checked={enablePublicWebRisk}
+                onCheckedChange={setEnablePublicWebRisk}
               />
             </div>
             <div className="flex items-center justify-between gap-3">
