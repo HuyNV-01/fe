@@ -2285,7 +2285,8 @@
         "COSMETICS_BEAUTY": "Mỹ phẩm, Chăm sóc da & Làm đẹp",
         "ELECTRONICS_TECH": "Điện tử, Công nghệ & Phụ kiện số",
         "FOOD_BEVERAGE": "Thực phẩm, Đồ uống & Đặc sản (F&B)",
-        "MOTHER_AND_BABY": "Mẹ & Bé, Đồ sơ sinh & Đồ chơi"
+        "MOTHER_AND_BABY": "Mẹ & Bé, Đồ sơ sinh & Đồ chơi",
+        "HOME_LIVING_APPLIANCES": "Gia dụng, Nội thất & Thiết bị nhà cửa"
       },
       "customAttributesHeading": "Thuộc tính hồ sơ tùy biến theo sản phẩm",
       "addCustomAttrBtn": "Thêm thuộc tính",
@@ -2326,7 +2327,17 @@
         "customWebhookUrlLabel": "Đường dẫn API / Webhook tra cứu lịch sử SĐT tùy chỉnh (Tùy chọn)",
         "customApiKeyLabel": "Khóa xác thực API Key cho nguồn tra cứu tùy chỉnh (Mã hóa AES-256-GCM)",
         "cancelBtn": "Đóng",
-        "saveBtn": "Lưu cấu hình CRM 360°"
+        "saveBtn": "Lưu cấu hình CRM 360°",
+        "consortiumSharingToggle": "Tham gia chia sẻ ẩn danh tỷ lệ giao/hoàn vào Mạng lưới Cộng đồng liên shop (HMAC-SHA256 — không lộ SĐT gốc)",
+        "liveProviderCredentialsHeading": "Khóa kết nối trực tiếp Pancake POS & Hãng vận chuyển 3PL",
+        "pancakePosShopIdLabel": "Pancake POS Shop ID",
+        "pancakePosApiKeyLabel": "Pancake POS API Key",
+        "ghnShopIdLabel": "GHN Shop ID",
+        "ghnTokenLabel": "GHN Token",
+        "ghtkTokenLabel": "GHTK Token",
+        "vtpTokenLabel": "ViettelPost Token",
+        "encryptedKeyPlaceholder": "•••••••••••••••• (Đã mã hóa AES-256-GCM)",
+        "backfillLegacyOrdersBtn": "Đồng bộ đơn cũ vào Sổ cái"
       },
       "highRiskAlertTitle": "🚨 CẢNH BÁO RỦI RO BOM HÀNG CAO (HIGH_RISK_RED)",
       "highRiskAlertDesc": "Khách hàng có lịch sử hoàn đơn nhiều lần hoặc bị báo xấu từ Cộng đồng/3PL. Hệ thống tự động bật yêu cầu đặt cọc trước qua VietQR trước khi đẩy đơn vận chuyển.",
@@ -2351,7 +2362,9 @@
         "extraCreditLabel": "Tiền chuyển khoản dư / Hoàn tiền RMA cộng vào Ví tiền thừa (VND)",
         "cancelBtn": "Hủy bỏ",
         "confirmBtn": "Xác nhận & Cộng điểm tự động"
-      }
+      },
+      "standaloneLookupBtn": "Tra cứu SĐT",
+      "retractReportBtn": "Thu hồi báo cáo"
     },
     "directoryPage": {
       "title": "Danh Bạ Hồ Sơ Khách Hàng Đa Kênh CRM 360°",
@@ -2428,13 +2441,38 @@
       "exportedWithAudit": "Đã xuất danh sách khách hàng (SĐT đã che bảo mật) và ghi vào Sổ cái Kiểm toán HMAC-SHA256",
       "permissionDenied": "Bạn chưa được cấp quyền thực hiện thao tác này",
       "requestTimeout": "Kết nối tra cứu quá thời gian, vui lòng thử lại",
-      "missingCustomerContext": "Thiếu thông tin cửa hàng hoặc hồ sơ khách hàng"
+      "missingCustomerContext": "Thiếu thông tin cửa hàng hoặc hồ sơ khách hàng",
+      "backfillCompleted": "Đã đồng bộ xong {orders} đơn hàng và {customers} hồ sơ SĐT vào Sổ cái Uy tín Cộng đồng.",
+      "reportRetracted": "Đã thu hồi báo cáo xấu và cập nhật lại điểm uy tín khách hàng."
     },
     "refreshTrustLookupBtn": "Tra cứu",
     "overrideTrustScoreBtn": "Chỉnh điểm",
     "reportAbuseBtn": "Báo xấu",
     "viewAbuseHistoryShort": "Xem chi tiết",
-    "multiSourceBreakdownTitle": "Đối soát đa nguồn"
+    "multiSourceBreakdownTitle": "Đối soát đa nguồn",
+    "trustLookupModal": {
+      "title": "Tra Cứu Uy Tín Giao Nhận SĐT (3PL & Cộng Đồng)",
+      "description": "Kiểm tra nhanh số đơn nhận, đơn hoàn và báo cáo xấu trên Sổ cái OMS, Mạng lưới liên shop (HMAC), Pancake POS và cổng 3PL.",
+      "phonePlaceholder": "Nhập số điện thoại cần kiểm tra (VD: 0988123456)...",
+      "searchBtn": "Tra cứu ngay",
+      "backfillBtn": "Đồng bộ đơn cũ",
+      "closeBtn": "Đóng",
+      "forceRefreshBtn": "Làm mới bỏ cache",
+      "diagnosticWarningTitle": "Lưu ý về nguồn dữ liệu kết nối",
+      "deliveredLabel": "✓ Đã nhận",
+      "returnedLabel": "↩ Đã hoàn",
+      "reportedLabel": "🚨 Báo cáo xấu",
+      "verifiedReportsShort": "{count} xác thực 3PL",
+      "providerDiagnosticsHeading": "Trạng thái đối chiếu từng nguồn dữ liệu",
+      "providerStatuses": {
+        "LIVE_VERIFIED": "Trực tiếp 3PL/API",
+        "COMMUNITY_SYNCED": "Cộng đồng HMAC",
+        "LOCAL_LEDGER": "Sổ cái nội bộ",
+        "NO_RECORD": "Chưa có dữ liệu",
+        "NOT_CONFIGURED": "Chưa cấu hình Key",
+        "PROVIDER_ERROR": "Lỗi kết nối"
+      }
+    }
   },
   "TaggingSystem": {
     "categories": {

@@ -11,6 +11,10 @@ import {
   createCustomerProfileApi,
   updateCustomerProfileApi,
   lookupCustomerTrustFromSourcesApi,
+  lookupStandalonePhoneTrustApi,
+  backfillShopTrustLedgerApi,
+  importPhoneTrustHistoryApi,
+  retractCustomerPhoneAbuseReportApi,
   reportCustomerPhoneAbuseApi,
   toggleCustomerBlacklistApi,
   overrideCustomerTrustScoreApi,
@@ -41,6 +45,7 @@ import type {
   IRfmSegmentSummary,
   ISecurityAuditLog,
   ISecurityChainVerificationResult,
+  IStandalonePhoneTrustLookupResult,
   IUnmaskedPhoneSession,
   IVnProvinceUnit,
   PhoneTrustLookupSourceType,
@@ -129,7 +134,17 @@ interface CrmState {
     defaultCustomAttributeKeys?: string[];
     enableCommunityTrustLookup?: boolean;
     enableCarrier3plTrustLookup?: boolean;
+    consortiumSharingEnabled?: boolean;
+    enablePublicWebRiskLookup?: boolean;
     enabledLookupSources?: PhoneTrustLookupSourceType[];
+    enabledCarriers?: Array<"GHN" | "GHTK" | "VTP" | "JT">;
+    pancakePosShopId?: string | null;
+    pancakePosApiKey?: string;
+    ghnShopId?: number | null;
+    ghnToken?: string;
+    ghtkToken?: string;
+    vtpToken?: string;
+    jtToken?: string;
     customLookupWebhookUrl?: string;
     customLookupApiKey?: string;
     autoMaskPhoneInChatMessages?: boolean;
@@ -191,6 +206,42 @@ interface CrmState {
     customerId: string;
     sources?: PhoneTrustLookupSourceType[];
     customWebhookUrl?: string;
+    conversationId?: string;
+  }) => Promise<ICustomerProfile | null>;
+  lookupStandalonePhoneTrust: (payload: {
+    shopId: string;
+    rawPhone: string;
+    bypassCache?: boolean;
+  }) => Promise<IStandalonePhoneTrustLookupResult | null>;
+  backfillShopTrustLedger: (shopId: string) => Promise<{
+    customersHashedCount: number;
+    ordersSyncedCount: number;
+    reportsMigratedCount: number;
+  } | null>;
+  importPhoneTrustHistory: (payload: {
+    shopId: string;
+    rows: Array<{
+      rawPhone: string;
+      deliveredCount?: number;
+      returnedCount?: number;
+      carrierCode?: string;
+      orderCode?: string;
+      trackingNumber?: string;
+      abuseReasonNote?: string;
+      abuseReasonCode?: string;
+    }>;
+  }) => Promise<{
+    processedPhonesCount: number;
+    skippedInvalidCount: number;
+    importedDeliveredTotal: number;
+    importedReturnedTotal: number;
+    importedReportsTotal: number;
+  } | null>;
+  retractCustomerPhoneAbuseReport: (payload: {
+    shopId: string;
+    customerId: string;
+    reportId: string;
+    reason: string;
     conversationId?: string;
   }) => Promise<ICustomerProfile | null>;
   reportCustomerPhoneAbuse: (payload: {
@@ -592,6 +643,103 @@ export const useCrmStore = createPersistedStore<CrmState>(
           return updated;
         }
         toast.error(tStore("Crm360.toasts.actionFailed"));
+        return null;
+      } catch (err: any) {
+        toast.error(extractCrmErrorMessage(err));
+        return null;
+      }
+    },
+
+    lookupStandalonePhoneTrust: async ({ shopId, rawPhone, bypassCache }) => {
+      if (!shopId || !rawPhone.trim()) return null;
+      try {
+        const res: any = await lookupStandalonePhoneTrustApi({
+          shopId,
+          rawPhone: rawPhone.trim(),
+          bypassCache,
+        });
+        const data: IStandalonePhoneTrustLookupResult =
+          res?.data?.data ?? res?.data;
+        if (data?.warningMessage) {
+          toast.warning(data.warningMessage);
+        }
+        return data || null;
+      } catch (err: any) {
+        toast.error(extractCrmErrorMessage(err));
+        return null;
+      }
+    },
+
+    backfillShopTrustLedger: async (shopId) => {
+      if (!shopId) return null;
+      try {
+        const res: any = await backfillShopTrustLedgerApi(shopId);
+        const data = res?.data?.data ?? res?.data;
+        toast.success(
+          tStore("Crm360.toasts.backfillCompleted", {
+            orders: Number(data?.ordersSyncedCount || 0),
+            customers: Number(data?.customersHashedCount || 0),
+          }),
+        );
+        return data;
+      } catch (err: any) {
+        toast.error(extractCrmErrorMessage(err));
+        return null;
+      }
+    },
+
+    importPhoneTrustHistory: async ({ shopId, rows }) => {
+      if (!shopId || !rows.length) return null;
+      try {
+        const res: any = await importPhoneTrustHistoryApi({ shopId, rows });
+        const data = res?.data?.data ?? res?.data;
+        toast.success(
+          tStore("Crm360.toasts.importTrustHistoryCompleted", {
+            phones: Number(data?.processedPhonesCount || 0),
+            delivered: Number(data?.importedDeliveredTotal || 0),
+            returned: Number(data?.importedReturnedTotal || 0),
+            reports: Number(data?.importedReportsTotal || 0),
+          }),
+        );
+        return data;
+      } catch (err: any) {
+        toast.error(extractCrmErrorMessage(err));
+        return null;
+      }
+    },
+
+    retractCustomerPhoneAbuseReport: async ({
+      shopId,
+      customerId,
+      reportId,
+      reason,
+      conversationId,
+    }) => {
+      try {
+        const res: any = await retractCustomerPhoneAbuseReportApi({
+          shopId,
+          customerId,
+          reportId,
+          reason,
+        });
+        const updated: ICustomerProfile = res?.data?.data ?? res?.data;
+        if (updated?.id) {
+          set((state) => {
+            const idx = state.customers.findIndex((c) => c.id === updated.id);
+            if (idx !== -1) state.customers[idx] = updated;
+            if (
+              conversationId &&
+              state.customer360ByConv[conversationId]?.customer
+            ) {
+              state.customer360ByConv[conversationId].customer = updated;
+            }
+            if (state.activeCustomerDetail?.customer?.id === updated.id) {
+              state.activeCustomerDetail.customer = updated;
+            }
+          });
+          toast.success(tStore("Crm360.toasts.reportRetracted"));
+          return updated;
+        }
         return null;
       } catch (err: any) {
         toast.error(extractCrmErrorMessage(err));
