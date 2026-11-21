@@ -2568,6 +2568,18 @@
         "deletedSuccess": "Đã xóa sự kiện tùy chỉnh",
         "firedSuccess": "Đã kích hoạt chạy thử sự kiện thành công",
         "actionFailed": "Không thể thực hiện thao tác với sự kiện"
+      },
+      "bindAddBtn": "+Gắn",
+      "bindRemoveBtn": "-Gỡ",
+      "topics": {
+        "chat_message_inbound": "Tin nhắn / Bình luận mới (chat.message.inbound)",
+        "ner_phone_extracted": "Bóc tách được SĐT (ner.phone.extracted)",
+        "ner_address_extracted": "Bóc tách được địa chỉ (ner.address.extracted)",
+        "pos_draft_created": "Tạo giỏ hàng nháp (pos.draft.created)",
+        "pos_order_created": "Chốt đơn POS thành công (pos.order.created)",
+        "payment_vietqr_confirmed": "Nhận chuyển khoản VietQR (payment.vietqr.confirmed)",
+        "carrier_delivery_failed": "ĐVVC báo giao thất bại (carrier.delivery.failed)",
+        "CUSTOM_TOPIC": "Sự kiện tùy chỉnh riêng (Kích hoạt từ Tag hoặc API)"
       }
     }
   },
@@ -2791,7 +2803,8 @@
       "loading": "Đang tải dữ liệu vận hành...",
       "detail": "Chi tiết",
       "cancel": "Hủy bỏ",
-      "save": "Lưu thay đổi"
+      "save": "Lưu thay đổi",
+      "close": "Đóng"
     },
     "tabs": {
       "all": "Tất cả",
@@ -2822,7 +2835,21 @@
       "searchPlaceholder": "Tìm mã đơn hàng, mã vận đơn, tên hoặc SĐT khách...",
       "allCarriers": "Tất cả hãng vận chuyển",
       "emptyTitle": "Chưa có vận đơn nào phù hợp",
-      "emptyDesc": "Thay đổi bộ lọc trạng thái hoặc tạo đơn mới từ In-Chat POS."
+      "emptyDesc": "Thay đổi bộ lọc trạng thái hoặc tạo đơn mới từ In-Chat POS.",
+      "batchPrintBtn": "In {count} đơn",
+      "batchPrintSuccess": "Đã khởi tạo lệnh in {count} vận đơn khổ {format}",
+      "wavePicklistBtn": "Phiếu nhặt hàng lô",
+      "batchActionFailed": "Không thể thực hiện thao tác hàng loạt",
+      "callLaterBadge": "Hẹn gọi lại",
+      "printedTimes": "{count} lần",
+      "picklistModalTitle": "Phiếu Nhặt Hàng Tổng Hợp (Wave Picklist)",
+      "picklistModalDesc": "{orders} đơn hàng • {skus} mã SKU • Tổng {units} sản phẩm cần nhặt theo thứ tự kệ",
+      "printPicklistBtn": "In phiếu nhặt hàng",
+      "picklistShortageWarn": "Cảnh báo: Có {count} mã SKU không đủ tồn kho vật lý trên kệ để nhặt đủ lô này",
+      "binCol": "Vị trí kệ",
+      "productCol": "Sản phẩm / Biến thể",
+      "pickQtyCol": "SL nhặt",
+      "stockCol": "Tồn kho"
     },
     "detailPage": {
       "reprintBtn": "In lại phiếu",
@@ -2881,6 +2908,56 @@
       "LABEL_75X100": "Tem nhiệt 75 × 100mm (J&T / VTP)",
       "A5_148X210": "Khổ A5 (148 × 210mm)",
       "A4_210X297": "Khổ A4 hóa đơn (210 × 297mm)"
+    },
+    "nav": {
+      "orders": "Danh sách vận đơn",
+      "packingStation": "Bàn đóng gói (T09)",
+      "handoverOps": "Nhặt hàng & Bàn giao 3PL",
+      "failedRescue": "Cứu đơn & SLA",
+      "returnVerification": "Đồng kiểm hoàn",
+      "rmaExchange": "Đổi hàng 2 chiều RMA",
+      "reconciliation": "Đối soát COD (T10)"
+    },
+    "handoverPage": {
+      "title": "Bàn Giao Vận Chuyển 3PL & Hẹn Gọi Xác Nhận",
+      "subtitle": "Quét Barcode chốt biên bản bàn giao bưu tá chống thất lạc kiện và xử lý hàng đợi hẹn gọi lại chuẩn Pancake POS",
+      "tabs": {
+        "handover": "Biên bản bàn giao 3PL",
+        "callLater": "Hàng đợi hẹn gọi xác nhận"
+      },
+      "createManifestTitle": "Tạo biên bản bàn giao mới",
+      "selectWarehousePlaceholder": "Chọn kho xuất hàng",
+      "driverNamePlaceholder": "Tên bưu tá nhận hàng (VD: Anh Minh GHN)",
+      "driverPhonePlaceholder": "SĐT bưu tá",
+      "vehiclePlatePlaceholder": "Biển số xe",
+      "createManifestBtn": "Mở biên bản quét kiện",
+      "recentManifestsTitle": "Biên bản gần đây",
+      "emptyManifestTitle": "Chưa có biên bản bàn giao",
+      "emptyManifestDesc": "Tạo biên bản theo hãng vận chuyển để bắt đầu quét Barcode giao kiện cho bưu tá.",
+      "selectManifestTitle": "Chọn hoặc tạo một biên bản bàn giao",
+      "selectManifestDesc": "Sau khi mở biên bản, dùng súng bắn mã vạch quét liên tục từng mã vận đơn.",
+      "parcelsUnit": "kiện",
+      "sealAndPrintBtn": "Chốt bàn giao & In 2 liên",
+      "scanInputPlaceholder": "Quét hoặc nhập mã vận đơn / mã đơn hàng...",
+      "scanSubmitBtn": "Quét nhận kiện",
+      "weightCol": "Khối lượng",
+      "scanSuccessMsg": "Đã thêm kiện {orderCode} ({tracking}) vào biên bản bàn giao",
+      "scanFailedMsg": "Không thể quét kiện vào biên bản (kiểm tra hãng vận chuyển hoặc trạng thái đơn)",
+      "manifestCreatedMsg": "Đã mở biên bản bàn giao {code}",
+      "sealedSuccessMsg": "Đã chốt biên bản {code} và chuyển {count} đơn sang Đã bàn giao 3PL",
+      "sealConfirmTitle": "Xác nhận chốt biên bản bàn giao?",
+      "sealConfirmDesc": "Hệ thống sẽ chuyển toàn bộ {count} kiện thuộc {carrier} sang trạng thái Đã bàn giao 3PL, trừ tồn kho vật lý và mở mẫu in 2 liên.",
+      "overdueBadge": "Quá giờ hẹn: {count}",
+      "upcomingBadge": "Sắp tới giờ hẹn: {count}",
+      "emptyCallLaterTitle": "Không có đơn đang hẹn gọi lại",
+      "emptyCallLaterDesc": "Tất cả đơn hàng cần xác nhận lại qua điện thoại sẽ xuất hiện tại đây.",
+      "attemptBadge": "Lần gọi #{count}",
+      "markConfirmedBtn": "Đã gọi xác nhận",
+      "status": {
+        "DRAFT_SCANNING": "Đang quét kiện",
+        "SEALED_HANDED_OVER": "Đã chốt bàn giao",
+        "CANCELLED": "Đã hủy"
+      }
     }
   }
 }

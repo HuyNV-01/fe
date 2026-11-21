@@ -5,11 +5,13 @@ import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
   Barcode,
+  ClipboardCheck,
   FileSpreadsheet,
   PackageCheck,
   RefreshCcw,
   Truck,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import {
   GlassBadge,
   GlassSurfaceCard,
@@ -20,71 +22,150 @@ import type { PosOrderStatusType } from "@/types/catalog-pos";
 
 export const OMS_STATUS_META: Record<
   PosOrderStatusType,
-  { label: string; variant: GlassVariant }
+  { labelKey: string; fallback: string; variant: GlassVariant }
 > = {
-  DRAFT: { label: "Nháp POS", variant: "secondary" },
-  PENDING_PRICE_APPROVAL: { label: "Chờ duyệt giá", variant: "warning" },
-  WAITING_DEPOSIT: { label: "Chờ đặt cọc", variant: "warning" },
-  CONFIRMED: { label: "Đã chốt đơn", variant: "info" },
-  WAITING_PACKING: { label: "Chờ đóng gói", variant: "accent" },
-  PACKED_READY_TO_SHIP: { label: "Đã đóng gói", variant: "primary" },
-  HANDED_TO_CARRIER: { label: "Đã bàn giao 3PL", variant: "info" },
-  IN_TRANSIT: { label: "Đang vận chuyển", variant: "info" },
-  DELIVERY_FAILED_RESCUE: { label: "🚨 Cần cứu đơn", variant: "danger" },
-  DELIVERED: { label: "Đã giao - Chờ đối soát", variant: "warning" },
-  DELIVERED_RECONCILED: { label: "Đã đối soát COD", variant: "success" },
-  RETURNING: { label: "Đang hoàn về kho", variant: "danger" },
-  RETURNED_RESTOCKED: { label: "Đã kiểm hoàn nhập kho", variant: "secondary" },
-  CANCELLED: { label: "Đã hủy", variant: "secondary" },
+  DRAFT: {
+    labelKey: "statusLabels.DRAFT",
+    fallback: "Nháp POS",
+    variant: "secondary",
+  },
+  PENDING_PRICE_APPROVAL: {
+    labelKey: "statusLabels.PENDING_PRICE_APPROVAL",
+    fallback: "Chờ duyệt giá",
+    variant: "warning",
+  },
+  WAITING_DEPOSIT: {
+    labelKey: "statusLabels.WAITING_DEPOSIT",
+    fallback: "Chờ đặt cọc",
+    variant: "warning",
+  },
+  CONFIRMED: {
+    labelKey: "statusLabels.CONFIRMED",
+    fallback: "Đã chốt đơn",
+    variant: "info",
+  },
+  WAITING_PACKING: {
+    labelKey: "statusLabels.WAITING_PACKING",
+    fallback: "Chờ đóng gói",
+    variant: "accent",
+  },
+  PACKED_READY_TO_SHIP: {
+    labelKey: "statusLabels.PACKED_READY_TO_SHIP",
+    fallback: "Đã đóng gói",
+    variant: "primary",
+  },
+  HANDED_TO_CARRIER: {
+    labelKey: "statusLabels.HANDED_TO_CARRIER",
+    fallback: "Đã bàn giao 3PL",
+    variant: "info",
+  },
+  IN_TRANSIT: {
+    labelKey: "statusLabels.IN_TRANSIT",
+    fallback: "Đang vận chuyển",
+    variant: "info",
+  },
+  DELIVERY_FAILED_RESCUE: {
+    labelKey: "statusLabels.DELIVERY_FAILED_RESCUE",
+    fallback: "Cần cứu đơn",
+    variant: "danger",
+  },
+  DELIVERED: {
+    labelKey: "statusLabels.DELIVERED",
+    fallback: "Đã giao - Chờ đối soát",
+    variant: "warning",
+  },
+  DELIVERED_RECONCILED: {
+    labelKey: "statusLabels.DELIVERED_RECONCILED",
+    fallback: "Đã đối soát COD",
+    variant: "success",
+  },
+  RETURNING: {
+    labelKey: "statusLabels.RETURNING",
+    fallback: "Đang hoàn về kho",
+    variant: "danger",
+  },
+  RETURNED_RESTOCKED: {
+    labelKey: "statusLabels.RETURNED_RESTOCKED",
+    fallback: "Đã kiểm hoàn nhập kho",
+    variant: "secondary",
+  },
+  CANCELLED: {
+    labelKey: "statusLabels.CANCELLED",
+    fallback: "Đã hủy",
+    variant: "secondary",
+  },
 };
 
 export function OmsStatusBadge({ status }: { status: PosOrderStatusType }) {
-  const meta = OMS_STATUS_META[status] || {
-    label: status,
-    variant: "secondary" as GlassVariant,
-  };
+  const t = useTranslations("OmsFulfillment");
+  const meta = OMS_STATUS_META[status];
+  const label = meta
+    ? t.has(meta.labelKey)
+      ? t(meta.labelKey)
+      : meta.fallback
+    : status;
+
   return (
     <GlassBadge
-      variant={meta.variant}
+      variant={meta?.variant || "secondary"}
       dot
       pulse={status === "DELIVERY_FAILED_RESCUE"}
     >
-      {meta.label}
+      {label}
     </GlassBadge>
   );
 }
 
 export function OmsSubNavBar() {
   const pathname = usePathname();
+  const t = useTranslations("OmsFulfillment");
+
   const navItems = [
     {
       href: config.routes.private.orders,
-      label: "Danh sách vận đơn",
+      label: t.has("nav.orders") ? t("nav.orders") : "Danh sách vận đơn",
       icon: Truck,
     },
     {
       href: config.routes.private.orderPackingStation,
-      label: "Bàn đóng gói (T09)",
+      label: t.has("nav.packingStation")
+        ? t("nav.packingStation")
+        : "Bàn đóng gói (T09)",
       icon: Barcode,
     },
     {
+      href: config.routes.private.orderHandoverOps,
+      label: t.has("nav.handoverOps")
+        ? t("nav.handoverOps")
+        : "Nhặt hàng & Bàn giao 3PL",
+      icon: ClipboardCheck,
+    },
+    {
       href: config.routes.private.orderFailedRescue,
-      label: "Cứu đơn & SLA",
+      label: t.has("nav.failedRescue")
+        ? t("nav.failedRescue")
+        : "Cứu đơn & SLA",
       icon: AlertTriangle,
     },
     {
       href: config.routes.private.orderReturnVerification,
-      label: "Đồng kiểm hoàn",
+      label: t.has("nav.returnVerification")
+        ? t("nav.returnVerification")
+        : "Đồng kiểm hoàn",
       icon: PackageCheck,
     },
     {
       href: config.routes.private.orderRmaExchange,
-      label: "Đổi hàng 2 chiều RMA",
+      label: t.has("nav.rmaExchange")
+        ? t("nav.rmaExchange")
+        : "Đổi hàng 2 chiều RMA",
       icon: RefreshCcw,
     },
     {
       href: config.routes.private.orderCodReconciliation,
-      label: "Đối soát COD (T10)",
+      label: t.has("nav.reconciliation")
+        ? t("nav.reconciliation")
+        : "Đối soát COD (T10)",
       icon: FileSpreadsheet,
     },
   ];

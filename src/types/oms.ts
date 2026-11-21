@@ -103,6 +103,13 @@ export interface IOmsOrder extends Omit<IPosOrder, "itemsJson"> {
   carrierTicketCode?: string | null;
   reconciledBatchId?: string | null;
   reconciledAt?: string | null;
+  orderTagsJson?: string[] | null;
+  subStatus?: string | null;
+  callLaterAt?: string | null;
+  callAttemptCount?: number;
+  lastCallNote?: string | null;
+  handoverManifestId?: string | null;
+  partialDeliveryInfoJson?: IPosOrderPartialDeliveryInfo | null;
 }
 
 export interface IOrderFieldDiffEntry {
@@ -271,4 +278,97 @@ export interface ICodReconciliationItem {
   returnFeeCharged: number;
   isReconciled: boolean;
   disputeNote?: string | null;
+}
+
+export type CarrierHandoverManifestStatusType =
+  | "DRAFT_SCANNING"
+  | "SEALED_HANDED_OVER"
+  | "CANCELLED";
+
+export interface IHandoverManifestScannedOrderItem {
+  orderId: string;
+  orderCode: string;
+  trackingNumber: string;
+  customerName: string;
+  codCollectAmount: number;
+  actualPackedWeightGrams: number;
+  scannedAtIso: string;
+  scannedByUserId: string;
+}
+
+export interface ICarrierHandoverManifest {
+  id: string;
+  shopId: string;
+  manifestCode: string;
+  warehouseId: string;
+  warehouseName: string;
+  carrierCode: string;
+  status: CarrierHandoverManifestStatusType;
+  courierDriverName?: string | null;
+  courierDriverPhone?: string | null;
+  courierVehiclePlate?: string | null;
+  scannedOrdersJson: IHandoverManifestScannedOrderItem[];
+  totalParcelsCount: number;
+  totalWeightGrams: number;
+  totalCodAmount: number;
+  sealedByUserId?: string | null;
+  sealedAt?: string | null;
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface IWavePicklistSkuLine {
+  variantId: string;
+  skuCode: string;
+  barcode: string;
+  variantName: string;
+  imageUrl?: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  binLocationCode: string;
+  totalPickQty: number;
+  currentOnHandQty: number;
+  currentAvailableQty: number;
+  isShortageRisk: boolean;
+  orderCodes: string[];
+}
+
+export interface IWavePicklistResult {
+  picklistCode: string;
+  generatedAtIso: string;
+  totalOrdersCount: number;
+  totalUniqueSkusCount: number;
+  totalUnitsToPick: number;
+  shortageSkuCount: number;
+  orderIds: string[];
+  items: IWavePicklistSkuLine[];
+  printableHtmlTemplate: string;
+}
+
+export interface IPosOrderPartialDeliveryLineItem {
+  variantId: string;
+  skuCode: string;
+  variantName: string;
+  orderedQty: number;
+  deliveredQty: number;
+  returnedQty: number;
+  unitPrice: number;
+  restockedToWarehouse: boolean;
+}
+
+export interface IPosOrderPartialDeliveryInfo {
+  settledAtIso: string;
+  settledByUserId: string;
+  originalCodAmount: number;
+  revisedCodAmount: number;
+  partialReturnShippingFee: number;
+  items: IPosOrderPartialDeliveryLineItem[];
+  note?: string | null;
+}
+
+export interface ICallLaterQueueResponse {
+  totalCount: number;
+  overdueCount: number;
+  upcomingCount: number;
+  orders: IOmsOrder[];
 }

@@ -2,6 +2,11 @@ import apiClient from "@/lib/http/axios-client";
 import type { PosOrderStatusType } from "@/types/catalog-pos";
 import type {
   CodReconciliationDiscrepancyType,
+  ICallLaterQueueResponse,
+  ICarrierHandoverManifest,
+  IHandoverManifestScannedOrderItem,
+  IOmsOrder,
+  IWavePicklistResult,
   OmsCarrierRescueActionType,
   OmsCarrierSlaBreachType,
   OmsReturnConditionType,
@@ -225,3 +230,141 @@ export const exportCodDisputesCsvApi = (shopId: string, batchId: string) =>
   apiClient.get(
     `/oms/${shopId}/reconciliation/batches/${batchId}/export-disputes`,
   );
+
+export const omsPancakeOpsApi = {
+  batchPrintLabels: (
+    shopId: string,
+    payload: {
+      orderIds: string[];
+      labelFormat: ThermalLabelFormatType;
+      hideProductNames?: boolean;
+      hideItemPrices?: boolean;
+      showCodAmount?: boolean;
+      showOrderNote?: boolean;
+    },
+  ) =>
+    apiClient.post<{
+      success: boolean;
+      data: {
+        count: number;
+        labelFormat: ThermalLabelFormatType;
+        combinedHtmlTemplate: string;
+      };
+    }>(`/oms/${shopId}/packing-station/batch-print`, payload),
+
+  generateWavePicklist: (
+    shopId: string,
+    payload: { orderIds: string[]; warehouseId?: string },
+  ) =>
+    apiClient.post<{ success: boolean; data: IWavePicklistResult }>(
+      `/oms/${shopId}/wave-picklist`,
+      payload,
+    ),
+
+  listHandoverManifests: (shopId: string) =>
+    apiClient.get<{ success: boolean; data: ICarrierHandoverManifest[] }>(
+      `/oms/${shopId}/handover-manifests`,
+    ),
+
+  createHandoverManifest: (
+    shopId: string,
+    payload: {
+      warehouseId: string;
+      carrierCode: string;
+      courierDriverName?: string;
+      courierDriverPhone?: string;
+      courierVehiclePlate?: string;
+      note?: string;
+    },
+  ) =>
+    apiClient.post<{ success: boolean; data: ICarrierHandoverManifest }>(
+      `/oms/${shopId}/handover-manifests`,
+      payload,
+    ),
+
+  scanOrderIntoHandover: (
+    shopId: string,
+    manifestId: string,
+    scannedCode: string,
+  ) =>
+    apiClient.post<{
+      success: boolean;
+      data: {
+        manifest: ICarrierHandoverManifest;
+        scannedItem: IHandoverManifestScannedOrderItem;
+      };
+    }>(`/oms/${shopId}/handover-manifests/${manifestId}/scan`, {
+      scannedCode,
+    }),
+
+  sealHandoverManifest: (
+    shopId: string,
+    manifestId: string,
+    payload: {
+      courierDriverName?: string;
+      courierDriverPhone?: string;
+      note?: string;
+    },
+  ) =>
+    apiClient.post<{
+      success: boolean;
+      data: {
+        manifest: ICarrierHandoverManifest;
+        handedOverCount: number;
+        failedOrderCodes: string[];
+        printableHtmlTemplate: string;
+      };
+    }>(`/oms/${shopId}/handover-manifests/${manifestId}/seal`, payload),
+
+  listCallLaterQueue: (shopId: string) =>
+    apiClient.get<{ success: boolean; data: ICallLaterQueueResponse }>(
+      `/oms/${shopId}/call-later-queue`,
+    ),
+
+  scheduleCallLater: (
+    shopId: string,
+    orderId: string,
+    payload: {
+      callLaterAt: string;
+      subStatus?: string;
+      note?: string;
+      appendOrderTags?: string[];
+    },
+  ) =>
+    apiClient.post<{ success: boolean; data: IOmsOrder }>(
+      `/oms/${shopId}/orders/${orderId}/call-later`,
+      payload,
+    ),
+
+  updateOrderTags: (
+    shopId: string,
+    orderId: string,
+    payload: {
+      orderTags: string[];
+      subStatus?: string | null;
+      clearCallLater?: boolean;
+    },
+  ) =>
+    apiClient.patch<{ success: boolean; data: IOmsOrder }>(
+      `/oms/${shopId}/orders/${orderId}/order-tags`,
+      payload,
+    ),
+
+  settlePartialDelivery: (
+    shopId: string,
+    orderId: string,
+    payload: {
+      items: Array<{
+        variantId: string;
+        deliveredQty: number;
+        restockReturnedImmediately?: boolean;
+      }>;
+      partialReturnShippingFee?: number;
+      note?: string;
+    },
+  ) =>
+    apiClient.post<{ success: boolean; data: IOmsOrder }>(
+      `/oms/${shopId}/orders/${orderId}/partial-delivery-settle`,
+      payload,
+    ),
+};

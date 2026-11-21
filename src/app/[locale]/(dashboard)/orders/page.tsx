@@ -5,15 +5,20 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   CheckSquare,
+  ClipboardList,
+  Clock,
   ExternalLink,
+  Printer,
   RefreshCw,
   Send,
   Truck,
 } from "lucide-react";
 import {
   ContentSelect,
+  GlassAlert,
   GlassBadge,
   GlassEmptyState,
+  GlassModal,
   GlassSectionHeader,
   GlassSurfaceCard,
   GlassTabs,
@@ -29,10 +34,26 @@ import { Select } from "@/components/ui/select";
 import { OmsStatusBadge, OmsSubNavBar } from "@/components/oms/oms-status-meta";
 import config from "@/config";
 import { usePermissionStore } from "@/lib/stores/iam/use-permission-store";
+import { omsPancakeOpsApi } from "@/lib/stores/oms/api";
 import { useOmsFulfillmentStore } from "@/lib/stores/oms/use-oms-fulfillment-store";
 import type { PosOrderStatusType } from "@/types/catalog-pos";
+import type { IWavePicklistResult, ThermalLabelFormatType } from "@/types/oms";
 
 type FilterStatusTab = "ALL" | PosOrderStatusType;
+
+const BATCH_PRINT_FORMATS: Array<{
+  value: ThermalLabelFormatType;
+  label: string;
+}> = [
+  { value: "A7_74X105", label: "Nhiệt A7 (74 × 105mm)" },
+  { value: "A6_100X150", label: "Nhiệt A6 (100 × 150mm)" },
+  { value: "K80_80X80", label: "Nhiệt K80 (80 × 80mm)" },
+  { value: "K80_80X100", label: "Nhiệt K80 (80 × 100mm)" },
+  { value: "K58_58X80", label: "Nhiệt K58 (58 × 80mm)" },
+  { value: "LABEL_75X100", label: "Tem 75 × 100mm" },
+  { value: "A5_148X210", label: "Khổ A5 (148 × 210mm)" },
+  { value: "A4_210X297", label: "Khổ A4 (210 × 297mm)" },
+];
 
 export default function OmsOrdersPage() {
   const t = useTranslations("OmsFulfillment");
@@ -51,6 +72,15 @@ export default function OmsOrdersPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [carrierFilter, setCarrierFilter] = useState<string>("ALL");
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [batchPrintFormat, setBatchPrintFormat] =
+    useState<ThermalLabelFormatType>("A6_100X150");
+  const [isBatchOperating, setIsBatchOperating] = useState(false);
+  const [picklistResult, setPicklistResult] =
+    useState<IWavePicklistResult | null>(null);
+  const [actionAlert, setActionAlert] = useState<{
+    variant: "success" | "danger" | "info";
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!activeShopId) return;
@@ -119,6 +149,18 @@ export default function OmsOrdersPage() {
     ];
   }, [statusCounts, t]);
 
+  const openPrintWindow = (htmlContent: string) => {
+    const win = window.open("", "_blank", "width=900,height=720");
+    if (!win) return;
+    win.document.open();
+    win.document.write(htmlContent);
+    win.document.close();
+    setTimeout(() => {
+      win.focus();
+      win.print();
+    }, 250);
+  };
+
   const toggleSelectOrder = (orderId: string) => {
     setSelectedOrderIds((prev) =>
       prev.includes(orderId)
@@ -136,6 +178,63 @@ export default function OmsOrdersPage() {
     if (ok) setSelectedOrderIds([]);
   };
 
+  const handleBatchPrint = async () => {
+    if (!activeShopId || selectedOrderIds.length === 0) return;
+    setIsBatchOperating(true);
+    try {
+      const res = await omsPancakeOpsApi.batchPrintLabels(activeShopId, {
+        orderIds: selectedOrderIds,
+        labelFormat: batchPrintFormat,
+        showCodAmount: true,
+        showOrderNote: true,
+      });
+      const data = res.data?.data;
+      if (data?.combinedHtmlTemplate) {
+        openPrintWindow(data.combinedHtmlTemplate);
+        setActionAlert({
+          variant: "success",
+          message: t("ordersPage.batchPrintSuccess", {
+            count: data.count,
+            format: data.labelFormat,
+          }),
+        });
+      }
+    } catch (err: any) {
+      setActionAlert({
+        variant: "danger",
+        message:
+          err?.response?.data?.message || t("ordersPage.batchActionFailed"),
+      });
+    } finally {
+      setIsBatchOperating(false);
+    }
+  };
+
+  const handleGenerateWavePicklist = async () => {
+    if (!activeShopId || selectedOrderIds.length === 0) return;
+    setIsBatchOperating(true);
+    try {
+      const res = await omsPancakeOpsApi.generateWavePicklist(activeShopId, {
+        orderIds: selectedOrderIds,
+      });
+      if (res.data?.data) {
+        setPicklistResult(res.data.data);
+      }
+    } catch (err: any) {
+      setActionAlert({
+        variant: "danger",
+        message:
+          err?.response?.data?.message || t("ordersPage.batchActionFailed"),
+      });
+    } finally {
+      setIsBatchOperating(false);
+    }
+  };
+
+  const selectedPrintFormatLabel =
+    BATCH_PRINT_FORMATS.find((f) => f.value === batchPrintFormat)?.label ||
+    batchPrintFormat;
+
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-4">
       <GlassSectionHeader
@@ -143,24 +242,76 @@ export default function OmsOrdersPage() {
         title={t("ordersPage.title")}
         subtitle={t("ordersPage.subtitle")}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {selectedOrderIds.length > 0 && (
-              <PatternButton
-                variant="solid"
-                color="primary"
-                size="sm"
-                isLoading={isSubmitting}
-                onClick={handleBatchDispatch}
-              >
-                <Send className="w-3.5 h-3.5 mr-1.5" />
-                {t("ordersPage.dispatchBatchBtn", {
-                  count: selectedOrderIds.length,
-                })}
-              </PatternButton>
+              <>
+                <div className="w-44">
+                  <Select
+                    value={batchPrintFormat}
+                    onValueChange={(val) =>
+                      setBatchPrintFormat(val as ThermalLabelFormatType)
+                    }
+                  >
+                    <TriggerSelect fluid size="sm" className="text-xs">
+                      <span>{selectedPrintFormatLabel}</span>
+                    </TriggerSelect>
+                    <ContentSelect>
+                      {BATCH_PRINT_FORMATS.map((fmt) => (
+                        <ItemSelect key={fmt.value} value={fmt.value}>
+                          {fmt.label}
+                        </ItemSelect>
+                      ))}
+                    </ContentSelect>
+                  </Select>
+                </div>
+                <PatternButton
+                  type="button"
+                  variant="glass"
+                  color="info"
+                  size="sm"
+                  rounded="full"
+                  isLoading={isBatchOperating}
+                  icon={<Printer className="w-3.5 h-3.5" />}
+                  onClick={handleBatchPrint}
+                >
+                  {t("ordersPage.batchPrintBtn", {
+                    count: selectedOrderIds.length,
+                  })}
+                </PatternButton>
+                <PatternButton
+                  type="button"
+                  variant="glass"
+                  color="success"
+                  size="sm"
+                  rounded="full"
+                  isLoading={isBatchOperating}
+                  icon={<ClipboardList className="w-3.5 h-3.5" />}
+                  onClick={handleGenerateWavePicklist}
+                >
+                  {t("ordersPage.wavePicklistBtn")}
+                </PatternButton>
+                <PatternButton
+                  type="button"
+                  variant="solid"
+                  color="primary"
+                  size="sm"
+                  rounded="full"
+                  isLoading={isSubmitting}
+                  icon={<Send className="w-3.5 h-3.5" />}
+                  onClick={handleBatchDispatch}
+                >
+                  {t("ordersPage.dispatchBatchBtn", {
+                    count: selectedOrderIds.length,
+                  })}
+                </PatternButton>
+              </>
             )}
             <PatternButton
+              type="button"
               variant="glass"
               size="sm"
+              rounded="full"
+              icon={<RefreshCw className="w-3.5 h-3.5" />}
               onClick={() =>
                 activeShopId &&
                 fetchOmsOrders({
@@ -169,7 +320,6 @@ export default function OmsOrdersPage() {
                 })
               }
             >
-              <RefreshCw className="w-3.5 h-3.5 mr-1" />
               {t("common.refresh")}
             </PatternButton>
           </div>
@@ -177,6 +327,15 @@ export default function OmsOrdersPage() {
       />
 
       <OmsSubNavBar />
+
+      {actionAlert && (
+        <GlassAlert
+          variant={actionAlert.variant}
+          description={actionAlert.message}
+          dismissible
+          onDismiss={() => setActionAlert(null)}
+        />
+      )}
 
       <GlassTabs
         items={tabItems}
@@ -198,7 +357,7 @@ export default function OmsOrdersPage() {
           </LiquidGlassInput>
           <div className="w-full sm:w-52">
             <Select value={carrierFilter} onValueChange={setCarrierFilter}>
-              <TriggerSelect>
+              <TriggerSelect fluid>
                 <span>
                   {carrierFilter === "ALL"
                     ? t("ordersPage.allCarriers")
@@ -213,6 +372,7 @@ export default function OmsOrdersPage() {
                 <ItemSelect value="GHTK">GHTK (Giao Hàng Tiết Kiệm)</ItemSelect>
                 <ItemSelect value="VTP">Viettel Post</ItemSelect>
                 <ItemSelect value="JT">J&T Express</ItemSelect>
+                <ItemSelect value="SPX">SPX Express</ItemSelect>
               </ContentSelect>
             </Select>
           </div>
@@ -229,7 +389,7 @@ export default function OmsOrdersPage() {
           />
         ) : (
           <ScrollArea className="w-full">
-            <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[880px]">
+            <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[920px]">
               <thead>
                 <tr className="border-b border-border/50 text-muted-foreground">
                   <th className="py-2.5 px-2 w-10">
@@ -271,6 +431,15 @@ export default function OmsOrdersPage() {
                         <div className="text-[11px] text-muted-foreground">
                           {order.warehouseName}
                         </div>
+                        {(order.orderTagsJson || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {(order.orderTagsJson || []).map((tag) => (
+                              <GlassBadge key={tag} variant="accent" size="sm">
+                                {tag}
+                              </GlassBadge>
+                            ))}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-2">
                         <div className="font-medium">{order.customerName}</div>
@@ -289,6 +458,12 @@ export default function OmsOrdersPage() {
                       <td className="py-3 px-2">
                         <div className="flex flex-col gap-1 items-start">
                           <OmsStatusBadge status={order.status} />
+                          {order.callLaterAt && (
+                            <GlassBadge variant="warning" size="sm">
+                              <Clock className="w-3 h-3" />
+                              {t("ordersPage.callLaterBadge")}
+                            </GlassBadge>
+                          )}
                           {order.slaBreachType !== "NONE" && (
                             <GlassBadge variant="danger" size="sm">
                               SLA: {order.slaBreachType}
@@ -308,15 +483,21 @@ export default function OmsOrdersPage() {
                             order.printedCount > 0 ? "success" : "secondary"
                           }
                         >
-                          {order.printedCount || 0} lần
+                          {t("ordersPage.printedTimes", {
+                            count: order.printedCount || 0,
+                          })}
                         </GlassBadge>
                       </td>
                       <td className="py-3 px-2 text-right">
                         <Link
                           href={config.routes.private.orderDetail(order.id)}
                         >
-                          <PatternButton variant="ghost" size="sm">
-                            <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                          <PatternButton
+                            variant="ghost"
+                            size="sm"
+                            rounded="full"
+                            icon={<ExternalLink className="w-3.5 h-3.5" />}
+                          >
                             {t("common.detail")}
                           </PatternButton>
                         </Link>
@@ -330,6 +511,109 @@ export default function OmsOrdersPage() {
           </ScrollArea>
         )}
       </GlassSurfaceCard>
+
+      {/* Modal Phiếu Nhặt Hàng Tổng Hợp theo Lô (Wave Picklist — F07.9A) */}
+      <GlassModal
+        open={Boolean(picklistResult)}
+        onOpenChange={(open) => {
+          if (!open) setPicklistResult(null);
+        }}
+        size="full"
+        title={
+          picklistResult
+            ? `${t("ordersPage.picklistModalTitle")} — ${picklistResult.picklistCode}`
+            : undefined
+        }
+        description={
+          picklistResult
+            ? t("ordersPage.picklistModalDesc", {
+                orders: picklistResult.totalOrdersCount,
+                skus: picklistResult.totalUniqueSkusCount,
+                units: picklistResult.totalUnitsToPick,
+              })
+            : undefined
+        }
+        footer={
+          <>
+            <PatternButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              rounded="full"
+              onClick={() => setPicklistResult(null)}
+            >
+              {t("common.close")}
+            </PatternButton>
+            <PatternButton
+              type="button"
+              variant="solid"
+              color="primary"
+              size="sm"
+              rounded="full"
+              icon={<Printer className="w-4 h-4" />}
+              onClick={() =>
+                picklistResult?.printableHtmlTemplate &&
+                openPrintWindow(picklistResult.printableHtmlTemplate)
+              }
+            >
+              {t("ordersPage.printPicklistBtn")}
+            </PatternButton>
+          </>
+        }
+      >
+        {picklistResult && (
+          <div className="space-y-3">
+            {picklistResult.shortageSkuCount > 0 && (
+              <GlassAlert
+                variant="danger"
+                description={t("ordersPage.picklistShortageWarn", {
+                  count: picklistResult.shortageSkuCount,
+                })}
+              />
+            )}
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border/50 text-muted-foreground">
+                  <th className="py-2 px-2">{t("ordersPage.binCol")}</th>
+                  <th className="py-2 px-2">SKU</th>
+                  <th className="py-2 px-2">{t("ordersPage.productCol")}</th>
+                  <th className="py-2 px-2 text-center">
+                    {t("ordersPage.pickQtyCol")}
+                  </th>
+                  <th className="py-2 px-2 text-center">
+                    {t("ordersPage.stockCol")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {picklistResult.items.map((item) => (
+                  <tr
+                    key={`${item.warehouseId}-${item.variantId}`}
+                    className="border-b border-border/30"
+                  >
+                    <td className="py-2 px-2 font-mono font-bold">
+                      {item.binLocationCode}
+                    </td>
+                    <td className="py-2 px-2 font-mono">{item.skuCode}</td>
+                    <td className="py-2 px-2">{item.variantName}</td>
+                    <td className="py-2 px-2 text-center font-bold text-primary">
+                      {item.totalPickQty}
+                    </td>
+                    <td className="py-2 px-2 text-center">
+                      <GlassBadge
+                        variant={item.isShortageRisk ? "danger" : "success"}
+                        size="sm"
+                      >
+                        {item.currentOnHandQty}
+                      </GlassBadge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </GlassModal>
     </div>
   );
 }
