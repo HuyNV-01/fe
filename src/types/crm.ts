@@ -12,7 +12,8 @@ export type ShopBusinessCategoryType =
   | "COSMETICS_BEAUTY"
   | "ELECTRONICS_TECH"
   | "FOOD_BEVERAGE"
-  | "MOTHER_AND_BABY";
+  | "MOTHER_AND_BABY"
+  | "HOME_LIVING_APPLIANCES";
 
 export type PhoneTrustLookupSourceType =
   | "INTERNAL_POS"
@@ -77,8 +78,17 @@ export interface ICrmTrustAndIndustryConfig {
   usePancakeCommunityNetwork?: boolean;
   enableCarrier3plTrustLookup?: boolean;
   useCarrier3plLookup?: boolean;
+  consortiumSharingEnabled?: boolean;
+  enablePublicWebRiskLookup?: boolean;
   enabledLookupSources?: PhoneTrustLookupSourceType[];
   enabledCarriers?: Array<"GHN" | "GHTK" | "VTP" | "JT">;
+  pancakePosShopId?: string | null;
+  hasPancakePosApiKey?: boolean;
+  ghnShopId?: number | null;
+  hasGhnToken?: boolean;
+  hasGhtkToken?: boolean;
+  hasVtpToken?: boolean;
+  hasJtToken?: boolean;
   customLookupWebhookUrl: string | null;
   hasCustomLookupApiKey?: boolean;
   autoMaskPhoneInChatMessages?: boolean;
@@ -113,6 +123,9 @@ export interface ICustomerAbuseReportItem {
   reportedByShopId?: string;
   severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   isCarrierVerified?: boolean;
+  verificationLevel?: "CARRIER_VERIFIED" | "ORDER_LINKED" | "SHOP_DECLARED";
+  canRetract?: boolean;
+  evidenceUrl?: string | null;
   reportedAt?: string;
   createdAt?: string;
 }
@@ -127,6 +140,27 @@ export type DeliverySourceCodeType =
   | "MARKETPLACE_SHOPEE"
   | "CUSTOM_WEBHOOK_PROVIDER";
 
+export type TrustProviderStatusType =
+  | "LIVE_VERIFIED"
+  | "COMMUNITY_SYNCED"
+  | "LOCAL_LEDGER"
+  | "NO_RECORD"
+  | "NOT_CONFIGURED"
+  | "PROVIDER_ERROR";
+
+export interface ITrustProviderDiagnosticItem {
+  providerCode: string;
+  providerName: string;
+  status: TrustProviderStatusType;
+  deliveredCount: number;
+  returnedCount: number;
+  reportedCount: number;
+  latencyMs: number;
+  fromCache: boolean;
+  message: string;
+  checkedAt: string;
+}
+
 export interface IDeliverySourceBreakdownItem {
   sourceCode: DeliverySourceCodeType;
   sourceName: string;
@@ -136,13 +170,10 @@ export interface IDeliverySourceBreakdownItem {
   reportedCount: number;
   successRatePercent: number;
   confidenceWeight: number;
-  status:
-    | "LIVE_VERIFIED"
-    | "COMMUNITY_SYNCED"
-    | "LOCAL_LEDGER"
-    | "NO_RECORD"
-    | "NOT_CONFIGURED";
+  status: TrustProviderStatusType;
   lastUpdatedAt: string | null;
+  diagnosticMessage?: string | null;
+  latencyMs?: number | null;
 }
 
 export interface ICustomerCustomAttributeItem {
@@ -442,7 +473,9 @@ export interface IDeliveryTrustEvaluation {
   lookupSourceLabel: string;
   latestReportReason?: string | null;
   reportedReasons?: ICustomerAbuseReportItem[];
+  verifiedReportedCount?: number;
   sourceBreakdowns?: IDeliverySourceBreakdownItem[];
+  providerDiagnostics?: ITrustProviderDiagnosticItem[];
   checkedAt?: string | null;
   lastLookupAt?: string | null;
 }
@@ -615,4 +648,23 @@ export interface IRfmSegmentSummary {
   customerCount: number;
   totalLifetimeValue: number;
   avgTrustScore: number;
+}
+
+export interface IStandalonePhoneTrustLookupResult {
+  phoneMasked: string;
+  existingCustomerId: string | null;
+  existingCustomerName: string | null;
+  trustEvaluation: IDeliveryTrustEvaluation;
+  warningMessage: string | null;
+}
+
+export interface IImportPhoneTrustHistoryRow {
+  rawPhone: string;
+  deliveredCount?: number;
+  returnedCount?: number;
+  carrierCode?: string;
+  orderCode?: string;
+  trackingNumber?: string;
+  abuseReasonNote?: string;
+  abuseReasonCode?: string;
 }

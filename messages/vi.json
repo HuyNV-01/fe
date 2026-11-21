@@ -2285,7 +2285,8 @@
         "COSMETICS_BEAUTY": "Mỹ phẩm, Chăm sóc da & Làm đẹp",
         "ELECTRONICS_TECH": "Điện tử, Công nghệ & Phụ kiện số",
         "FOOD_BEVERAGE": "Thực phẩm, Đồ uống & Đặc sản (F&B)",
-        "MOTHER_AND_BABY": "Mẹ & Bé, Đồ sơ sinh & Đồ chơi"
+        "MOTHER_AND_BABY": "Mẹ & Bé, Đồ sơ sinh & Đồ chơi",
+        "HOME_LIVING_APPLIANCES": "Gia dụng, Nội thất & Thiết bị nhà cửa"
       },
       "customAttributesHeading": "Thuộc tính hồ sơ tùy biến theo sản phẩm",
       "addCustomAttrBtn": "Thêm thuộc tính",
@@ -2326,7 +2327,20 @@
         "customWebhookUrlLabel": "Đường dẫn API / Webhook tra cứu lịch sử SĐT tùy chỉnh (Tùy chọn)",
         "customApiKeyLabel": "Khóa xác thực API Key cho nguồn tra cứu tùy chỉnh (Mã hóa AES-256-GCM)",
         "cancelBtn": "Đóng",
-        "saveBtn": "Lưu cấu hình CRM 360°"
+        "saveBtn": "Lưu cấu hình CRM 360°",
+        "consortiumSharingToggle": "Tham gia chia sẻ ẩn danh tỷ lệ giao/hoàn vào Mạng lưới Cộng đồng liên shop (HMAC-SHA256 — không lộ SĐT gốc)",
+        "liveProviderCredentialsHeading": "Khóa kết nối trực tiếp Pancake POS & Hãng vận chuyển 3PL",
+        "pancakePosShopIdLabel": "Pancake POS Shop ID",
+        "pancakePosApiKeyLabel": "Pancake POS API Key",
+        "ghnShopIdLabel": "GHN Shop ID",
+        "ghnTokenLabel": "GHN Token",
+        "ghtkTokenLabel": "GHTK Token",
+        "vtpTokenLabel": "ViettelPost Token",
+        "encryptedKeyPlaceholder": "•••••••••••••••• (Đã mã hóa AES-256-GCM)",
+        "backfillLegacyOrdersBtn": "Đồng bộ đơn cũ vào Sổ cái",
+        "zeroConfigBannerTitle": "Chế độ Tự động Hoàn toàn (Zero-Config)",
+        "zeroConfigBannerDesc": "Hệ thống tự động thu hoạch đơn nhận/hoàn từ OMS, chia sẻ ẩn danh liên shop và tra cứu 4 cổng cộng đồng công khai mà bạn không cần nhập bất kỳ khóa 3PL nào.",
+        "enablePublicWebRiskToggle": "Tự động tra cứu 4 cổng cảnh báo cộng đồng công khai (GhetBomHang, ChongBomHang, CheckScam, ChongLuaDao)"
       },
       "highRiskAlertTitle": "🚨 CẢNH BÁO RỦI RO BOM HÀNG CAO (HIGH_RISK_RED)",
       "highRiskAlertDesc": "Khách hàng có lịch sử hoàn đơn nhiều lần hoặc bị báo xấu từ Cộng đồng/3PL. Hệ thống tự động bật yêu cầu đặt cọc trước qua VietQR trước khi đẩy đơn vận chuyển.",
@@ -2351,7 +2365,9 @@
         "extraCreditLabel": "Tiền chuyển khoản dư / Hoàn tiền RMA cộng vào Ví tiền thừa (VND)",
         "cancelBtn": "Hủy bỏ",
         "confirmBtn": "Xác nhận & Cộng điểm tự động"
-      }
+      },
+      "standaloneLookupBtn": "Tra cứu SĐT",
+      "retractReportBtn": "Thu hồi báo cáo"
     },
     "directoryPage": {
       "title": "Danh Bạ Hồ Sơ Khách Hàng Đa Kênh CRM 360°",
@@ -2428,13 +2444,67 @@
       "exportedWithAudit": "Đã xuất danh sách khách hàng (SĐT đã che bảo mật) và ghi vào Sổ cái Kiểm toán HMAC-SHA256",
       "permissionDenied": "Bạn chưa được cấp quyền thực hiện thao tác này",
       "requestTimeout": "Kết nối tra cứu quá thời gian, vui lòng thử lại",
-      "missingCustomerContext": "Thiếu thông tin cửa hàng hoặc hồ sơ khách hàng"
+      "missingCustomerContext": "Thiếu thông tin cửa hàng hoặc hồ sơ khách hàng",
+      "backfillCompleted": "Đã đồng bộ xong {orders} đơn hàng và {customers} hồ sơ SĐT vào Sổ cái Uy tín Cộng đồng.",
+      "reportRetracted": "Đã thu hồi báo cáo xấu và cập nhật lại điểm uy tín khách hàng."
     },
     "refreshTrustLookupBtn": "Tra cứu",
     "overrideTrustScoreBtn": "Chỉnh điểm",
     "reportAbuseBtn": "Báo xấu",
     "viewAbuseHistoryShort": "Xem chi tiết",
-    "multiSourceBreakdownTitle": "Đối soát đa nguồn"
+    "multiSourceBreakdownTitle": "Đối soát đa nguồn",
+    "trustLookupModal": {
+      "title": "Tra Cứu Uy Tín Giao Nhận SĐT (3PL & Cộng Đồng)",
+      "description": "Tự động tổng hợp số đơn nhận, đơn hoàn và báo cáo xấu từ OMS nội bộ, mạng lưới liên shop và 4 cổng cộng đồng công khai — không cần cấu hình khóa 3PL.",
+      "lookupTabLabel": "Tra cứu tự động",
+      "reportTabLabel": "Báo xấu nhanh",
+      "phonePlaceholder": "Nhập số điện thoại cần kiểm tra (VD: 0988123456)...",
+      "searchBtn": "Tra cứu ngay",
+      "quickReportBtn": "Báo xấu",
+      "closeBtn": "Đóng",
+      "forceRefreshBtn": "Làm mới bỏ cache",
+      "diagnosticWarningTitle": "Trạng thái đối soát tự động",
+      "deliveredLabel": "✓ Đã nhận",
+      "returnedLabel": "↩ Đã hoàn",
+      "reportedLabel": "🚨 Báo cáo xấu",
+      "verifiedReportsShort": "{count} xác thực 3PL",
+      "sourceBreakdownHeading": "Phân rã chỉ số theo từng nguồn 3PL & Cộng đồng",
+      "breakdownColSource": "Nguồn dữ liệu",
+      "breakdownColDelivered": "Nhận",
+      "breakdownColReturned": "Hoàn",
+      "breakdownColReported": "Báo xấu",
+      "breakdownColStatus": "Trạng thái",
+      "reportsDetailHeading": "Chi tiết lịch sử báo cáo xấu",
+      "openEvidenceLink": "Xem bằng chứng",
+      "providerDiagnosticsHeading": "Trạng thái đối chiếu các nguồn tự động",
+      "reportHeading": "Báo cáo xấu số điện thoại bom hàng / từ chối nhận",
+      "reportPhoneLabel": "Số điện thoại cần báo xấu",
+      "reportReasonCodeLabel": "Nhóm hành vi",
+      "reportCarrierLabel": "Hãng vận chuyển liên quan",
+      "reportNoCarrierOption": "Không gắn hãng vận chuyển",
+      "reportTrackingLabel": "Mã vận đơn 3PL (tùy chọn)",
+      "reportNoteLabel": "Mô tả chi tiết sự việc",
+      "reportNotePlaceholder": "VD: Bưu tá gọi 3 ca đều thuê bao, từ chối nhận đơn COD...",
+      "reportBlacklistToggle": "Đưa khách vào Danh sách đen (yêu cầu đặt cọc VietQR)",
+      "reportSubmitBtn": "Gửi báo cáo xấu",
+      "reportSuccessToast": "Đã ghi nhận báo cáo xấu và cập nhật ngay lên toàn mạng lưới.",
+      "reportFailedToast": "Không thể gửi báo cáo xấu. Vui lòng kiểm tra lại SĐT và nội dung.",
+      "reasonCodes": {
+        "BOM_HANG": "Bom hàng / Không nhận COD",
+        "TU_CHOI_NHAN_NHIEU_LAN": "Từ chối nhận nhiều lần / Hẹn rồi hủy",
+        "BOOM_AO_SPAM": "Đặt đơn ảo / Spam phá shop",
+        "SAI_SO_DIEN_THOAI": "Sai số điện thoại / Thuê bao không liên lạc được",
+        "OTHER": "Lý do khác"
+      },
+      "providerStatuses": {
+        "LIVE_VERIFIED": "Trực tiếp",
+        "COMMUNITY_SYNCED": "Liên shop",
+        "LOCAL_LEDGER": "Nội bộ OMS",
+        "NO_RECORD": "Chưa có dữ liệu",
+        "NOT_CONFIGURED": "Tự động",
+        "PROVIDER_ERROR": "Tạm gián đoạn"
+      }
+    }
   },
   "TaggingSystem": {
     "categories": {
@@ -2458,7 +2528,8 @@
       "POS_ORDER_CONFIRMED": "Tự động gắn khi chốt đơn thành công",
       "VIETQR_PAID": "Tự động gắn khi nhận đủ chuyển khoản VietQR",
       "CARRIER_DELIVERY_FAILED": "Tự động gắn khi đơn vị vận chuyển báo giao thất bại",
-      "KEYWORD_MATCH": "Tự động gắn khi tin nhắn khách chứa từ khóa"
+      "KEYWORD_MATCH": "Tự động gắn khi tin nhắn khách chứa từ khóa",
+      "CUSTOM_EVENT": "Tự động gắn qua Sự kiện tùy chỉnh"
     },
     "messageBookmarks": {
       "SHIPPING_ADDRESS": "Địa chỉ giao hàng",
@@ -2488,7 +2559,12 @@
       "createTagBtn": "Thêm thẻ mới",
       "saveUpdateBtn": "Lưu cập nhật thẻ",
       "existingTagsHeading": "Danh sách thẻ đang sử dụng ({count})",
-      "exclusiveBadge": "Tự thay thế thẻ cùng nhóm"
+      "exclusiveBadge": "Tự thay thế thẻ cùng nhóm",
+      "descriptionLabel": "Mô tả ngữ cảnh sử dụng thẻ",
+      "descriptionPlaceholder": "VD: Gắn khi khách đã xác nhận đơn hàng hoặc cần chăm sóc ưu tiên...",
+      "selectCustomEventPlaceholder": "-- Chọn sự kiện tùy chỉnh --",
+      "linkedEventsOnApplyLabel": "Kích hoạt Sự kiện khi nhân viên ấn gắn thẻ này (Tag → Event)",
+      "directActionsOnApplyLabel": "Hành động thực thi trực tiếp ngay khi ấn gắn thẻ"
     },
     "bookmarksDrawer": {
       "openTooltip": "Xem các tin nhắn quan trọng đã đánh dấu (Địa chỉ / Biên lai CK / Lưu ý kho)",
@@ -2508,6 +2584,73 @@
       "deletedSuccess": "Đã xóa thẻ phân loại khỏi cửa hàng",
       "bulkAssignedSuccess": "Đã gắn thẻ cho {count} cuộc trò chuyện đã chọn",
       "actionFailed": "Không thể thực hiện thao tác với thẻ phân loại"
+    },
+    "tabs": {
+      "tags": "Bộ thẻ phân loại (Tags)",
+      "events": "Sự kiện & Kết nối hai chiều (Events ↔ Tags)"
+    },
+    "events": {
+      "createHeading": "Tạo sự kiện tùy chỉnh kết nối hai chiều với Tag",
+      "editHeading": "Chỉnh sửa cấu hình sự kiện",
+      "nameLabel": "Tên sự kiện",
+      "namePlaceholder": "VD: Khách hỏi giá sỉ, Đơn VIP > 2 triệu, Yêu cầu bảo hành...",
+      "keyLabel": "Mã sự kiện (eventKey)",
+      "directionLabel": "Chiều kích hoạt",
+      "topicLabel": "Nguồn sự kiện lắng nghe",
+      "cooldownLabel": "Chống lặp (giây)",
+      "conditionsHeading": "Chiều 1 (Sự kiện → Tag): Điều kiện khớp & Tag tự động gắn/gỡ",
+      "keywordsPlaceholder": "Từ khóa cách nhau bởi dấu phẩy (VD: giá sỉ, nhập buôn, ctv)...",
+      "minOrderAmountPlaceholder": "Giá trị đơn tối thiểu (VNĐ, bỏ trống nếu không lọc)",
+      "descriptionPlaceholder": "Mô tả ngắn mục đích của sự kiện...",
+      "linkedTagsLabel": "Tag sẽ tự động Gắn (+) hoặc Gỡ (-) khi sự kiện xảy ra",
+      "outboundActionsHeading": "Chiều 2 (Tag → Sự kiện): Hành động thực thi khi sự kiện được kích hoạt",
+      "selectQuickReplyPlaceholder": "-- Chọn mẫu câu trả lời nhanh gửi tự động --",
+      "internalNotePlaceholder": "Nhập nội dung ghi chú nội bộ sẽ chèn tự động...",
+      "alertMessagePlaceholder": "Nội dung cảnh báo realtime gửi tới Sale trực...",
+      "createBtn": "Lưu sự kiện tùy chỉnh",
+      "saveUpdateBtn": "Cập nhật sự kiện",
+      "tagTriggersCount": "{count} kích hoạt khi gắn",
+      "linkedTagsCount": "{count} Tag liên kết",
+      "actionsCount": "{count} hành động",
+      "triggerCountBadge": "Đã chạy {count} lần",
+      "directions": {
+        "BIDIRECTIONAL": "Hai chiều (Event ↔ Tag)",
+        "EVENT_TO_TAG": "Sự kiện → Tự gắn Tag",
+        "TAG_TO_EVENT": "Gắn Tag → Kích hoạt Sự kiện"
+      },
+      "keywordModes": {
+        "ANY": "Khớp bất kỳ từ khóa nào (OR)",
+        "ALL": "Khớp đủ mọi từ khóa (AND)",
+        "REGEX": "Biểu thức chính quy (Regex)"
+      },
+      "actionTypes": {
+        "SEND_QUICK_REPLY": "Gửi mẫu trả lời nhanh",
+        "ADD_INTERNAL_NOTE": "Chèn ghi chú nội bộ",
+        "SET_SNOOZE": "Hẹn giờ chăm sóc (Snooze)",
+        "ADD_LOYALTY_POINTS": "Cộng/Trừ điểm thưởng",
+        "UPDATE_CUSTOMER_TIER": "Đổi hạng khách hàng",
+        "CALL_WEBHOOK": "Gọi Webhook ngoài (HMAC)",
+        "EMIT_SOCKET_ALERT": "Bắn cảnh báo Realtime"
+      },
+      "toast": {
+        "createdSuccess": "Đã tạo sự kiện tùy chỉnh thành công",
+        "updatedSuccess": "Đã cập nhật cấu hình sự kiện",
+        "deletedSuccess": "Đã xóa sự kiện tùy chỉnh",
+        "firedSuccess": "Đã kích hoạt chạy thử sự kiện thành công",
+        "actionFailed": "Không thể thực hiện thao tác với sự kiện"
+      },
+      "bindAddBtn": "+Gắn",
+      "bindRemoveBtn": "-Gỡ",
+      "topics": {
+        "chat_message_inbound": "Tin nhắn / Bình luận mới (chat.message.inbound)",
+        "ner_phone_extracted": "Bóc tách được SĐT (ner.phone.extracted)",
+        "ner_address_extracted": "Bóc tách được địa chỉ (ner.address.extracted)",
+        "pos_draft_created": "Tạo giỏ hàng nháp (pos.draft.created)",
+        "pos_order_created": "Chốt đơn POS thành công (pos.order.created)",
+        "payment_vietqr_confirmed": "Nhận chuyển khoản VietQR (payment.vietqr.confirmed)",
+        "carrier_delivery_failed": "ĐVVC báo giao thất bại (carrier.delivery.failed)",
+        "CUSTOM_TOPIC": "Sự kiện tùy chỉnh riêng (Kích hoạt từ Tag hoặc API)"
+      }
     }
   },
   "QuickReplies": {
@@ -2525,7 +2668,90 @@
       "createdSuccess": "Đã thêm mẫu câu trả lời nhanh mới",
       "updatedSuccess": "Đã cập nhật mẫu câu trả lời nhanh",
       "deletedSuccess": "Đã xóa mẫu câu trả lời nhanh",
-      "actionFailed": "Không thể lưu mẫu câu trả lời nhanh"
+      "actionFailed": "Không thể lưu mẫu câu trả lời nhanh",
+      "uploadFailed": "Không thể tải lên hình ảnh/video đính kèm"
+    },
+    "categories": {
+      "all": "Tất cả"
+    },
+    "tabs": {
+      "templates": "Thư viện mẫu câu",
+      "variables": "Trường / Biến động tùy chỉnh"
+    },
+    "editor": {
+      "createHeading": "Tạo mẫu câu trả lời nhanh mới",
+      "editHeading": "Chỉnh sửa mẫu câu trả lời nhanh",
+      "cancelEditBtn": "Hủy chỉnh sửa",
+      "pinLabel": "Ghim đầu",
+      "insertVariablesLabel": "Chèn nhanh biến động vào vị trí con trỏ (14 biến mặc định + biến tùy chỉnh)",
+      "manageVariablesBtn": "+ Thêm/Sửa biến tùy chỉnh",
+      "livePreviewLabel": "Xem trước kết quả hiển thị thực tế",
+      "livePreviewEmpty": "Nhập nội dung mẫu câu bên trái để xem trước kết quả thay thế biến động...",
+      "autoAssignTagsLabel": "Tự động gắn Tag cho hội thoại sau khi gửi mẫu câu này"
+    },
+    "context": {
+      "interactionLabel": "Ngữ cảnh loại hội thoại áp dụng",
+      "toneLabel": "Sắc thái / Giọng điệu phản hồi",
+      "channelsLabel": "Kênh bán hàng áp dụng (Bỏ trống = Tất cả kênh)",
+      "categoryAndScopeLabel": "Phân nhóm & Phạm vi hiển thị",
+      "contextTagsLabel": "Từ khóa ngữ cảnh mở rộng (cách nhau bởi dấu phẩy)",
+      "contextTagsPlaceholder": "VD: tư-vấn-size, khách-vip, chốt-live, bảo-hành...",
+      "interactions": {
+        "INBOX": "Tin nhắn Inbox",
+        "COMMENT": "Bình luận bài viết",
+        "LIVESTREAM": "Bình luận Livestream",
+        "MARKETPLACE": "Chat Sàn TMĐT"
+      },
+      "tones": {
+        "FRIENDLY": "Thân thiện",
+        "PROFESSIONAL": "Chuyên nghiệp",
+        "URGENT": "Khẩn cấp / Giữ đơn",
+        "VIP_CARE": "Chăm sóc VIP",
+        "CUSTOM": "Tùy chỉnh"
+      },
+      "scopes": {
+        "SHOP": "Toàn cửa hàng",
+        "CHANNEL": "Theo Fanpage / Kênh",
+        "PERSONAL": "Chỉ cá nhân tôi"
+      }
+    },
+    "media": {
+      "sectionLabel": "Hình ảnh & Video gửi kèm mẫu câu",
+      "addMediaBtn": "Chọn Ảnh / Video",
+      "uploadingBtn": "Đang tải lên..."
+    },
+    "variables": {
+      "createHeading": "Thêm trường / biến động tùy chỉnh mới",
+      "editHeading": "Chỉnh sửa trường / biến động tùy chỉnh",
+      "keyLabel": "Mã biến (VD: hotline → {{hotline}})",
+      "labelField": "Tên hiển thị của trường",
+      "labelPlaceholder": "VD: Hotline CSKH, Địa chỉ Showroom, Mã freeship...",
+      "sourceTypeLabel": "Nguồn lấy dữ liệu",
+      "defaultValueLabel": "Giá trị mặc định cấp Shop",
+      "defaultValuePlaceholder": "VD: 1900 6868 hoặc 120 Cầu Giấy, Hà Nội",
+      "sampleValueLabel": "Giá trị mẫu xem trước",
+      "sampleValuePlaceholder": "Hiển thị trong khung Xem trước trực tiếp",
+      "dynamicPathLabel": "Trường dữ liệu động từ hệ thống (An toàn FLS)",
+      "descriptionLabel": "Ghi chú ngữ cảnh sử dụng",
+      "descriptionPlaceholder": "VD: Dùng cho các mẫu câu hướng dẫn đổi trả và bảo hành",
+      "createBtn": "Thêm trường tùy chỉnh",
+      "saveUpdateBtn": "Lưu cập nhật trường",
+      "customSectionHeading": "Trường tùy chỉnh của cửa hàng ({count})",
+      "systemSectionHeading": "14 trường mặc định hệ thống ({count})",
+      "emptyCustomTitle": "Chưa có trường tùy chỉnh nào",
+      "emptyCustomDesc": "Bạn có thể thêm các trường như {{hotline}}, {{store_address}}, {{warranty_policy}} để chèn nhanh vào mọi mẫu câu trả lời.",
+      "valuePrefix": "Giá trị",
+      "sourceTypes": {
+        "STATIC_TEXT": "Giá trị cố định cấp Shop (Static)",
+        "DYNAMIC_EXPRESSION": "Lấy tự động từ Khách hàng / Đơn hàng (Dynamic)",
+        "PROMPT_ON_USE": "Nhập nhanh khi gửi (Prompt on Use)"
+      },
+      "toast": {
+        "createdSuccess": "Đã thêm trường biến động tùy chỉnh",
+        "updatedSuccess": "Đã cập nhật trường biến động",
+        "deletedSuccess": "Đã xóa trường biến động",
+        "actionFailed": "Không thể lưu trường biến động (kiểm tra trùng mã biến hệ thống)"
+      }
     }
   },
   "MaskedVoip": {
@@ -2638,6 +2864,169 @@
       "rfmSegments": {
         "title": "Phân khúc RFM",
         "desc": "Tự động phân nhóm khách VIP, thân thiết và nguy cơ rời bỏ."
+      }
+    }
+  },
+  "OmsFulfillment": {
+    "common": {
+      "refresh": "Làm mới",
+      "loading": "Đang tải dữ liệu vận hành...",
+      "detail": "Chi tiết",
+      "cancel": "Hủy bỏ",
+      "save": "Lưu thay đổi",
+      "close": "Đóng"
+    },
+    "tabs": {
+      "all": "Tất cả",
+      "confirmed": "Đã chốt",
+      "waitingPacking": "Chờ đóng gói",
+      "packed": "Đã đóng gói",
+      "inTransit": "Đang giao",
+      "failedRescue": "🚨 Cứu đơn",
+      "deliveredUnreconciled": "Chờ đối soát COD",
+      "reconciled": "Đã đối soát",
+      "returning": "Đang hoàn",
+      "returnedRestocked": "Đã kiểm hoàn",
+      "cancelled": "Đã hủy"
+    },
+    "table": {
+      "orderCode": "Mã đơn / Kho",
+      "customer": "Khách hàng",
+      "carrierTracking": "3PL & Vận đơn",
+      "status": "Trạng thái",
+      "codAmount": "Thu hộ COD",
+      "printed": "In phiếu",
+      "actions": "Thao tác"
+    },
+    "ordersPage": {
+      "title": "Quản lý Vận đơn & Máy trạng thái OMS 14 bước",
+      "subtitle": "Kiểm soát toàn trình từ chốt đơn, đẩy 3PL, đóng gói Barcode đến đối soát COD thực nhận.",
+      "dispatchBatchBtn": "Đẩy 3PL ({count} đơn)",
+      "searchPlaceholder": "Tìm mã đơn hàng, mã vận đơn, tên hoặc SĐT khách...",
+      "allCarriers": "Tất cả hãng vận chuyển",
+      "emptyTitle": "Chưa có vận đơn nào phù hợp",
+      "emptyDesc": "Thay đổi bộ lọc trạng thái hoặc tạo đơn mới từ In-Chat POS.",
+      "batchPrintBtn": "In {count} đơn",
+      "batchPrintSuccess": "Đã khởi tạo lệnh in {count} vận đơn khổ {format}",
+      "wavePicklistBtn": "Phiếu nhặt hàng lô",
+      "batchActionFailed": "Không thể thực hiện thao tác hàng loạt",
+      "callLaterBadge": "Hẹn gọi lại",
+      "printedTimes": "{count} lần",
+      "picklistModalTitle": "Phiếu Nhặt Hàng Tổng Hợp (Wave Picklist)",
+      "picklistModalDesc": "{orders} đơn hàng • {skus} mã SKU • Tổng {units} sản phẩm cần nhặt theo thứ tự kệ",
+      "printPicklistBtn": "In phiếu nhặt hàng",
+      "picklistShortageWarn": "Cảnh báo: Có {count} mã SKU không đủ tồn kho vật lý trên kệ để nhặt đủ lô này",
+      "binCol": "Vị trí kệ",
+      "productCol": "Sản phẩm / Biến thể",
+      "pickQtyCol": "SL nhặt",
+      "stockCol": "Tồn kho"
+    },
+    "detailPage": {
+      "reprintBtn": "In lại phiếu",
+      "modifyBtn": "Sửa đơn hàng",
+      "lockAlertTitle": "Đơn hàng đã khóa chỉnh sửa theo chính sách lockOrderAfterPrint",
+      "lockAlertDesc": "Chỉ quản lý có quyền OMS_CONFIRMED_ORDER_MODIFY mới được sửa và mọi thay đổi đều được ghi nhật ký Before <-> After kèm chuỗi băm HMAC.",
+      "itemsAndStatusTitle": "Sản phẩm & Chuyển trạng thái OMS",
+      "financialSummary": "Tóm tắt Tài chính & Cân nặng",
+      "revisionHistoryTitle": "Nhật ký sửa đơn Before <-> After",
+      "carrierTimelineTitle": "Hành trình vận chuyển 3PL",
+      "modifyModalTitle": "Chỉnh sửa đơn hàng đã xác nhận",
+      "modifyModalDesc": "Hệ thống tự động lưu ảnh chụp trước/sau và ghi Sổ cái Kiểm toán Bảo mật.",
+      "reprintModalTitle": "Xác nhận in lại phiếu giao hàng",
+      "reprintModalDesc": "Bản in lại sẽ tự động đóng dấu chìm BẢN IN LẠI LẦN N để chống đóng trùng kiện."
+    },
+    "packingPage": {
+      "scaleConnected": "Cân đã kết nối",
+      "scaleTitle": "Cân điện tử",
+      "scanErrorTitle": "CẢNH BÁO SAI HÀNG",
+      "scanSuccessTitle": "XÁC NHẬN MÃ VẠCH",
+      "noTrackingYet": "Chưa có mã vận đơn",
+      "scanProgressLabel": "Tiến độ quét kiểm đếm SKU",
+      "actualWeightLabel": "Trọng lượng cân thực tế (gram) — chống đội cước ĐVVC",
+      "packingVideoLabel": "Link Video Cam Check (tuỳ chọn)",
+      "thermalFormatLabel": "Khổ giấy in nhiệt",
+      "options": {
+        "hideProductNames": "Che tên sản phẩm nhạy cảm",
+        "showCodAmount": "Hiển thị tiền thu hộ COD",
+        "showBarcodeSvg": "In mã vạch SVG Code-128 quét súng",
+        "copies": "Số liên in"
+      }
+    },
+    "rescuePage": {
+      "title": "Trung Tâm Cứu Đơn Giao Thất Bại & Watchdog SLA",
+      "subtitle": "Phát hiện tức thì bưu tá giao thất bại, gửi lệnh giục phát lại / đổi địa chỉ 3PL và xử lý đơn ngâm quá hạn.",
+      "scanSlaBtn": "Quét SLA ngay"
+    },
+    "returnPage": {
+      "title": "Đồng Kiểm Nhận Hàng Hoàn Bằng Barcode",
+      "subtitle": "Chỉ cộng lại tồn kho bán sau khi quét mã vận đơn và kiểm đếm thực tế tình trạng hàng hoàn."
+    },
+    "rmaPage": {
+      "title": "Đổi Hàng 2 Chiều (RMA) & Trả Hàng Một Phần",
+      "subtitle": "Giao hàng mới — Thu hồi hàng cũ trong 1 chuyến bưu tá, tự động giữ chỗ Redis Lua và tính chênh lệch COD."
+    },
+    "reconciliationPage": {
+      "title": "Đối Soát COD & Phát Hiện Đội Cước Cân Nặng (T10)",
+      "subtitle": "Khớp sao kê CSV/Excel từ GHN/GHTK/VTP/J&T trong < 2 giây, phát hiện thiếu COD và kê khống cân nặng."
+    },
+    "thermalFormats": {
+      "A7_74X105": "Nhiệt A7 (74 × 105mm)",
+      "A6_100X150": "Nhiệt A6 chuẩn sàn (100 × 150mm)",
+      "K80_80X80": "Nhiệt K80 vuông (80 × 80mm)",
+      "K80_80X100": "Nhiệt K80 dài (80 × 100mm)",
+      "K58_58X80": "Nhiệt mini K58 (58 × 80mm)",
+      "LABEL_75X100": "Tem nhiệt 75 × 100mm (J&T / VTP)",
+      "A5_148X210": "Khổ A5 (148 × 210mm)",
+      "A4_210X297": "Khổ A4 hóa đơn (210 × 297mm)"
+    },
+    "nav": {
+      "orders": "Danh sách vận đơn",
+      "packingStation": "Bàn đóng gói (T09)",
+      "handoverOps": "Nhặt hàng & Bàn giao 3PL",
+      "failedRescue": "Cứu đơn & SLA",
+      "returnVerification": "Đồng kiểm hoàn",
+      "rmaExchange": "Đổi hàng 2 chiều RMA",
+      "reconciliation": "Đối soát COD (T10)"
+    },
+    "handoverPage": {
+      "title": "Bàn Giao Vận Chuyển 3PL & Hẹn Gọi Xác Nhận",
+      "subtitle": "Quét Barcode chốt biên bản bàn giao bưu tá chống thất lạc kiện và xử lý hàng đợi hẹn gọi lại chuẩn Pancake POS",
+      "tabs": {
+        "handover": "Biên bản bàn giao 3PL",
+        "callLater": "Hàng đợi hẹn gọi xác nhận"
+      },
+      "createManifestTitle": "Tạo biên bản bàn giao mới",
+      "selectWarehousePlaceholder": "Chọn kho xuất hàng",
+      "driverNamePlaceholder": "Tên bưu tá nhận hàng (VD: Anh Minh GHN)",
+      "driverPhonePlaceholder": "SĐT bưu tá",
+      "vehiclePlatePlaceholder": "Biển số xe",
+      "createManifestBtn": "Mở biên bản quét kiện",
+      "recentManifestsTitle": "Biên bản gần đây",
+      "emptyManifestTitle": "Chưa có biên bản bàn giao",
+      "emptyManifestDesc": "Tạo biên bản theo hãng vận chuyển để bắt đầu quét Barcode giao kiện cho bưu tá.",
+      "selectManifestTitle": "Chọn hoặc tạo một biên bản bàn giao",
+      "selectManifestDesc": "Sau khi mở biên bản, dùng súng bắn mã vạch quét liên tục từng mã vận đơn.",
+      "parcelsUnit": "kiện",
+      "sealAndPrintBtn": "Chốt bàn giao & In 2 liên",
+      "scanInputPlaceholder": "Quét hoặc nhập mã vận đơn / mã đơn hàng...",
+      "scanSubmitBtn": "Quét nhận kiện",
+      "weightCol": "Khối lượng",
+      "scanSuccessMsg": "Đã thêm kiện {orderCode} ({tracking}) vào biên bản bàn giao",
+      "scanFailedMsg": "Không thể quét kiện vào biên bản (kiểm tra hãng vận chuyển hoặc trạng thái đơn)",
+      "manifestCreatedMsg": "Đã mở biên bản bàn giao {code}",
+      "sealedSuccessMsg": "Đã chốt biên bản {code} và chuyển {count} đơn sang Đã bàn giao 3PL",
+      "sealConfirmTitle": "Xác nhận chốt biên bản bàn giao?",
+      "sealConfirmDesc": "Hệ thống sẽ chuyển toàn bộ {count} kiện thuộc {carrier} sang trạng thái Đã bàn giao 3PL, trừ tồn kho vật lý và mở mẫu in 2 liên.",
+      "overdueBadge": "Quá giờ hẹn: {count}",
+      "upcomingBadge": "Sắp tới giờ hẹn: {count}",
+      "emptyCallLaterTitle": "Không có đơn đang hẹn gọi lại",
+      "emptyCallLaterDesc": "Tất cả đơn hàng cần xác nhận lại qua điện thoại sẽ xuất hiện tại đây.",
+      "attemptBadge": "Lần gọi #{count}",
+      "markConfirmedBtn": "Đã gọi xác nhận",
+      "status": {
+        "DRAFT_SCANNING": "Đang quét kiện",
+        "SEALED_HANDED_OVER": "Đã chốt bàn giao",
+        "CANCELLED": "Đã hủy"
       }
     }
   }

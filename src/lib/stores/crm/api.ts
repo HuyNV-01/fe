@@ -147,7 +147,17 @@ export const updateShopCrmConfigApi = (payload: {
   defaultCustomAttributeKeys?: string[];
   enableCommunityTrustLookup?: boolean;
   enableCarrier3plTrustLookup?: boolean;
+  consortiumSharingEnabled?: boolean;
+  enablePublicWebRiskLookup?: boolean;
   enabledLookupSources?: PhoneTrustLookupSourceType[];
+  enabledCarriers?: Array<"GHN" | "GHTK" | "VTP" | "JT">;
+  pancakePosShopId?: string | null;
+  pancakePosApiKey?: string;
+  ghnShopId?: number | null;
+  ghnToken?: string;
+  ghtkToken?: string;
+  vtpToken?: string;
+  jtToken?: string;
   customLookupWebhookUrl?: string;
   customLookupApiKey?: string;
   autoMaskPhoneInChatMessages?: boolean;
@@ -421,3 +431,49 @@ export const listSecurityAuditLogsApi = (params: {
 
 export const verifySecurityAuditChainApi = (shopId: string) =>
   apiClient.get(`/crm/${shopId}/security-audit/verify-chain`);
+
+export const lookupStandalonePhoneTrustApi = (payload: {
+  shopId: string;
+  rawPhone: string;
+  bypassCache?: boolean;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.post(`/crm/${shopId}/trust/lookup-phone`, body, {
+    timeout: 25_000,
+  });
+};
+
+export const backfillShopTrustLedgerApi = (shopId: string) =>
+  apiClient.post(`/crm/${shopId}/trust/backfill`, {}, { timeout: 60_000 });
+
+export const retractCustomerPhoneAbuseReportApi = (payload: {
+  shopId: string;
+  customerId: string;
+  reportId: string;
+  reason: string;
+}) => {
+  const { shopId, customerId, reportId, reason } = payload;
+  return apiClient.patch(
+    `/crm/${shopId}/customers/${customerId}/report-abuse/${reportId}/retract`,
+    { reason },
+  );
+};
+
+export const importPhoneTrustHistoryApi = (payload: {
+  shopId: string;
+  rows: Array<{
+    rawPhone: string;
+    deliveredCount?: number;
+    returnedCount?: number;
+    carrierCode?: string;
+    orderCode?: string;
+    trackingNumber?: string;
+    abuseReasonNote?: string;
+    abuseReasonCode?: string;
+  }>;
+}) => {
+  const { shopId, ...body } = payload;
+  return apiClient.post(`/crm/${shopId}/trust/import-history`, body, {
+    timeout: 60_000,
+  });
+};

@@ -36,6 +36,8 @@ import { PiiMaskedPhoneField } from "./pii-masked-phone-field";
 import { ProvinceDistrictWardCombobox } from "./province-district-ward-combobox";
 import { CustomerMergeModal } from "./customer-merge-modal";
 import { LoyaltyWalletAdjustModal } from "./loyalty-wallet-adjust-modal";
+import { PhoneTrustLookupModal } from "./phone-trust-lookup-modal";
+import { CrmTrustConfigModal } from "./crm-trust-config-modal";
 import {
   AlertTriangle,
   Award,
@@ -55,6 +57,7 @@ import {
   RefreshCw,
   Ruler,
   Save,
+  Search,
   Settings2,
   ShieldAlert,
   ShieldCheck,
@@ -144,6 +147,18 @@ const INDUSTRY_PRESET_ATTRIBUTE_KEYS: Record<
       placeholder: "VD: Bỉm quần size L, Sữa công thức số 2...",
     },
   ],
+  HOME_LIVING_APPLIANCES: [
+    {
+      key: "dien_ap_kich_thuoc_lap_dat",
+      label: "Không gian / Vị trí lắp đặt",
+      placeholder: "VD: Căn hộ chung cư tầng 12, có thang máy...",
+    },
+    {
+      key: "bao_hanh_tai_nha",
+      label: "Yêu cầu bảo hành / Lắp đặt",
+      placeholder: "VD: Cần kỹ thuật viên hỗ trợ lắp đặt cuối tuần...",
+    },
+  ],
 };
 
 export interface Customer360PanelProps {
@@ -196,6 +211,7 @@ export function Customer360Panel({
     saveCustomerProfile,
     lookupCustomerTrustFromSources,
     reportCustomerPhoneAbuse,
+    retractCustomerPhoneAbuseReport,
     toggleCustomerBlacklist,
     overrideTrustScore,
     recordOrderDeliveredAndAwardPoints,
@@ -245,6 +261,7 @@ export function Customer360Panel({
   const [isReportAbuseOpen, setIsReportAbuseOpen] = useState(false);
   const [isAbuseHistoryPopupOpen, setIsAbuseHistoryPopupOpen] = useState(false);
   const [isCrmConfigOpen, setIsCrmConfigOpen] = useState(false);
+  const [isStandaloneLookupOpen, setIsStandaloneLookupOpen] = useState(false);
   const [isOverrideTrustOpen, setIsOverrideTrustOpen] = useState(false);
   const [isRecordOrderOpen, setIsRecordOrderOpen] = useState(false);
 
@@ -673,18 +690,31 @@ export function Customer360Panel({
         <GlassSurfaceCard className="p-3 space-y-3">
           <div className="flex flex-col items-start justify-between gap-2.5">
             <div className="w-full flex items-center justify-between gap-1 shrink-0">
-              <PatternButton
-                type="button"
-                size="sm"
-                variant="ghost"
-                rounded="full"
-                className="h-7 px-2 text-[11px]"
-                icon={<Settings2 className="w-3.5 h-3.5" />}
-                onClick={() => setIsCrmConfigOpen(true)}
-                title={t("crmConfigBtnTooltip")}
-              >
-                {t("crmConfigBtnShort")}
-              </PatternButton>
+              <div className="flex items-center gap-1">
+                <PatternButton
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  rounded="full"
+                  className="h-7 px-2 text-[11px]"
+                  icon={<Settings2 className="w-3.5 h-3.5" />}
+                  onClick={() => setIsCrmConfigOpen(true)}
+                  title={t("crmConfigBtnTooltip")}
+                >
+                  {t("crmConfigBtnShort")}
+                </PatternButton>
+                <PatternButton
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  rounded="full"
+                  className="h-7 px-2 text-[11px]"
+                  icon={<Search className="w-3.5 h-3.5" />}
+                  onClick={() => setIsStandaloneLookupOpen(true)}
+                >
+                  {t("standaloneLookupBtn")}
+                </PatternButton>
+              </div>
               <Link
                 href={config.routes.private.customerDetail(customer.id)}
                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline shrink-0"
@@ -1731,14 +1761,39 @@ export function Customer360Panel({
                   <p className="text-xs font-medium text-foreground leading-relaxed bg-background/80 p-2 rounded-lg border border-border/50">
                     “{rep.reasonNote || rep.reason}”
                   </p>
-                  {rep.reportedByName && (
-                    <p className="text-[10px] text-muted-foreground">
-                      Nguồn ghi nhận:{" "}
-                      <strong className="text-foreground">
-                        {rep.reportedByName}
-                      </strong>
-                    </p>
-                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    {rep.reportedByName ? (
+                      <p className="text-[10px] text-muted-foreground">
+                        Nguồn ghi nhận:{" "}
+                        <strong className="text-foreground">
+                          {rep.reportedByName}
+                        </strong>
+                      </p>
+                    ) : (
+                      <span />
+                    )}
+                    {rep.canRetract && (
+                      <PatternButton
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        color="danger"
+                        rounded="full"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => {
+                          void retractCustomerPhoneAbuseReport({
+                            shopId,
+                            customerId: customer.id,
+                            reportId: rep.reportId,
+                            reason: "Thu hồi báo cáo từ hồ sơ CRM 360°",
+                            conversationId,
+                          });
+                        }}
+                      >
+                        {t("retractReportBtn")}
+                      </PatternButton>
+                    )}
+                  </div>
                 </div>
               ))}
           </div>
@@ -1971,161 +2026,25 @@ export function Customer360Panel({
           </div>
         </GlassModal>
 
-        {/* Modal Cấu hình Nguồn Dữ Liệu Tra Cứu Uy Tín SĐT (Nhận/Hoàn/Báo cáo) & Ngành Hàng Cửa Hàng */}
-        <GlassModal
+        <CrmTrustConfigModal
           open={isCrmConfigOpen}
           onOpenChange={setIsCrmConfigOpen}
-          title={t("crmConfigModal.title")}
-          description={t("crmConfigModal.description")}
-          size="md"
-          footer={
-            <>
-              <PatternButton
-                type="button"
-                size="sm"
-                variant="ghost"
-                rounded="full"
-                onClick={() => setIsCrmConfigOpen(false)}
-              >
-                {t("crmConfigModal.cancelBtn")}
-              </PatternButton>
-              <PatternButton
-                type="button"
-                size="sm"
-                variant="solid"
-                color="primary"
-                rounded="full"
-                isLoading={isSavingCfg}
-                icon={<Save className="w-3.5 h-3.5" />}
-                onClick={handleSaveShopCrmConfig}
-              >
-                {t("crmConfigModal.saveBtn")}
-              </PatternButton>
-            </>
-          }
-        >
-          <div className="space-y-3.5 py-1">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold inline-flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
-                <span>{t("crmConfigModal.defaultIndustryLabel")}</span>
-              </Label>
-              <Select
-                value={cfgBusinessCategory}
-                onValueChange={(v) =>
-                  setCfgBusinessCategory(v as ShopBusinessCategoryType)
-                }
-              >
-                <TriggerSelect
-                  fluid
-                  enableGlassAnchor
-                  className="w-full h-9 text-xs justify-between"
-                >
-                  <SelectValue />
-                </TriggerSelect>
-                <ContentSelect>
-                  <ItemSelect value="GENERAL_MULTI_CATEGORY">
-                    {t("industries.GENERAL_MULTI_CATEGORY")}
-                  </ItemSelect>
-                  <ItemSelect value="FASHION_APPAREL">
-                    {t("industries.FASHION_APPAREL")}
-                  </ItemSelect>
-                  <ItemSelect value="COSMETICS_BEAUTY">
-                    {t("industries.COSMETICS_BEAUTY")}
-                  </ItemSelect>
-                  <ItemSelect value="ELECTRONICS_TECH">
-                    {t("industries.ELECTRONICS_TECH")}
-                  </ItemSelect>
-                  <ItemSelect value="FOOD_BEVERAGE">
-                    {t("industries.FOOD_BEVERAGE")}
-                  </ItemSelect>
-                  <ItemSelect value="MOTHER_AND_BABY">
-                    {t("industries.MOTHER_AND_BABY")}
-                  </ItemSelect>
-                </ContentSelect>
-              </Select>
-            </div>
+          shopId={shopId}
+          shopCrmConfig={shopCrmConfig}
+          onSaved={(updated) => {
+            setIndustryCategory(updated.businessCategory);
+            setShowApparelMeasurements(
+              updated.businessCategory === "FASHION_APPAREL" ||
+                updated.showApparelMeasurementsInProfile,
+            );
+          }}
+        />
 
-            <div className="space-y-2 rounded-xl border border-border/60 bg-muted/30 p-3 text-xs">
-              <p className="font-bold text-foreground">
-                {t("crmConfigModal.lookupSourcesHeading")}
-              </p>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={cfgEnableCommunity}
-                  onChange={(e) => setCfgEnableCommunity(e.target.checked)}
-                />
-                <span>{t("crmConfigModal.enableCommunitySource")}</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={cfgEnableCarrier3pl}
-                  onChange={(e) => setCfgEnableCarrier3pl(e.target.checked)}
-                />
-                <span>{t("crmConfigModal.enableCarrier3plSource")}</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={cfgShowApparel}
-                  onChange={(e) => setCfgShowApparel(e.target.checked)}
-                />
-                <span>{t("crmConfigModal.alwaysShowApparelToggle")}</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={cfgAutoMaskPhone}
-                  onChange={(e) => setCfgAutoMaskPhone(e.target.checked)}
-                />
-                <span>{t("crmConfigModal.autoMaskPhoneInChatToggle")}</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={cfgAutoExtractNer}
-                  onChange={(e) => setCfgAutoExtractNer(e.target.checked)}
-                />
-                <span>{t("crmConfigModal.autoExtractNerToggle")}</span>
-              </label>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                {t("crmConfigModal.customWebhookUrlLabel")}
-              </Label>
-              <LiquidGlassInput className="h-8 p-0 overflow-hidden">
-                <Input
-                  value={cfgCustomWebhookUrl}
-                  onChange={(e) => setCfgCustomWebhookUrl(e.target.value)}
-                  placeholder="https://pos.yourshop.vn/api/phone-reputation"
-                  className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-2.5"
-                />
-              </LiquidGlassInput>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                {t("crmConfigModal.customApiKeyLabel")}
-              </Label>
-              <LiquidGlassInput className="h-8 p-0 overflow-hidden">
-                <Input
-                  type="password"
-                  value={cfgCustomApiKey}
-                  onChange={(e) => setCfgCustomApiKey(e.target.value)}
-                  placeholder={
-                    shopCrmConfig?.hasCustomLookupApiKey
-                      ? "•••••••••••••••• (Đã mã hóa AES-256-GCM)"
-                      : "Bearer Token / API Key (Tùy chọn)..."
-                  }
-                  className="h-full text-xs bg-transparent! border-none shadow-none focus-visible:ring-0 px-2.5"
-                />
-              </LiquidGlassInput>
-            </div>
-          </div>
-        </GlassModal>
+        <PhoneTrustLookupModal
+          open={isStandaloneLookupOpen}
+          onOpenChange={setIsStandaloneLookupOpen}
+          shopId={shopId}
+        />
 
         <CustomerMergeModal
           open={isMergeOpen}

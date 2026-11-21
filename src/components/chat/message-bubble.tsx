@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/a11y/useMediaCaption: <explanation> */
+/** biome-ignore-all lint/performance/noImgElement: <explanation> */
 /** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 /** biome-ignore-all lint/suspicious/noArrayIndexKey: <explanation> */
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
@@ -874,12 +875,20 @@ export const MessageBubble = memo(
                           onClick={() => setLightboxIndex(idx)}
                           className="block w-full text-left cursor-zoom-in"
                         >
-                          <img
-                            src={sanitizeMediaUrl(img.thumbnailUrl || img.url)}
-                            alt={img.fileName || t("attachmentAlt")}
-                            className="max-h-72 w-full object-cover group-hover/img:scale-105 transition-transform duration-200"
-                            loading="lazy"
-                          />
+                          {(() => {
+                            const safeImgSrc = sanitizeMediaUrl(
+                              img.thumbnailUrl || img.url,
+                            );
+                            if (!safeImgSrc) return null;
+                            return (
+                              <img
+                                src={safeImgSrc}
+                                alt={img.fileName || t("attachmentAlt")}
+                                className="max-h-72 w-full object-cover group-hover/img:scale-105 transition-transform duration-200"
+                                loading="lazy"
+                              />
+                            );
+                          })()}
                         </button>
 
                         <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
@@ -1509,14 +1518,20 @@ export const MessageBubble = memo(
                         : "bg-muted/60 border-border text-foreground",
                     )}
                   >
-                    {linkPreview.image && (
-                      <img
-                        src={sanitizeMediaUrl(linkPreview.image)}
-                        alt={linkPreview.title || linkPreview.hostname}
-                        className="w-full h-36 object-cover border-b border-border/20"
-                        loading="lazy"
-                      />
-                    )}
+                    {(() => {
+                      const safePreviewImg = sanitizeMediaUrl(
+                        linkPreview.image,
+                      );
+                      if (!safePreviewImg) return null;
+                      return (
+                        <img
+                          src={safePreviewImg}
+                          alt={linkPreview.title || linkPreview.hostname}
+                          className="w-full h-36 object-cover border-b border-border/20"
+                          loading="lazy"
+                        />
+                      );
+                    })()}
                     <div className="p-2.5 space-y-1">
                       <div className="flex items-center justify-between gap-1 text-[10px] uppercase tracking-wider opacity-75">
                         <span className="truncate">

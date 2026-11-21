@@ -85,6 +85,11 @@ const syncRefreshedTokensEverywhere = (
   }
 };
 
+const TRANSIENT_GATEWAY_STATUSES = new Set([502, 503, 504]);
+
+const sleepMs = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 export const refreshAccessToken = async (): Promise<string> => {
   if (isRefreshing) {
     return new Promise<string>((resolve, reject) => {
@@ -104,15 +109,42 @@ export const refreshAccessToken = async (): Promise<string> => {
       refreshHeaders["x-refresh-token"] = storedRefreshToken;
     }
 
-    const { data: resData } = await axios.post(
-      `${resolveFrontendApiBaseUrl()}/auth/refresh`,
-      storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
-      {
-        withCredentials: true,
-        headers: refreshHeaders,
-        timeout: 10000,
-      },
-    );
+    let resData: any = null;
+    let lastErr: unknown = null;
+
+    // Thử lại tối đa 2 lần nếu gặp 502/503/504 do tunnel/backend đang khởi động lại
+    for (let attempt = 0; attempt <= 2; attempt++) {
+      try {
+        const response = await axios.post(
+          `${resolveFrontendApiBaseUrl()}/auth/refresh`,
+          storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
+          {
+            withCredentials: true,
+            headers: refreshHeaders,
+            timeout: 10000,
+          },
+        );
+        resData = response.data;
+        lastErr = null;
+        break;
+      } catch (err: any) {
+        lastErr = err;
+        const status = err?.response?.status;
+        if (
+          attempt < 2 &&
+          (TRANSIENT_GATEWAY_STATUSES.has(status) ||
+            err?.code === "ERR_NETWORK")
+        ) {
+          await sleepMs(800 * (attempt + 1));
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (lastErr) {
+      throw lastErr;
+    }
 
     const payloadData = resData?.data ?? resData;
     const newToken: string = payloadData?.accessToken;
@@ -182,10 +214,29 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
+      _gatewayRetryCount?: number;
     };
 
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
+    const status = error.response?.status;
+    const method = (originalRequest.method || "get").toLowerCase();
+
     if (
-      !originalRequest ||
+      method === "get" &&
+      (TRANSIENT_GATEWAY_STATUSES.has(status ?? 0) ||
+        error.code === "ERR_NETWORK") &&
+      (originalRequest._gatewayRetryCount || 0) < 2
+    ) {
+      originalRequest._gatewayRetryCount =
+        (originalRequest._gatewayRetryCount || 0) + 1;
+      await sleepMs(800 * originalRequest._gatewayRetryCount);
+      return apiClient(originalRequest);
+    }
+
+    if (
       originalRequest.url?.includes("/auth/login") ||
       originalRequest.url?.includes("/auth/refresh") ||
       originalRequest.url?.includes("/login")
@@ -193,7 +244,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
@@ -206,8 +257,6 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError: any) {
         const refreshStatus = refreshError?.response?.status;
-        // Chỉ đăng xuất khi máy chủ xác nhận Refresh Token không còn hiệu lực (401 / 403),
-        // không đăng xuất khi chỉ bị gián đoạn mạng Ngrok tạm thời (timeout / 502 / 504)
         if (
           typeof window !== "undefined" &&
           (refreshStatus === 401 || refreshStatus === 403)

@@ -1,9 +1,23 @@
+/** biome-ignore-all lint/suspicious/useIterableCallbackReturn: <explanation> */
 import apiClient from "@/lib/http/axios-client";
 import type {
   IAutoTagRuleConfig,
+  IQuickReplyAttachmentItem,
   IQuickReplyProductCard,
+  IQuickReplySequenceStep,
+  IQuickReplyUsageContext,
+  ITagEventMatchConditions,
+  ITagEventTagBinding,
+  ITagWorkflowActionItem,
+  ITagWorkflowExecutionCondition,
+  QuickReplyInteractionType,
+  QuickReplyScopeType,
+  QuickReplyToneStyle,
+  QuickReplyVariableSourceType,
   TagApplicableScopeType,
   TagCategoryType,
+  TagEventCategoryType,
+  TagEventDirectionType,
 } from "@/types/chat";
 
 export const getShopTagsApi = async (
@@ -18,6 +32,7 @@ export const createShopTagApi = async (
   payload: {
     name: string;
     slug?: string;
+    description?: string | null;
     colorHex?: string;
     colorOklch?: string;
     category?: TagCategoryType;
@@ -26,6 +41,10 @@ export const createShopTagApi = async (
     shortcutKey?: string | null;
     sortOrder?: number;
     autoRuleConfigJson?: IAutoTagRuleConfig | null;
+    linkedEventKeysJson?: string[] | null;
+    onApplyActionsJson?: ITagWorkflowActionItem[] | null;
+    onRemoveActionsJson?: ITagWorkflowActionItem[] | null;
+    executionConditionJson?: ITagWorkflowExecutionCondition | null;
   },
 ) => {
   return apiClient.post(`/tags/${shopId}`, payload);
@@ -36,6 +55,7 @@ export const updateShopTagApi = async (
   tagId: string,
   payload: {
     name?: string;
+    description?: string | null;
     colorHex?: string;
     colorOklch?: string;
     category?: TagCategoryType;
@@ -44,6 +64,10 @@ export const updateShopTagApi = async (
     shortcutKey?: string | null;
     sortOrder?: number;
     autoRuleConfigJson?: IAutoTagRuleConfig | null;
+    linkedEventKeysJson?: string[] | null;
+    onApplyActionsJson?: ITagWorkflowActionItem[] | null;
+    onRemoveActionsJson?: ITagWorkflowActionItem[] | null;
+    executionConditionJson?: ITagWorkflowExecutionCondition | null;
     isActive?: boolean;
   },
 ) => {
@@ -52,6 +76,63 @@ export const updateShopTagApi = async (
 
 export const deleteShopTagApi = async (shopId: string, tagId: string) => {
   return apiClient.delete(`/tags/${shopId}/${tagId}`);
+};
+
+export const getTagEventsApi = async (shopId: string) => {
+  return apiClient.get(`/tags/${shopId}/events`);
+};
+
+export const createTagEventApi = async (
+  shopId: string,
+  payload: {
+    eventKey: string;
+    name: string;
+    description?: string | null;
+    category?: TagEventCategoryType;
+    direction?: TagEventDirectionType;
+    systemEventTopic?: string | null;
+    matchConditionsJson?: ITagEventMatchConditions | null;
+    linkedTagBindingsJson?: ITagEventTagBinding[] | null;
+    outboundActionsJson?: ITagWorkflowActionItem[] | null;
+    cooldownSeconds?: number;
+  },
+) => {
+  return apiClient.post(`/tags/${shopId}/events`, payload);
+};
+
+export const updateTagEventApi = async (
+  shopId: string,
+  eventId: string,
+  payload: {
+    name?: string;
+    description?: string | null;
+    category?: TagEventCategoryType;
+    direction?: TagEventDirectionType;
+    systemEventTopic?: string | null;
+    matchConditionsJson?: ITagEventMatchConditions | null;
+    linkedTagBindingsJson?: ITagEventTagBinding[] | null;
+    outboundActionsJson?: ITagWorkflowActionItem[] | null;
+    cooldownSeconds?: number;
+    isActive?: boolean;
+  },
+) => {
+  return apiClient.patch(`/tags/${shopId}/events/${eventId}`, payload);
+};
+
+export const deleteTagEventApi = async (shopId: string, eventId: string) => {
+  return apiClient.delete(`/tags/${shopId}/events/${eventId}`);
+};
+
+export const fireTagEventApi = async (
+  shopId: string,
+  eventId: string,
+  payload: {
+    conversationId: string;
+    messageContent?: string;
+    payload?: Record<string, unknown>;
+  },
+) => {
+  return apiClient.post(`/tags/${shopId}/events/${eventId}/fire`, payload);
 };
 
 export const toggleConversationTagApi = async (payload: {
@@ -108,10 +189,25 @@ export const getBookmarkedMessagesApi = async (
 
 export const getQuickReplyTemplatesApi = async (
   shopId: string,
-  search?: string,
+  params?: {
+    search?: string;
+    category?: string;
+    channelId?: string;
+    channelType?: string;
+    interactionType?: QuickReplyInteractionType;
+    toneStyle?: QuickReplyToneStyle;
+    activeTagIds?: string[];
+  },
 ) => {
   return apiClient.get(`/chat/quick-replies/${shopId}`, {
-    params: search ? { search } : undefined,
+    params: params
+      ? {
+          ...params,
+          activeTagIds: params.activeTagIds?.length
+            ? params.activeTagIds.join(",")
+            : undefined,
+        }
+      : undefined,
   });
 };
 
@@ -121,8 +217,17 @@ export const createQuickReplyTemplateApi = async (
     shortcut: string;
     title: string;
     category?: string;
+    scope?: QuickReplyScopeType;
+    allowedChannelIdsJson?: string[] | null;
+    usageContextJson?: IQuickReplyUsageContext | null;
     contentTemplate: string;
+    messageSequenceJson?: IQuickReplySequenceStep[] | null;
+    attachmentsJson?: IQuickReplyAttachmentItem[];
     productCardsJson?: IQuickReplyProductCard[];
+    autoAssignTagIdsJson?: string[] | null;
+    customVariableDefaultsJson?: Record<string, string> | null;
+    isPinned?: boolean;
+    sortOrder?: number;
   },
 ) => {
   return apiClient.post(`/chat/quick-replies/${shopId}`, payload);
@@ -135,8 +240,17 @@ export const updateQuickReplyTemplateApi = async (
     shortcut?: string;
     title?: string;
     category?: string;
+    scope?: QuickReplyScopeType;
+    allowedChannelIdsJson?: string[] | null;
+    usageContextJson?: IQuickReplyUsageContext | null;
     contentTemplate?: string;
+    messageSequenceJson?: IQuickReplySequenceStep[] | null;
+    attachmentsJson?: IQuickReplyAttachmentItem[];
     productCardsJson?: IQuickReplyProductCard[];
+    autoAssignTagIdsJson?: string[] | null;
+    customVariableDefaultsJson?: Record<string, string> | null;
+    isPinned?: boolean;
+    sortOrder?: number;
     isActive?: boolean;
   },
 ) => {
@@ -157,15 +271,80 @@ export const interpolateQuickReplyTemplateApi = async (
   shopId: string,
   templateId: string,
   payload: {
+    conversationId?: string;
     customerName?: string;
     salutation?: string;
     agentName?: string;
     pageName?: string;
     trackingLink?: string;
+    customOverrides?: Record<string, string>;
   },
 ) => {
   return apiClient.post(
     `/chat/quick-replies/${shopId}/${templateId}/interpolate`,
     payload,
+  );
+};
+
+export const getQuickReplyVariablesApi = async (shopId: string) => {
+  return apiClient.get(`/chat/quick-replies/${shopId}/variables`);
+};
+
+export const createQuickReplyVariableApi = async (
+  shopId: string,
+  payload: {
+    variableKey: string;
+    label: string;
+    description?: string | null;
+    sourceType?: QuickReplyVariableSourceType;
+    defaultValue?: string | null;
+    sampleValue?: string | null;
+    dynamicPath?: string | null;
+    sortOrder?: number;
+  },
+) => {
+  return apiClient.post(`/chat/quick-replies/${shopId}/variables`, payload);
+};
+
+export const updateQuickReplyVariableApi = async (
+  shopId: string,
+  variableId: string,
+  payload: {
+    variableKey?: string;
+    label?: string;
+    description?: string | null;
+    sourceType?: QuickReplyVariableSourceType;
+    defaultValue?: string | null;
+    sampleValue?: string | null;
+    dynamicPath?: string | null;
+    sortOrder?: number;
+    isActive?: boolean;
+  },
+) => {
+  return apiClient.patch(
+    `/chat/quick-replies/${shopId}/variables/${variableId}`,
+    payload,
+  );
+};
+
+export const deleteQuickReplyVariableApi = async (
+  shopId: string,
+  variableId: string,
+) => {
+  return apiClient.delete(
+    `/chat/quick-replies/${shopId}/variables/${variableId}`,
+  );
+};
+
+export const uploadQuickReplyMediaApi = async (files: File[]) => {
+  const formData = new FormData();
+  files.forEach((f) => formData.append("files", f));
+  return apiClient.post(
+    `/files/upload-multiple?folder=quick-replies&optimize=true&generateThumbnail=true`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000,
+    },
   );
 };

@@ -692,7 +692,7 @@ export const GlassAvatar = ({
     <div className={cn("relative inline-flex shrink-0", className)}>
       <Avatar className={cn(s.box, "border border-border/50 shadow-2xs")}>
         <AvatarImage
-          src={src || undefined}
+          src={src?.trim() || undefined}
           alt={name}
           referrerPolicy="no-referrer"
           className="object-cover"

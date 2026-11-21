@@ -210,6 +210,11 @@ export const usePermissionStore = createPersistedStore<PermissionStoreState>(
             state.savedPageGroupPresets = [];
           }
         });
+      } catch (err: any) {
+        console.warn(
+          "[PermissionStore] Tạm chưa tải được thông tin không gian làm việc:",
+          err?.response?.status || err?.message,
+        );
       } finally {
         set((state) => {
           state.isLoadingOverview = false;

@@ -1,3 +1,6 @@
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: <explanation> */
+/** biome-ignore-all lint/performance/noImgElement: <explanation> */
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -254,15 +257,17 @@ export function ImageLightboxModal({
             </PatternButton>
           )}
 
-          <img
-            src={sanitizeMediaUrl(currentImage.url)}
-            alt={currentImage.fileName || t("title")}
-            style={{
-              transform: `scale(${scale}) rotate(${rotation}deg)`,
-            }}
-            className="max-h-[75dvh] max-w-[88vw] object-contain rounded-xl shadow-2xl transition-transform duration-200"
-            draggable={false}
-          />
+          {sanitizeMediaUrl(currentImage.url) && (
+            <img
+              src={sanitizeMediaUrl(currentImage.url)}
+              alt={currentImage.fileName || t("title")}
+              style={{
+                transform: `scale(${scale}) rotate(${rotation}deg)`,
+              }}
+              className="max-h-[80vh] max-w-[90vw] object-contain transition-transform duration-150 select-none"
+              draggable={false}
+            />
+          )}
 
           {hasMultiple && (
             <PatternButton
@@ -307,11 +312,13 @@ export function ImageLightboxModal({
                       : "border-transparent opacity-60 hover:opacity-100",
                   )}
                 >
-                  <img
-                    src={sanitizeMediaUrl(img.thumbnailUrl || img.url)}
-                    alt={img.fileName || ""}
-                    className="w-full h-full object-cover"
-                  />
+                  {sanitizeMediaUrl(img.thumbnailUrl || img.url) && (
+                    <img
+                      src={sanitizeMediaUrl(img.thumbnailUrl || img.url)}
+                      alt={img.fileName || ""}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </button>
               ))}
             </LiquidGlass>

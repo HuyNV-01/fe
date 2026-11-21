@@ -17,7 +17,7 @@ const backendInternalOrigin = (
 const disableApiProxy = process.env.NEXT_PUBLIC_DISABLE_API_PROXY === "true";
 
 const nextConfig: NextConfig = {
-  reactCompiler: true,
+  reactCompiler: process.env.NODE_ENV === "production",
   allowedDevOrigins: [
     "localhost",
     "127.0.0.1",

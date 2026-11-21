@@ -17,6 +17,7 @@ const routes = {
     orders: "/orders",
     orderDetail: (id: string | number) => `/orders/${id}`,
     orderPackingStation: "/orders/packing-station",
+    orderHandoverOps: "/orders/handover",
     orderFailedRescue: "/orders/failed-rescue",
     orderReturnVerification: "/orders/return-verification",
     orderRmaExchange: "/orders/rma-exchange",
